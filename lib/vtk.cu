@@ -2,7 +2,7 @@
 #include <fstream>
 
 
-void write_positions(const char *file_name, int n_cells, float3 X[]) {
+void write_positions(const char* file_name, int n_cells, float3 X[]) {
     std::ofstream file(file_name);
     assert(file.is_open());
 
