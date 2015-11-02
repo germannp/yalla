@@ -11,7 +11,7 @@
 
 #define N_CELLS 400
 #define TILE_SIZE 8
-#define N_TIME_STEPS 10
+#define N_TIME_STEPS 100
 
 
 __device__ __managed__ float3 X[N_CELLS];
@@ -37,7 +37,7 @@ __device__ float3 add_forces_from_tile(float3 Xi, float3 Fi) {
 }
 
 // Calculate new X one thread per cell, to TILE_SIZE other cells at a time
-__global__ void integrate_springs() {
+__global__ void integrate_step() {
     __shared__ float3 shX[TILE_SIZE];
     int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
     float3 Xi = X[cell_idx];
@@ -77,7 +77,7 @@ int main(int argc, const char* argv[]) {
         write_positions(file_name.str().c_str(), N_CELLS, X);
 
         if (time_step < N_TIME_STEPS) {
-            integrate_springs<<<n_blocks, TILE_SIZE>>>();
+            integrate_step<<<n_blocks, TILE_SIZE>>>();
             cudaDeviceSynchronize();
         }
     }
