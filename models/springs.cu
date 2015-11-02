@@ -28,6 +28,7 @@ __device__ float3 body_body_force(float3 Xi, float3 Xj) {
         dF.y += r.y*(dist - 0.5)/dist;
         dF.z += r.z*(dist - 0.5)/dist;
     }
+    assert(dF.x == dF.x); // For NaN f != f.
     return dF;
 }
 
