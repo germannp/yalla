@@ -9,10 +9,10 @@
 
 #include "../lib/vtk.cu"
 
-#define N_CELLS 800
-#define TILE_SIZE 32
-#define N_TIME_STEPS 100
 
+const uint N_CELLS = 800;
+const uint TILE_SIZE = 32;
+const uint N_TIME_STEPS = 100;
 
 __device__ __managed__ float3 X[N_CELLS];
 
