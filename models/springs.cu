@@ -9,25 +9,26 @@
 
 #include "../lib/vtk.cu"
 
-#define N_CELLS 400
-#define TILE_SIZE 8
+#define N_CELLS 800
+#define TILE_SIZE 16
 #define N_TIME_STEPS 100
 
 
 __device__ __managed__ float3 X[N_CELLS];
 
-__device__ float3 body_body_force(float3 Xi, float3 Xj, float3 Fi) {
+__device__ float3 body_body_force(float3 Xi, float3 Xj) {
     float3 r;
+    float3 dF = {0.0f, 0.0f, 0.0f};
     r.x = Xj.x - Xi.x;
     r.y = Xj.y - Xi.y;
     r.z = Xj.z - Xi.z;
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if (dist > 1e-8) {
-        Fi.x += r.x*(dist - 0.5)/dist;
-        Fi.y += r.y*(dist - 0.5)/dist;
-        Fi.z += r.z*(dist - 0.5)/dist;
+        dF.x += r.x*(dist - 0.5)/dist;
+        dF.y += r.y*(dist - 0.5)/dist;
+        dF.z += r.z*(dist - 0.5)/dist;
     }
-    return Fi;
+    return dF;
 }
 
 // Calculate new X one thread per cell, to TILE_SIZE other cells at a time
@@ -41,7 +42,10 @@ __global__ void integrate_step() {
         shX[threadIdx.x] = X[other_cell_idx];
         __syncthreads();
         for (int i = 0; i < TILE_SIZE; i++) {
-            Fi = body_body_force(Xi, shX[i], Fi);
+            float3 dF = body_body_force(Xi, shX[i]);
+            Fi.x += dF.x;
+            Fi.y += dF.y;
+            Fi.z += dF.z;
         }
     }
     X[cell_idx].x = Xi.x + Fi.x*0.001;
