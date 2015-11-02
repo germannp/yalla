@@ -22,16 +22,10 @@ __device__ float3 body_body_force(float3 Xi, float3 Xj, float3 Fi) {
     r.y = Xj.y - Xi.y;
     r.z = Xj.z - Xi.z;
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    Fi.x += r.x*(dist - 0.5)/dist;
-    Fi.y += r.y*(dist - 0.5)/dist;
-    Fi.z += r.z*(dist - 0.5)/dist;
-    return Fi;
-}
-
-__device__ float3 add_forces_from_tile(float3 Xi, float3 Fi) {
-    extern __shared__ float3 shX[];
-    for (int i = 0; i < blockDim.x; i++) {
-        Fi = body_body_force(Xi, shX[i], Fi);
+    if (dist > 1e-8) {
+        Fi.x += r.x*(dist - 0.5)/dist;
+        Fi.y += r.y*(dist - 0.5)/dist;
+        Fi.z += r.z*(dist - 0.5)/dist;
     }
     return Fi;
 }
@@ -46,7 +40,9 @@ __global__ void integrate_step() {
         int other_cell_idx = tile_start + threadIdx.x;
         shX[threadIdx.x] = X[other_cell_idx];
         __syncthreads();
-        Fi = add_forces_from_tile(Xi, Fi);
+        for (int i = 0; i < TILE_SIZE; i++) {
+            Fi = body_body_force(Xi, shX[i], Fi);
+        }
     }
     X[cell_idx].x = Xi.x + Fi.x*0.001;
     X[cell_idx].y = Xi.y + Fi.y*0.001;
