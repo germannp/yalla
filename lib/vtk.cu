@@ -18,6 +18,4 @@ void write_positions(const char* file_name, int n_cells, float3 X[]) {
     file << "\nVERTICES " << n_cells << " " << 2*n_cells << "\n";
     for (int i = 0; i < n_cells; i++)
         file << "1 " << i << "\n";
-
-    file.close();
 }
