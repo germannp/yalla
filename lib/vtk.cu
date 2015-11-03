@@ -19,3 +19,16 @@ void write_positions(const char* file_name, int n_cells, float3 X[]) {
     for (int i = 0; i < n_cells; i++)
         file << "1 " << i << "\n";
 }
+
+
+void write_scalars(const char* file_name, int n_cells, const char* data_name,
+    int scalars[]) {
+    std::ofstream file(file_name, std::ios_base::app);
+    assert(file.is_open());
+
+    file << "\nPOINT_DATA " << n_cells << "\n";
+    file << "SCALARS " << data_name << " int\n";
+    file << "LOOKUP_TABLE default\n";
+    for (int i = 0; i < n_cells; i++)
+        file << scalars[i] << "\n";
+}
