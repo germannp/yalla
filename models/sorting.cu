@@ -52,11 +52,10 @@ __global__ void compute_cubes() {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < N_CELLS) {
         int cube = cube_id[i];
-        int prev, next;
-        i > 0 ? prev = cube_id[i - 1] : prev = -1;
-        cube != prev ? cube_start[cube] = i : 0;
-        i < N_CELLS ? next = cube_id[i + 1] : next = cube_id[i] + 1;
-        cube != next ? cube_end[cube] = i : 0;
+        int prev = i > 0 ? cube_id[i - 1] : -1;
+        if (cube != prev) cube_start[cube] = i;
+        int next = i < N_CELLS ? cube_id[i + 1] : cube_id[i] + 1;
+        if (cube != next) cube_end[cube] = i;
     }
 }
 
