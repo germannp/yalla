@@ -13,8 +13,8 @@
 
 
 const float R_MAX = 1;
-const int N_CELLS = 1;
-const int GRID_SIZE = 4;
+const int N_CELLS = 1000;
+const int GRID_SIZE = 100;
 const int N_CUBES = GRID_SIZE*GRID_SIZE*GRID_SIZE;
 
 __device__ __managed__ float3 X[N_CELLS];
@@ -23,16 +23,16 @@ __device__ __managed__ int cube_id[N_CELLS];
 __device__ __managed__ int cell_id[N_CELLS];
 __device__ __managed__ int cube_start[GRID_SIZE*GRID_SIZE*GRID_SIZE];
 __device__ __managed__ int cube_end[GRID_SIZE*GRID_SIZE*GRID_SIZE];
+__device__ __managed__ int stencil[N_CELLS];
 
 
 __global__ void find_interactions() {
-    int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
-    if (cell_idx < N_CELLS) {
-        int cube = cube_id[cell_idx];
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < N_CELLS) {
         int interacting_cubes[27];
-        interacting_cubes[0] = cube - 1;
-        interacting_cubes[1] = cube;
-        interacting_cubes[2] = cube + 1;
+        interacting_cubes[0] = cube_id[i] - 1;
+        interacting_cubes[1] = cube_id[i];
+        interacting_cubes[2] = cube_id[i] + 1;
         for (int j = 0; j < 3; j++) {
             interacting_cubes[j + 3] = interacting_cubes[j % 3] - GRID_SIZE;
             interacting_cubes[j + 6] = interacting_cubes[j % 3] + GRID_SIZE;
@@ -41,9 +41,14 @@ __global__ void find_interactions() {
             interacting_cubes[j +  9] = interacting_cubes[j % 9] - GRID_SIZE*GRID_SIZE;
             interacting_cubes[j + 18] = interacting_cubes[j % 9] + GRID_SIZE*GRID_SIZE;
         }
-        printf("cube_id %i\n", cube);
-        for (int j = 0; j < 27; j++) {
-            printf("%i\n", interacting_cubes[j]);
+
+        if (i == 135) {
+            for (int j = 0; j < N_CELLS; j++) {
+                stencil[cell_id[j]] = 0;
+                for (int k = 0; k < 27; k++) {
+                    if (cube_id[j] == interacting_cubes[k]) stencil[cell_id[j]] = 1;
+                }
+            }
         }
     }
 }
@@ -111,11 +116,13 @@ int main(int argc, char const *argv[]) {
     compute_cubes<<<(N_CELLS + 16 - 1)/16, 16>>>();
     cudaDeviceSynchronize();
 
-    write_scalars(file_name.str().c_str(), N_CELLS, "cube_id", cube_id);
+    // write_scalars(file_name.str().c_str(), N_CELLS, "cube_id", cube_id);
 
     // Check for neighbors
     find_interactions<<<(N_CELLS + 16 - 1)/16, 16>>>();
     cudaDeviceSynchronize();
+
+    write_scalars(file_name.str().c_str(), N_CELLS, "stencil", stencil);
 
     return 0;
 }
