@@ -13,7 +13,7 @@
 
 
 const float R_MAX = 1;
-const int N_CELLS = 4*4*4;
+const int N_CELLS = 1;
 const int GRID_SIZE = 4;
 const int N_CUBES = GRID_SIZE*GRID_SIZE*GRID_SIZE;
 
@@ -23,6 +23,30 @@ __device__ __managed__ int cube_id[N_CELLS];
 __device__ __managed__ int cell_id[N_CELLS];
 __device__ __managed__ int cube_start[GRID_SIZE*GRID_SIZE*GRID_SIZE];
 __device__ __managed__ int cube_end[GRID_SIZE*GRID_SIZE*GRID_SIZE];
+
+
+__global__ void find_interactions() {
+    int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
+    if (cell_idx < N_CELLS) {
+        int cube = cube_id[cell_idx];
+        int interacting_cubes[27];
+        interacting_cubes[0] = cube - 1;
+        interacting_cubes[1] = cube;
+        interacting_cubes[2] = cube + 1;
+        for (int j = 0; j < 3; j++) {
+            interacting_cubes[j + 3] = interacting_cubes[j % 3] - GRID_SIZE;
+            interacting_cubes[j + 6] = interacting_cubes[j % 3] + GRID_SIZE;
+        }
+        for (int j = 0; j < 9; j++) {
+            interacting_cubes[j +  9] = interacting_cubes[j % 9] - GRID_SIZE*GRID_SIZE;
+            interacting_cubes[j + 18] = interacting_cubes[j % 9] + GRID_SIZE*GRID_SIZE;
+        }
+        printf("cube_id %i\n", cube);
+        for (int j = 0; j < 27; j++) {
+            printf("%i\n", interacting_cubes[j]);
+        }
+    }
+}
 
 
 __global__ void compute_cube_ids() {
@@ -81,20 +105,17 @@ int main(int argc, char const *argv[]) {
     // Update lattice
     compute_cube_ids<<<(N_CELLS + 16 - 1)/16, 16>>>();
     cudaDeviceSynchronize();
-    for (int i = 0; i < N_CELLS; i++){
-        std::cout << cell_id[i] << " " << cube_id[i] << "\n";
-    }
     thrust::sort_by_key(cube_id, cube_id + N_CELLS, cell_id);
     reset_cubes<<<(N_CUBES + 16 - 1)/16, 16>>>();
     cudaDeviceSynchronize();
     compute_cubes<<<(N_CELLS + 16 - 1)/16, 16>>>();
     cudaDeviceSynchronize();
 
-    for (int i = 0; i < N_CELLS; i++){
-        std::cout << i << " " << cube_id[i] << " " << cube_start[i] << " " << cube_end[i] << "\n";
-    }
-
     write_scalars(file_name.str().c_str(), N_CELLS, "cube_id", cube_id);
+
+    // Check for neighbors
+    find_interactions<<<(N_CELLS + 16 - 1)/16, 16>>>();
+    cudaDeviceSynchronize();
 
     return 0;
 }
