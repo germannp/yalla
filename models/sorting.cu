@@ -5,7 +5,6 @@
 #include <iostream>
 #include <sstream>
 #include <cmath>
-#include <thrust/sort.h>
 #include <sys/stat.h>
 #include <thrust/sort.h>
 
@@ -132,10 +131,10 @@ int main(int argc, char const *argv[]) {
         file_name << "output/sorting_" << time_step << ".vtk";
         write_positions(file_name.str().c_str(), N_CELLS, X);
 
+        compute_cube_ids<<<(N_CELLS + 16 - 1)/16, 16>>>();
+        cudaDeviceSynchronize();
+        write_scalars(file_name.str().c_str(), N_CELLS, "cube_id", cube_id);
         if (time_step < N_TIME_STEPS) {
-            compute_cube_ids<<<(N_CELLS + 16 - 1)/16, 16>>>();
-            cudaDeviceSynchronize();
-            write_scalars(file_name.str().c_str(), N_CELLS, "cube_id", cube_id);
 
             thrust::sort_by_key(cube_id, cube_id + N_CELLS, cell_id);
             reset_cubes<<<(N_CUBES + 16 - 1)/16, 16>>>();
