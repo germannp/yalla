@@ -13,7 +13,9 @@
 
 
 const float R_MAX = 1;
+const float R_MIN = 0.5;
 const int N_CELLS = 1000;
+const int N_TIME_STEPS = 100;
 const int GRID_SIZE = 100;
 const int N_CUBES = GRID_SIZE*GRID_SIZE*GRID_SIZE;
 
@@ -23,10 +25,23 @@ __device__ __managed__ int cube_id[N_CELLS];
 __device__ __managed__ int cell_id[N_CELLS];
 __device__ __managed__ int cube_start[GRID_SIZE*GRID_SIZE*GRID_SIZE];
 __device__ __managed__ int cube_end[GRID_SIZE*GRID_SIZE*GRID_SIZE];
-__device__ __managed__ int stencil[N_CELLS];
 
 
-__global__ void find_interactions() {
+__device__ float3 cell_cell_force(float3 Xi, float3 Xj) {
+    float3 dF = {0.0f, 0.0f, 0.0f};
+    float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
+    if (dist > 1e-8) {
+        float F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
+        dF.x += r.x*F/dist;
+        dF.y += r.y*F/dist;
+        dF.z += r.z*F/dist;
+    }
+    assert(dF.x == dF.x); // For NaN f != f.
+    return dF;
+}
+
+__global__ void integrate_step() {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < N_CELLS) {
         int interacting_cubes[27];
@@ -42,14 +57,21 @@ __global__ void find_interactions() {
             interacting_cubes[j + 18] = interacting_cubes[j % 9] + GRID_SIZE*GRID_SIZE;
         }
 
-        if (i == 135) {
-            for (int j = 0; j < N_CELLS; j++) {
-                stencil[cell_id[j]] = 0;
-                for (int k = 0; k < 27; k++) {
-                    if (cube_id[j] == interacting_cubes[k]) stencil[cell_id[j]] = 1;
-                }
+        float3 dF, F  = {0.0f, 0.0f, 0.0f};
+        float3 Xi = X[cell_id[i]];
+        for (int j = 0; j < 27; j++) {
+            int cube = interacting_cubes[j];
+            for (int k = cube_start[cube]; k <= cube_end[cube]; k++) {
+                float3 Xj = X[cell_id[k]];
+                dF = cell_cell_force(Xi, Xj);
+                F.x += dF.x;
+                F.y += dF.y;
+                F.z += dF.z;
             }
         }
+        X[cell_id[i]].x = Xi.x + F.x*0.01;
+        X[cell_id[i]].y = Xi.y + F.y*0.01;
+        X[cell_id[i]].z = Xi.z + F.z*0.01;
     }
 }
 
@@ -73,7 +95,7 @@ __global__ void reset_cubes() {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < N_CUBES) {
         cube_start[i] = -1;
-        cube_end[i] = -1;
+        cube_end[i] = -2;
     }
 }
 
@@ -93,7 +115,7 @@ int main(int argc, char const *argv[]) {
     assert(GRID_SIZE % 2 == 0);
 
     // Prepare initial state
-    float r_sphere = pow(N_CELLS/0.75, 1./3)*R_MAX/2; // Sphere packing
+    float r_sphere = pow(N_CELLS/0.75, 1./3)*R_MIN/2; // Sphere packing
     for (int i = 0; i < N_CELLS; i++) {
         float r = r_sphere*rand()/(RAND_MAX + 1.);
         float theta = rand()/(RAND_MAX + 1.)*2*M_PI;
@@ -103,26 +125,28 @@ int main(int argc, char const *argv[]) {
         X[i].z = r*cos(phi);
     }
 
-    std::stringstream file_name;
-    file_name << "output/sorting" << ".vtk";
-    write_positions(file_name.str().c_str(), N_CELLS, X);
+    // Integrate cell positions
+    mkdir("output", 755);
+    for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
+        std::stringstream file_name;
+        file_name << "output/sorting_" << time_step << ".vtk";
+        write_positions(file_name.str().c_str(), N_CELLS, X);
 
-    // Update lattice
-    compute_cube_ids<<<(N_CELLS + 16 - 1)/16, 16>>>();
-    cudaDeviceSynchronize();
-    thrust::sort_by_key(cube_id, cube_id + N_CELLS, cell_id);
-    reset_cubes<<<(N_CUBES + 16 - 1)/16, 16>>>();
-    cudaDeviceSynchronize();
-    compute_cubes<<<(N_CELLS + 16 - 1)/16, 16>>>();
-    cudaDeviceSynchronize();
+        if (time_step < N_TIME_STEPS) {
+            compute_cube_ids<<<(N_CELLS + 16 - 1)/16, 16>>>();
+            cudaDeviceSynchronize();
+            write_scalars(file_name.str().c_str(), N_CELLS, "cube_id", cube_id);
 
-    // write_scalars(file_name.str().c_str(), N_CELLS, "cube_id", cube_id);
+            thrust::sort_by_key(cube_id, cube_id + N_CELLS, cell_id);
+            reset_cubes<<<(N_CUBES + 16 - 1)/16, 16>>>();
+            cudaDeviceSynchronize();
+            compute_cubes<<<(N_CELLS + 16 - 1)/16, 16>>>();
+            cudaDeviceSynchronize();
 
-    // Check for neighbors
-    find_interactions<<<(N_CELLS + 16 - 1)/16, 16>>>();
-    cudaDeviceSynchronize();
-
-    write_scalars(file_name.str().c_str(), N_CELLS, "stencil", stencil);
+            integrate_step<<<(N_CELLS + 16 - 1)/16, 16>>>();
+            cudaDeviceSynchronize();
+        }
+    }
 
     return 0;
 }
