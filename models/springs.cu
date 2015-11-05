@@ -61,7 +61,7 @@ int main(int argc, const char* argv[]) {
     // Prepare initial state
     float r_max = pow(N_BODIES/0.75, 1./3)*L_0/2; // Sphere packing
     for (int i = 0; i < N_BODIES; i++) {
-        float r = r_max*rand()/(RAND_MAX + 1.);
+        float r = r_max*pow(rand()/(RAND_MAX + 1.), 1./3);
         float theta = rand()/(RAND_MAX + 1.)*2*M_PI;
         float phi = acos(2.*rand()/(RAND_MAX + 1.) - 1);
         X[i].x = r*sin(theta)*sin(phi);

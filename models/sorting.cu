@@ -120,7 +120,7 @@ int main(int argc, char const *argv[]) {
     float r_sphere = pow(N_CELLS/0.75, 1./3)*R_MIN/2; // Sphere packing
     for (int i = 0; i < N_CELLS; i++) {
         cell_type[i] = (i < N_CELLS/2) ? 0 : 1;
-        float r = r_sphere*rand()/(RAND_MAX + 1.);
+        float r = r_sphere*pow(rand()/(RAND_MAX + 1.), 1./3);
         float theta = rand()/(RAND_MAX + 1.)*2*M_PI;
         float phi = acos(2.*rand()/(RAND_MAX + 1.) - 1);
         X[i].x = r*sin(theta)*sin(phi);
