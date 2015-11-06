@@ -1,6 +1,7 @@
 // Sorting based lattice for N-body problems with limited interaction, after
 // http://docs.nvidia.com/cuda/samples/5_Simulations/particles/doc/particles.pdf
 #include <assert.h>
+#include <thrust/sort.h>
 
 
 extern const float R_MAX;

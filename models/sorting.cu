@@ -2,7 +2,6 @@
 #include <assert.h>
 #include <cmath>
 #include <sys/stat.h>
-#include <thrust/sort.h>
 
 #include "../lib/vtk.cuh"
 // #include "../lib/n2n.cuh"
