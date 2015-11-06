@@ -6,12 +6,12 @@
 #include <sys/stat.h>
 #include <thrust/sort.h>
 
-#include "../lib/vtk.cu"
+#include "../lib/vtk.cuh"
 
 
 const float R_MAX = 1;
 const float R_MIN = 0.5;
-const int N_CELLS = 100;
+const int N_CELLS = 1000;
 const int N_TIME_STEPS = 300;
 const int GRID_SIZE = 100;
 const int N_CUBES = GRID_SIZE*GRID_SIZE*GRID_SIZE;
@@ -68,9 +68,9 @@ __global__ void integrate_step() {
                 F.z += strength*dF.z;
             }
         }
-        X[cell_id[i]].x = Xi.x + F.x*0.01;
-        X[cell_id[i]].y = Xi.y + F.y*0.01;
-        X[cell_id[i]].z = Xi.z + F.z*0.01;
+        X[cell_id[i]].x = Xi.x + F.x*0.05;
+        X[cell_id[i]].y = Xi.y + F.y*0.05;
+        X[cell_id[i]].z = Xi.z + F.z*0.05;
     }
 }
 

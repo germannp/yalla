@@ -7,7 +7,7 @@
 #include <cmath>
 #include <sys/stat.h>
 
-#include "../lib/vtk.cu"
+#include "../lib/vtk.cuh"
 
 
 const float L_0 = 0.5; // Relaxed spring length
