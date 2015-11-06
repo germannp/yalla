@@ -73,9 +73,9 @@ int main(int argc, const char* argv[]) {
     mkdir("output", 755);
     int n_blocks = (N_BODIES + TILE_SIZE - 1)/TILE_SIZE; // ceil int div.
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        std::stringstream file_name;
-        file_name << "output/springs_" << time_step << ".vtk";
-        write_positions(file_name.str().c_str(), N_BODIES, X);
+        char file_name[22];
+        sprintf(file_name, "output/springs_%03i.vtk", time_step);
+        write_positions(file_name, N_BODIES, X);
 
         if (time_step < N_TIME_STEPS) {
             integrate_step<<<n_blocks, TILE_SIZE>>>();

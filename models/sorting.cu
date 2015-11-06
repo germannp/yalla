@@ -2,8 +2,6 @@
 // http://docs.nvidia.com/cuda/samples/5_Simulations/particles/doc/particles.pdf
 
 #include <assert.h>
-#include <iostream>
-#include <sstream>
 #include <cmath>
 #include <sys/stat.h>
 #include <thrust/sort.h>
@@ -13,7 +11,7 @@
 
 const float R_MAX = 1;
 const float R_MIN = 0.5;
-const int N_CELLS = 10000;
+const int N_CELLS = 100;
 const int N_TIME_STEPS = 300;
 const int GRID_SIZE = 100;
 const int N_CUBES = GRID_SIZE*GRID_SIZE*GRID_SIZE;
@@ -131,10 +129,10 @@ int main(int argc, char const *argv[]) {
     // Integrate cell positions
     mkdir("output", 755);
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        std::stringstream file_name;
-        file_name << "output/sorting_" << time_step << ".vtk";
-        write_positions(file_name.str().c_str(), N_CELLS, X);
-        write_scalars(file_name.str().c_str(), N_CELLS, "cell_type", cell_type);
+        char file_name[22];
+        sprintf(file_name, "output/sorting_%03i.vtk", time_step);
+        write_positions(file_name, N_CELLS, X);
+        write_scalars(file_name, N_CELLS, "cell_type", cell_type);
 
         if (time_step < N_TIME_STEPS) {
             compute_cube_ids<<<(N_CELLS + 16 - 1)/16, 16>>>();
