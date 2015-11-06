@@ -1,6 +1,4 @@
-// Integrate N-body problem with springs between all bodies. Parallelization
-// after http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html.
-
+// Integrate N-body problem with springs between all bodies.
 #include <assert.h>
 #include <iostream>
 #include <sstream>
@@ -8,14 +6,16 @@
 #include <sys/stat.h>
 
 #include "../lib/vtk.cuh"
+#include "../lib/n2n.cuh"
 
 
 const float L_0 = 0.5; // Relaxed spring length
+const float delta_t = 0.001;
 const uint N_BODIES = 800;
 const uint N_TIME_STEPS = 100;
-const uint TILE_SIZE = 32;
 
 __device__ __managed__ float3 X[N_BODIES];
+
 
 __device__ float3 body_body_force(float3 Xi, float3 Xj) {
     float3 r;
@@ -33,27 +33,6 @@ __device__ float3 body_body_force(float3 Xi, float3 Xj) {
     return dF;
 }
 
-// Calculate new X one thread per body, to TILE_SIZE other bodies at a time
-__global__ void integrate_step() {
-    __shared__ float3 shX[TILE_SIZE];
-    int body_idx = blockIdx.x*blockDim.x + threadIdx.x;
-    float3 Xi = X[body_idx];
-    float3 Fi = {0.0f, 0.0f, 0.0f};
-    for (int tile_start = 0; tile_start < N_BODIES; tile_start += TILE_SIZE) {
-        int other_body_idx = tile_start + threadIdx.x;
-        shX[threadIdx.x] = X[other_body_idx];
-        __syncthreads();
-        for (int i = 0; i < TILE_SIZE; i++) {
-            float3 dF = body_body_force(Xi, shX[i]);
-            Fi.x += dF.x;
-            Fi.y += dF.y;
-            Fi.z += dF.z;
-        }
-    }
-    X[body_idx].x = Xi.x + Fi.x*0.001;
-    X[body_idx].y = Xi.y + Fi.y*0.001;
-    X[body_idx].z = Xi.z + Fi.z*0.001;
-}
 
 int main(int argc, const char* argv[]) {
     assert(N_BODIES % TILE_SIZE == 0);
@@ -71,15 +50,13 @@ int main(int argc, const char* argv[]) {
 
     // Integrate body positions
     mkdir("output", 755);
-    int n_blocks = (N_BODIES + TILE_SIZE - 1)/TILE_SIZE; // ceil int div.
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         char file_name[22];
         sprintf(file_name, "output/springs_%03i.vtk", time_step);
         write_positions(file_name, N_BODIES, X);
 
         if (time_step < N_TIME_STEPS) {
-            integrate_step<<<n_blocks, TILE_SIZE>>>();
-            cudaDeviceSynchronize();
+            euler_step(delta_t, N_BODIES, X);
         }
     }
 
