@@ -11,13 +11,13 @@
 
 const float L_0 = 0.5; // Relaxed spring length
 const float delta_t = 0.001;
-const uint N_BODIES = 800;
+const uint N_CELLS = 800;
 const uint N_TIME_STEPS = 100;
 
-__device__ __managed__ float3 X[N_BODIES];
+__device__ __managed__ float3 X[N_CELLS];
 
 
-__device__ float3 body_body_force(float3 Xi, float3 Xj) {
+__device__ float3 cell_cell_interaction(float3 Xi, float3 Xj) {
     float3 r;
     float3 dF = {0.0f, 0.0f, 0.0f};
     r.x = Xj.x - Xi.x;
@@ -35,11 +35,11 @@ __device__ float3 body_body_force(float3 Xi, float3 Xj) {
 
 
 int main(int argc, const char* argv[]) {
-    assert(N_BODIES % TILE_SIZE == 0);
+    assert(N_CELLS % TILE_SIZE == 0);
 
     // Prepare initial state
-    float r_max = pow(N_BODIES/0.75, 1./3)*L_0/2; // Sphere packing
-    for (int i = 0; i < N_BODIES; i++) {
+    float r_max = pow(N_CELLS/0.75, 1./3)*L_0/2; // Sphere packing
+    for (int i = 0; i < N_CELLS; i++) {
         float r = r_max*pow(rand()/(RAND_MAX + 1.), 1./3);
         float theta = rand()/(RAND_MAX + 1.)*2*M_PI;
         float phi = acos(2.*rand()/(RAND_MAX + 1.) - 1);
@@ -48,15 +48,15 @@ int main(int argc, const char* argv[]) {
         X[i].z = r*cos(phi);
     }
 
-    // Integrate body positions
+    // Integrate positions
     mkdir("output", 755);
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         char file_name[22];
         sprintf(file_name, "output/springs_%03i.vtk", time_step);
-        write_positions(file_name, N_BODIES, X);
+        write_positions(file_name, N_CELLS, X);
 
         if (time_step < N_TIME_STEPS) {
-            euler_step(delta_t, N_BODIES, X);
+            euler_step(delta_t, N_CELLS, X);
         }
     }
 
