@@ -17,7 +17,7 @@ const uint N_TIME_STEPS = 100;
 __device__ __managed__ float3 X[N_CELLS];
 
 
-__device__ float3 cell_cell_interaction(float3 Xi, float3 Xj) {
+__device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
     float3 r;
     float3 dF = {0.0f, 0.0f, 0.0f};
     r.x = Xj.x - Xi.x;

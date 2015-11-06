@@ -5,7 +5,7 @@
 
 const uint TILE_SIZE = 32;
 
-extern __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj);
+extern __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j);
 
 
 // Calculate new X one thread per cell, to TILE_SIZE other bodies at a time
@@ -19,7 +19,7 @@ __global__ void integrate(float delta_t, int N_CELLS, float3 X[]) {
         shX[threadIdx.x] = X[other_cell_idx];
         __syncthreads();
         for (int i = 0; i < TILE_SIZE; i++) {
-            float3 dF = cell_cell_interaction(Xi, shX[i]);
+            float3 dF = cell_cell_interaction(Xi, shX[i], cell_idx, other_cell_idx);
             Fi.x += dF.x;
             Fi.y += dF.y;
             Fi.z += dF.z;
