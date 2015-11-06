@@ -4,7 +4,7 @@
 
 
 extern const float R_MAX;
-extern __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj);
+extern __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j);
 
 const int MAX_N_CELLS = 1e6;
 const int LATTICE_SIZE = 100;
@@ -74,12 +74,10 @@ __global__ void integrate_step(float delta_t, int N_CELLS, float3 X[]) {
             int cube = interacting_cubes[j];
             for (int k = cube_start[cube]; k <= cube_end[cube]; k++) {
                 float3 Xj = X[cell_id[k]];
-                int strength =
-                    (1 + 2*(cell_id[k] < N_CELLS/2))*(1 + 2*(cell_id[i] < N_CELLS/2));
-                dF = cell_cell_interaction(Xi, Xj);
-                F.x += strength*dF.x;
-                F.y += strength*dF.y;
-                F.z += strength*dF.z;
+                dF = cell_cell_interaction(Xi, Xj, cell_id[i], cell_id[k]);
+                F.x += dF.x;
+                F.y += dF.y;
+                F.z += dF.z;
             }
         }
         X[cell_id[i]].x = Xi.x + F.x*delta_t;
