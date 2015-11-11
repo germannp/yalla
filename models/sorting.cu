@@ -4,8 +4,8 @@
 #include <sys/stat.h>
 
 #include "../lib/vtk.cuh"
-// #include "../lib/n2n.cuh"
-#include "../lib/lattice.cuh"
+#include "../lib/n2n.cuh"
+// #include "../lib/lattice.cuh"
 
 
 const float R_MAX = 1;
@@ -22,7 +22,7 @@ __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
-    if (dist > 1e-8) {
+    if (dist > 1e-7) {
         float F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
         dF.x += strength*r.x*F/dist;
         dF.y += strength*r.y*F/dist;
