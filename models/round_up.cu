@@ -1,11 +1,11 @@
-// Simulating cell sorting with limited interactions.
+// Simulating rounding up.
 #include <assert.h>
 #include <cmath>
 #include <sys/stat.h>
 
 #include "../lib/vtk.cuh"
-#include "../lib/n2n.cuh"
-// #include "../lib/lattice.cuh"
+// #include "../lib/n2n.cuh"
+#include "../lib/lattice.cuh"
 
 
 const float R_MAX = 1;
