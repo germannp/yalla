@@ -10,11 +10,13 @@
 
 
 const float L_0 = 0.5; // Relaxed spring length
-const float delta_t = 0.001;
+const float DELTA_T = 0.001;
+const float R_MAX = L_0/2;
 const uint N_CELLS = 800;
 const uint N_TIME_STEPS = 100;
 
 __device__ __managed__ float3 X[N_CELLS];
+__device__ __managed__ float3 F[N_CELLS];
 
 
 __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
@@ -56,7 +58,7 @@ int main(int argc, const char* argv[]) {
         write_positions(file_name, N_CELLS, X);
 
         if (time_step < N_TIME_STEPS) {
-            euler_step(delta_t, N_CELLS, X);
+            dynamic_step(DELTA_T, N_CELLS, X, F);
         }
     }
 

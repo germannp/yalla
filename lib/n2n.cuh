@@ -1,15 +1,20 @@
 // Parallelization for N-Body problem with interactions among all pairs,
 // after http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html.
 #include <assert.h>
+#include <thrust/extrema.h>
+
+#include "util.cuh"
 
 
 const uint TILE_SIZE = 32;
+__device__ __managed__ float max_F;
 
+extern const float R_MAX;
 extern __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j);
 
 
 // Calculate new X one thread per cell, to TILE_SIZE other bodies at a time
-__global__ void integrate(float delta_t, int N_CELLS, float3 X[]) {
+__global__ void calculate_F(int N_CELLS, float3 X[], float3 F[]) {
     __shared__ float3 shX[TILE_SIZE];
     int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
     float3 Xi = X[cell_idx];
@@ -25,13 +30,32 @@ __global__ void integrate(float delta_t, int N_CELLS, float3 X[]) {
             Fi.z += dF.z;
         }
     }
-    X[cell_idx].x = Xi.x + Fi.x*delta_t;
-    X[cell_idx].y = Xi.y + Fi.y*delta_t;
-    X[cell_idx].z = Xi.z + Fi.z*delta_t;
+    F[cell_idx].x = Fi.x;
+    F[cell_idx].y = Fi.y;
+    F[cell_idx].z = Fi.z;
+    atomicMax(&max_F, max(max(Fi.x, Fi.y), Fi.z));
 }
 
-void euler_step(float delta_t, int N_CELLS, float3 X[]) {
+__global__ void integrate(float delta_t, int N_CELLS, float3 X[], float3 F[]) {
+    int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
+    if (cell_idx < N_CELLS) {
+        X[cell_idx].x += F[cell_idx].x*delta_t;
+        X[cell_idx].y += F[cell_idx].y*delta_t;
+        X[cell_idx].z += F[cell_idx].z*delta_t;
+    }
+}
+
+
+void dynamic_step(float delta_t, int N_CELLS, float3 X[], float3 F[]) {
     int n_blocks = (N_CELLS + TILE_SIZE - 1)/TILE_SIZE; // ceil int div.
-    integrate<<<n_blocks, TILE_SIZE>>>(delta_t, N_CELLS, X);
-    cudaDeviceSynchronize();
+    float left_t = delta_t;
+    while (left_t > 0) {
+        max_F = 0;
+        calculate_F<<<n_blocks, TILE_SIZE>>>(N_CELLS, X, F);
+        cudaDeviceSynchronize();
+        float dt = min(left_t, R_MAX/4/max_F);
+        left_t -= dt;
+        integrate<<<n_blocks, TILE_SIZE>>>(dt, N_CELLS, X, F);
+        cudaDeviceSynchronize();
+    }
 }
