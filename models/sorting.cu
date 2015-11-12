@@ -4,8 +4,8 @@
 #include <sys/stat.h>
 
 #include "../lib/vtk.cuh"
-#include "../lib/n2n.cuh"
-// #include "../lib/lattice.cuh"
+// #include "../lib/n2n.cuh"
+#include "../lib/lattice.cuh"
 
 
 const float R_MAX = 1;
@@ -15,6 +15,7 @@ const int N_TIME_STEPS = 300;
 const float DELTA_T = 0.05;
 
 __device__ __managed__ float3 X[N_CELLS];
+__device__ __managed__ float3 F[N_CELLS];
 
 
 __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
@@ -56,7 +57,7 @@ int main(int argc, char const *argv[]) {
         write_scalars(file_name, N_CELLS, "cell_type", cell_type);
 
         if (time_step < N_TIME_STEPS) {
-            euler_step(DELTA_T, N_CELLS, X);
+            dynamic_step(DELTA_T, N_CELLS, X, F);
         }
     }
 
