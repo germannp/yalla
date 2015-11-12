@@ -16,13 +16,18 @@ __global__ void integrate(float delta_t, int N_CELLS, float3 X[]) {
     float3 Fi = {0.0f, 0.0f, 0.0f};
     for (int tile_start = 0; tile_start < N_CELLS; tile_start += TILE_SIZE) {
         int other_cell_idx = tile_start + threadIdx.x;
-        shX[threadIdx.x] = X[other_cell_idx];
+        if (other_cell_idx < N_CELLS) {
+            shX[threadIdx.x] = X[other_cell_idx];
+        }
         __syncthreads();
         for (int i = 0; i < TILE_SIZE; i++) {
-            float3 dF = cell_cell_interaction(Xi, shX[i], cell_idx, other_cell_idx);
-            Fi.x += dF.x;
-            Fi.y += dF.y;
-            Fi.z += dF.z;
+            int other_cell_idx = tile_start + i;
+            if ((cell_idx < N_CELLS) && (other_cell_idx < N_CELLS)) {
+                float3 dF = cell_cell_interaction(Xi, shX[i], cell_idx, other_cell_idx);
+                Fi.x += dF.x;
+                Fi.y += dF.y;
+                Fi.z += dF.z;
+            }
         }
     }
     X[cell_idx].x = Xi.x + Fi.x*delta_t;
