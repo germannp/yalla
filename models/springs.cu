@@ -20,14 +20,14 @@ __device__ __managed__ float3 X[N_CELLS];
 __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
     float3 r;
     float3 dF = {0.0f, 0.0f, 0.0f};
-    r.x = Xj.x - Xi.x;
-    r.y = Xj.y - Xi.y;
-    r.z = Xj.z - Xi.z;
+    r.x = Xi.x - Xj.x;
+    r.y = Xi.y - Xj.y;
+    r.z = Xi.z - Xj.z;
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if (dist > 1e-7) {
-        dF.x += r.x*(dist - L_0)/dist;
-        dF.y += r.y*(dist - L_0)/dist;
-        dF.z += r.z*(dist - L_0)/dist;
+        dF.x += r.x*(L_0 - dist)/dist;
+        dF.y += r.y*(L_0 - dist)/dist;
+        dF.z += r.z*(L_0 - dist)/dist;
     }
     assert(dF.x == dF.x); // For NaN f != f.
     return dF;
