@@ -25,9 +25,9 @@ __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
     r.z = Xi.z - Xj.z;
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if (dist > 1e-7) {
-        dF.x += r.x*(L_0 - dist)/dist;
-        dF.y += r.y*(L_0 - dist)/dist;
-        dF.z += r.z*(L_0 - dist)/dist;
+        dF.x = r.x*(L_0 - dist)/dist;
+        dF.y = r.y*(L_0 - dist)/dist;
+        dF.z = r.z*(L_0 - dist)/dist;
     }
     assert(dF.x == dF.x); // For NaN f != f.
     return dF;
