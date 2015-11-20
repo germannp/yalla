@@ -25,8 +25,8 @@ __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
     float dist = fmaxf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), MIN_DIST);
     if (dist > 1e-7) {
         float r_rel = R_MIN/dist;
-        float F = powf(r_rel, 12);
-        F -= 2*powf(r_rel, 6);
+        float F = powf(r_rel, 13);
+        F -= powf(r_rel, 7);
         dF.x = strength*r.x*F/dist;
         dF.y = strength*r.y*F/dist;
         dF.z = strength*r.z*F/dist;
