@@ -28,10 +28,11 @@ __device__ float step(float x) {
 // Squeeze against floor
 __global__ void squeeze(float3 X[], float time_step) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
+    float time = time_step/N_TIME_STEPS;
     if (i < N_CELLS) {
         X[i].z += 10*step(-2 - X[i].z)*DELTA_T; // Floor
-        if ((time_step >= 20) && (time_step <= 100)) {
-            X[i].z -= 10*step(X[i].z - (2 - (time_step - 20)/60))*DELTA_T;
+        if ((time >= 0.1) && (time <= 0.5)) {
+            X[i].z -= 10*step(X[i].z - (2 - (time - 0.1)/0.3))*DELTA_T;
         }
     }
 }
@@ -42,7 +43,10 @@ __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
     if (dist > 1e-7) {
-        float F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
+        int n = 2;
+        float strength = 1;
+        float F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1) +
+            strength*powf(R_MAX - dist, n);
         dF.x = r.x*F/dist;
         dF.y = r.y*F/dist;
         dF.z = r.z*F/dist;
