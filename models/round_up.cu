@@ -10,10 +10,9 @@
 
 
 const float R_MAX = 1;
-const float R_MIN = 0.5;
+const float R_MIN = 0.6;
 const int N_CELLS = 1000;
-const int N_TIME_STEPS = 200;
-const float DELTA_T = 0.01;
+const float DELTA_T = 0.0025;
 
 __device__ __managed__ float3 X[N_CELLS];
 
@@ -28,7 +27,7 @@ __device__ float step(float x) {
 // Squeeze against floor
 __global__ void squeeze(float3 X[], float time_step) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    float time = time_step/N_TIME_STEPS;
+    float time = time_step*DELTA_T;
     if (i < N_CELLS) {
         X[i].z += 10*step(-2 - X[i].z)*DELTA_T; // Floor
         if ((time >= 0.1) && (time <= 0.5)) {
@@ -44,9 +43,9 @@ __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
     if (dist > 1e-7) {
         int n = 2;
-        float strength = 1;
-        float F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1) +
-            strength*powf(R_MAX - dist, n);
+        float strength = 100;
+        float F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1)
+            + strength*powf(R_MAX - dist, n);
         dF.x = r.x*F/dist;
         dF.y = r.y*F/dist;
         dF.z = r.z*F/dist;
@@ -58,16 +57,16 @@ __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_sphere(N_CELLS, R_MIN, X);
+    uniform_sphere(N_CELLS, R_MIN+0.1, X);
 
     // Integrate cell positions
     mkdir("output", 755);
-    for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        char file_name[22];
-        sprintf(file_name, "output/round_up_%03i.vtk", time_step);
+    for (int time_step = 0; time_step*DELTA_T <= 1; time_step++) {
+        char file_name[26];
+        sprintf(file_name, "output/round_up_%05i.vtk", time_step);
         write_positions(file_name, N_CELLS, X);
 
-        if (time_step < N_TIME_STEPS) {
+        if (time_step*DELTA_T <= 1) {
             euler_step(DELTA_T, N_CELLS, X);
             squeeze<<<(N_CELLS + 16 - 1)/16, 16>>>(X, time_step);
             cudaDeviceSynchronize();
