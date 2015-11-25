@@ -1,3 +1,5 @@
+// Write Vtk legacy files, see http://www.vtk.org/wp-content/uploads/
+// 2015/04/file-formats.pdf
 #include <cassert>
 #include <fstream>
 
@@ -21,8 +23,8 @@ void write_positions(const char* file_name, int n_cells, float3 X[]) {
 }
 
 
-void write_scalars(const char* file_name, int n_cells, const char* data_name,
-    int scalars[]) {
+template<typename Field> void write_field(const char* file_name, int n_cells,
+    const char* data_name, Field f[]) {
     std::ofstream file(file_name, std::ios_base::app);
     assert(file.is_open());
 
@@ -30,5 +32,5 @@ void write_scalars(const char* file_name, int n_cells, const char* data_name,
     file << "SCALARS " << data_name << " int\n";
     file << "LOOKUP_TABLE default\n";
     for (int i = 0; i < n_cells; i++)
-        file << scalars[i] << "\n";
+        file << f[i] << "\n";
 }

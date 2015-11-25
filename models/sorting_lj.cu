@@ -52,7 +52,7 @@ int main(int argc, char const *argv[]) {
             char file_name[25];
             sprintf(file_name, "output/sorting-lj_%03i.vtk", time_step/SKIP_STEPS);
             write_positions(file_name, N_CELLS, X);
-            write_scalars(file_name, N_CELLS, "cell_type", cell_type);
+            write_field(file_name, N_CELLS, "cell_type", cell_type);
         }
 
         if (time_step < N_TIME_STEPS) {

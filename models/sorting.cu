@@ -48,7 +48,7 @@ int main(int argc, char const *argv[]) {
         char file_name[22];
         sprintf(file_name, "output/sorting_%03i.vtk", time_step);
         write_positions(file_name, N_CELLS, X);
-        write_scalars(file_name, N_CELLS, "cell_type", cell_type);
+        write_field(file_name, N_CELLS, "cell_type", cell_type);
 
         if (time_step < N_TIME_STEPS) {
             euler_step(DELTA_T, N_CELLS, X);
