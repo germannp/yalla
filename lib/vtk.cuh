@@ -2,35 +2,73 @@
 // 2015/04/file-formats.pdf
 #include <cassert>
 #include <fstream>
+#include <sstream>
 
 
-void write_positions(const char* file_name, int n_cells, float3 X[]) {
-    std::ofstream file(file_name);
-    assert(file.is_open());
+class VtkOutput {
+public:
+    VtkOutput(std::string base_name);
+    VtkOutput(std::string base_name, int SKIP_STEPS);
+    void write_positions(int n_cells, float3 X[]);
+    template<typename Field> void write_field(int n_cells,
+        const char* data_name, Field f[]);
+private:
+    int mSKIP_STEPS = 1;
+    int mTimeStep = 0;
+    std::string mBASE_NAME;
+    std::string mCurrentFile;
+    bool mWriteFields = 0;
+};
 
-    file << "# vtk DataFile Version 3.0\n";
-    file << file_name << "\n";
-    file << "ASCII\n";
-    file << "DATASET POLYDATA\n";
-
-    file << "\nPOINTS " << n_cells << " float\n";
-    for (int i = 0; i < n_cells; i++)
-        file << X[i].x << " " << X[i].y << " " << X[i].z << "\n";
-
-    file << "\nVERTICES " << n_cells << " " << 2*n_cells << "\n";
-    for (int i = 0; i < n_cells; i++)
-        file << "1 " << i << "\n";
+VtkOutput::VtkOutput(std::string base_name) {
+    mBASE_NAME = base_name;
+    mkdir("output", 755);
 }
 
+VtkOutput::VtkOutput(std::string base_name, int SKIP_STEPS) {
+    mBASE_NAME = base_name;
+    mSKIP_STEPS = SKIP_STEPS;
+    mkdir("output", 755);
+}
 
-template<typename Field> void write_field(const char* file_name, int n_cells,
+void VtkOutput::write_positions(int n_cells, float3 X[]) {
+    if (mTimeStep % mSKIP_STEPS == 0) {
+        std::stringstream file_name;
+        file_name << "output/" << mBASE_NAME << "_" << mTimeStep/mSKIP_STEPS << ".vtk";
+        mCurrentFile = file_name.str();
+        std::ofstream file(mCurrentFile);
+        assert(file.is_open());
+
+        file << "# vtk DataFile Version 3.0\n";
+        file << file_name << "\n";
+        file << "ASCII\n";
+        file << "DATASET POLYDATA\n";
+
+        file << "\nPOINTS " << n_cells << " float\n";
+        for (int i = 0; i < n_cells; i++)
+            file << X[i].x << " " << X[i].y << " " << X[i].z << "\n";
+
+        file << "\nVERTICES " << n_cells << " " << 2*n_cells << "\n";
+        for (int i = 0; i < n_cells; i++)
+            file << "1 " << i << "\n";
+
+        mWriteFields = 1;
+    } else {
+        mWriteFields = 0;
+    }
+    mTimeStep += 1;
+}
+
+template<typename Field> void VtkOutput::write_field(int n_cells,
     const char* data_name, Field f[]) {
-    std::ofstream file(file_name, std::ios_base::app);
-    assert(file.is_open());
+    if (mWriteFields) {
+        std::ofstream file(mCurrentFile, std::ios_base::app);
+        assert(file.is_open());
 
-    file << "\nPOINT_DATA " << n_cells << "\n";
-    file << "SCALARS " << data_name << " int\n";
-    file << "LOOKUP_TABLE default\n";
-    for (int i = 0; i < n_cells; i++)
-        file << f[i] << "\n";
+        file << "\nPOINT_DATA " << n_cells << "\n";
+        file << "SCALARS " << data_name << " int\n";
+        file << "LOOKUP_TABLE default\n";
+        for (int i = 0; i < n_cells; i++)
+            file << f[i] << "\n";
+    }
 }

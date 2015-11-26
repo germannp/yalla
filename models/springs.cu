@@ -42,11 +42,9 @@ int main(int argc, const char* argv[]) {
     uniform_sphere(N_CELLS, L_0, X);
 
     // Integrate positions
-    mkdir("output", 755);
+    VtkOutput output("springs");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        char file_name[22];
-        sprintf(file_name, "output/springs_%03i.vtk", time_step);
-        write_positions(file_name, N_CELLS, X);
+        output.write_positions(N_CELLS, X);
 
         if (time_step < N_TIME_STEPS) {
             euler_step(delta_t, N_CELLS, X);

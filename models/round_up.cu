@@ -60,11 +60,9 @@ int main(int argc, char const *argv[]) {
     uniform_sphere(N_CELLS, R_MIN+0.1, X);
 
     // Integrate cell positions
-    mkdir("output", 755);
+    VtkOutput output("round_up");
     for (int time_step = 0; time_step*DELTA_T <= 1; time_step++) {
-        char file_name[26];
-        sprintf(file_name, "output/round_up_%05i.vtk", time_step);
-        write_positions(file_name, N_CELLS, X);
+        output.write_positions(N_CELLS, X);
 
         if (time_step*DELTA_T <= 1) {
             euler_step(DELTA_T, N_CELLS, X);
