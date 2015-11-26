@@ -9,7 +9,7 @@ class VtkOutput {
 public:
     VtkOutput(std::string base_name);
     VtkOutput(std::string base_name, int SKIP_STEPS);
-    void write_positions(int n_cells, float3 X[]);
+    template<typename Positions> void write_positions(int n_cells, Positions X[]);
     template<typename Field> void write_field(int n_cells,
         const char* data_name, Field f[]);
 private:
@@ -31,7 +31,7 @@ VtkOutput::VtkOutput(std::string base_name, int SKIP_STEPS) {
     mkdir("output", 755);
 }
 
-void VtkOutput::write_positions(int n_cells, float3 X[]) {
+template<typename Positions> void VtkOutput::write_positions(int n_cells, Positions X[]) {
     if (mTimeStep % mSKIP_STEPS == 0) {
         std::stringstream file_name;
         file_name << "output/" << mBASE_NAME << "_" << mTimeStep/mSKIP_STEPS << ".vtk";
