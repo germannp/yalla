@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <cmath>
 #include <sys/stat.h>
+#include <curand_kernel.h>
 
 #include "../lib/sphere.cuh"
 #include "../lib/vtk.cuh"
@@ -13,11 +14,18 @@ const float R_MAX = 1;
 const float R_MIN = 0.5;
 const int N_CELLS = 100;
 const int N_CONNECTIONS = 50;
-const int N_TIME_STEPS = 500;
+const int N_TIME_STEPS = 1000;
 const float DELTA_T = 0.05;
 
 __device__ __managed__ float3 X[N_CELLS];
 __device__ __managed__ int connections[N_CONNECTIONS][2];
+__device__ __managed__ curandState rand_states[N_CONNECTIONS];
+
+
+__global__ void setup_rand_states() {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < N_CELLS) curand_init(1337, i, 0, &rand_states[i]);
+}
 
 
 __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
@@ -48,6 +56,15 @@ __global__ void intercalate() {
         X[connections[i][1]].x += r.x/dist*DELTA_T/5;
         X[connections[i][1]].y += r.y/dist*DELTA_T/5;
         X[connections[i][1]].z += r.z/dist*DELTA_T/5;
+
+        int j = (int)(curand_uniform(&rand_states[i])*N_CELLS);
+        int k = (int)(curand_uniform(&rand_states[i])*N_CELLS);
+        r = {X[j].x - X[k].x, X[j].y - X[k].y, X[j].z - X[k].z};
+        dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+        if (fabs(r.x/dist) < 0.2) {
+            connections[i][0] = j;
+            connections[i][1] = k;
+        }
     }
 }
 
@@ -55,6 +72,8 @@ __global__ void intercalate() {
 int main(int argc, char const *argv[]) {
     // Prepare initial state
     uniform_sphere(N_CELLS, R_MIN, X);
+    setup_rand_states<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>();
+    cudaDeviceSynchronize();
     int i = 0;
     while (i < N_CONNECTIONS) {
         int j = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
