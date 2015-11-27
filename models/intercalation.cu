@@ -11,9 +11,9 @@
 
 const float R_MAX = 1;
 const float R_MIN = 0.5;
-const int N_CELLS = 50;
-const int N_CONNECTIONS = 25;
-const int N_TIME_STEPS = 100;
+const int N_CELLS = 100;
+const int N_CONNECTIONS = 50;
+const int N_TIME_STEPS = 500;
 const float DELTA_T = 0.05;
 
 __device__ __managed__ float3 X[N_CELLS];
@@ -42,12 +42,12 @@ __global__ void intercalate() {
         float3 Xj = X[connections[i][1]];
         float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-        X[connections[i][0]].x -= r.x/dist*DELTA_T;
-        X[connections[i][0]].y -= r.y/dist*DELTA_T;
-        X[connections[i][0]].z -= r.z/dist*DELTA_T;
-        X[connections[i][1]].x += r.x/dist*DELTA_T;
-        X[connections[i][1]].y += r.y/dist*DELTA_T;
-        X[connections[i][1]].z += r.z/dist*DELTA_T;
+        X[connections[i][0]].x -= r.x/dist*DELTA_T/5;
+        X[connections[i][0]].y -= r.y/dist*DELTA_T/5;
+        X[connections[i][0]].z -= r.z/dist*DELTA_T/5;
+        X[connections[i][1]].x += r.x/dist*DELTA_T/5;
+        X[connections[i][1]].y += r.y/dist*DELTA_T/5;
+        X[connections[i][1]].z += r.z/dist*DELTA_T/5;
     }
 }
 
@@ -55,9 +55,17 @@ __global__ void intercalate() {
 int main(int argc, char const *argv[]) {
     // Prepare initial state
     uniform_sphere(N_CELLS, R_MIN, X);
-    for (int i = 0; i < N_CONNECTIONS; i++) {
-        connections[i][0] = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
-        connections[i][1] = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
+    int i = 0;
+    while (i < N_CONNECTIONS) {
+        int j = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
+        int k = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
+        float3 r = {X[j].x - X[k].x, X[j].y - X[k].y, X[j].z - X[k].z};
+        float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+        if (fabs(r.x/dist) < 0.2) {
+            connections[i][0] = j;
+            connections[i][1] = k;
+            i++;
+        }
     }
 
     // Integrate cell positions
@@ -68,7 +76,7 @@ int main(int argc, char const *argv[]) {
 
         if (time_step < N_TIME_STEPS) {
             euler_step(DELTA_T, N_CELLS, X);
-            intercalate<<<(N_CONNECTIONS + 16 - 1)/16, 16>>>();
+            intercalate<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>();
             cudaDeviceSynchronize();
         }
     }
