@@ -12,6 +12,7 @@ public:
     template<typename Positions> void write_positions(int n_cells, Positions X[]);
     template<typename Field> void write_field(int n_cells,
         const char* data_name, Field f[]);
+    void write_connections(int n_connections, int connections[][2]);
 private:
     int mSKIP_STEPS = 1;
     int mTimeStep = 0;
@@ -70,5 +71,16 @@ template<typename Field> void VtkOutput::write_field(int n_cells,
         file << "LOOKUP_TABLE default\n";
         for (int i = 0; i < n_cells; i++)
             file << f[i] << "\n";
+    }
+}
+
+void VtkOutput::write_connections(int n_connections, int connections[][2]) {
+    if (mWriteFields) {
+        std::ofstream file(mCurrentFile, std::ios_base::app);
+        assert(file.is_open());
+
+        file << "\nLINES " << n_connections << " " << 3*n_connections << "\n";
+        for (int i = 0; i < n_connections; i++)
+            file << "2 " << connections[i][0] << " " << connections[i][1] << "\n";
     }
 }

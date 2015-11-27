@@ -1,0 +1,77 @@
+// Simulate intercalating cells
+#include <assert.h>
+#include <cmath>
+#include <sys/stat.h>
+
+#include "../lib/sphere.cuh"
+#include "../lib/vtk.cuh"
+#include "../lib/n2n.cuh"
+// #include "../lib/lattice.cuh"
+
+
+const float R_MAX = 1;
+const float R_MIN = 0.5;
+const int N_CELLS = 50;
+const int N_CONNECTIONS = 25;
+const int N_TIME_STEPS = 100;
+const float DELTA_T = 0.05;
+
+__device__ __managed__ float3 X[N_CELLS];
+__device__ __managed__ int connections[N_CONNECTIONS][2];
+
+
+__device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
+    float3 dF = {0.0f, 0.0f, 0.0f};
+    float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
+    if (dist > 1e-7) {
+        float F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
+        dF.x = r.x*F/dist;
+        dF.y = r.y*F/dist;
+        dF.z = r.z*F/dist;
+    }
+    assert(dF.x == dF.x); // For NaN f != f.
+    return dF;
+}
+
+
+__global__ void intercalate() {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < N_CONNECTIONS) {
+        float3 Xi = X[connections[i][0]];
+        float3 Xj = X[connections[i][1]];
+        float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+        float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+        X[connections[i][0]].x -= r.x/dist*DELTA_T;
+        X[connections[i][0]].y -= r.y/dist*DELTA_T;
+        X[connections[i][0]].z -= r.z/dist*DELTA_T;
+        X[connections[i][1]].x += r.x/dist*DELTA_T;
+        X[connections[i][1]].y += r.y/dist*DELTA_T;
+        X[connections[i][1]].z += r.z/dist*DELTA_T;
+    }
+}
+
+
+int main(int argc, char const *argv[]) {
+    // Prepare initial state
+    uniform_sphere(N_CELLS, R_MIN, X);
+    for (int i = 0; i < N_CONNECTIONS; i++) {
+        connections[i][0] = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
+        connections[i][1] = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
+    }
+
+    // Integrate cell positions
+    VtkOutput output("intercalation");
+    for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
+        output.write_positions(N_CELLS, X);
+        output.write_connections(N_CONNECTIONS, connections);
+
+        if (time_step < N_TIME_STEPS) {
+            euler_step(DELTA_T, N_CELLS, X);
+            intercalate<<<(N_CONNECTIONS + 16 - 1)/16, 16>>>();
+            cudaDeviceSynchronize();
+        }
+    }
+
+    return 0;
+}
