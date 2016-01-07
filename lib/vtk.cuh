@@ -3,37 +3,77 @@
 #include <cassert>
 #include <fstream>
 #include <sstream>
+#include <iostream>
+#include <iomanip>
+#include <time.h>
 
 
 class VtkOutput {
 public:
     VtkOutput(std::string base_name);
-    VtkOutput(std::string base_name, int SKIP_STEPS);
+    VtkOutput(std::string base_name, int N_TIME_STEPS);
+    VtkOutput(std::string base_name, int N_TIME_STEPS, int SKIP_STEPS);
+    ~VtkOutput(void);
     template<typename Positions> void write_positions(int n_cells, Positions X[]);
     template<typename Field> void write_field(int n_cells,
         const char* data_name, Field f[]);
     void write_connections(int n_connections, int connections[][2]);
 private:
+    int mN_TIME_STEPS = 0;
     int mSKIP_STEPS = 1;
     int mTimeStep = 0;
     std::string mBASE_NAME;
     std::string mCurrentFile;
-    bool mWriteFields = 0;
+    bool mWrite = 0;
+    time_t mStart;
 };
 
 VtkOutput::VtkOutput(std::string base_name) {
     mBASE_NAME = base_name;
     mkdir("output", 755);
+    time(&mStart);
 }
 
-VtkOutput::VtkOutput(std::string base_name, int SKIP_STEPS) {
+VtkOutput::VtkOutput(std::string base_name, int N_TIME_STEPS) {
     mBASE_NAME = base_name;
+    mN_TIME_STEPS = N_TIME_STEPS;
+    mkdir("output", 755);
+    time(&mStart);
+}
+
+VtkOutput::VtkOutput(std::string base_name, int N_TIME_STEPS, int SKIP_STEPS) {
+    mBASE_NAME = base_name;
+    mN_TIME_STEPS = N_TIME_STEPS;
     mSKIP_STEPS = SKIP_STEPS;
     mkdir("output", 755);
+    time(&mStart);
+}
+
+VtkOutput::~VtkOutput() {
+    time_t end = time(NULL), duration;
+
+    duration = end - mStart;
+    std::cout << "Integrating " << mBASE_NAME << ", ";
+    if (duration < 60)
+        std::cout << duration << " seconds";
+    else if (duration < 60*60)
+        std::cout << duration/60 << "m " << duration % 60 << "s";
+    else
+        std::cout << duration/60/60 << "h " << duration % 60*60 << "m";
+    std::cout << " taken." << std::endl;
 }
 
 template<typename Positions> void VtkOutput::write_positions(int n_cells, Positions X[]) {
     if (mTimeStep % mSKIP_STEPS == 0) {
+        std::cout << "Integrating " << mBASE_NAME << ", ";
+        if (mN_TIME_STEPS > 0) {
+            std::cout << std::setw(3)
+                << (int)(100.0*mTimeStep/mN_TIME_STEPS) << "% done\r";
+        } else {
+            std::cout << mTimeStep << " steps done\r";
+        }
+        std::cout.flush();
+
         std::stringstream file_name;
         file_name << "output/" << mBASE_NAME << "_" << mTimeStep/mSKIP_STEPS << ".vtk";
         mCurrentFile = file_name.str();
@@ -53,16 +93,16 @@ template<typename Positions> void VtkOutput::write_positions(int n_cells, Positi
         for (int i = 0; i < n_cells; i++)
             file << "1 " << i << "\n";
 
-        mWriteFields = 1;
+        mWrite = 1;
     } else {
-        mWriteFields = 0;
+        mWrite = 0;
     }
     mTimeStep += 1;
 }
 
 template<typename Field> void VtkOutput::write_field(int n_cells,
     const char* data_name, Field f[]) {
-    if (mWriteFields) {
+    if (mWrite) {
         std::ofstream file(mCurrentFile, std::ios_base::app);
         assert(file.is_open());
 
@@ -75,7 +115,7 @@ template<typename Field> void VtkOutput::write_field(int n_cells,
 }
 
 void VtkOutput::write_connections(int n_connections, int connections[][2]) {
-    if (mWriteFields) {
+    if (mWrite) {
         std::ofstream file(mCurrentFile, std::ios_base::app);
         assert(file.is_open());
 

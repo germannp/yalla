@@ -57,7 +57,7 @@ int main(int argc, char const *argv[]) {
     cudaDeviceSynchronize();
 
     // Integrate cell positions
-    VtkOutput output("sorting-lj", SKIP_STEPS);
+    VtkOutput output("sorting-lj", N_TIME_STEPS, SKIP_STEPS);
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         output.write_positions(N_CELLS, X);
         output.write_field(N_CELLS, "cell_type", cell_type);
