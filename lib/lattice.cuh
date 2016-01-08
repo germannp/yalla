@@ -20,7 +20,7 @@ __device__ __managed__ int cube_start[LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE];
 __device__ __managed__ int cube_end[LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE];
 
 
-__global__ void compute_cube_ids(int n_cells, float3 X[]) {
+__global__ void compute_cube_ids(int n_cells, const float3 __restrict__ X[]) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < n_cells) {
         float3 Xi = X[i];
@@ -55,7 +55,7 @@ __global__ void compute_cube_start_and_end(int n_cells) {
 }
 
 
-__global__ void calculate_dX(int n_cells, float3 X[], float3 dX[]) {
+__global__ void calculate_dX(int n_cells, const float3 __restrict__ X[], float3 dX[]) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < n_cells) {
         int interacting_cubes[27];

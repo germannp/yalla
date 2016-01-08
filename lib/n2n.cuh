@@ -11,7 +11,7 @@ extern __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int 
 
 
 // Calculate dX one thread per cell, to TILE_SIZE other bodies at a time
-__global__ void calculate_dX(int n_cells, float3 X[], float3 dX[]) {
+__global__ void calculate_dX(int n_cells, const float3 __restrict__ X[], float3 dX[]) {
     __shared__ float3 shX[TILE_SIZE];
     int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
     float3 Xi = X[cell_idx];

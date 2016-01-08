@@ -9,7 +9,8 @@ __global__ void reset_dX(int n_cells, float3 dX[]) {
     }
 }
 
-__global__ void integrate(int n_cells, float delta_t, float3 X[], float3 dX[]) {
+__global__ void integrate(int n_cells, float delta_t, float3 X[],
+    const float3 __restrict__ dX[]) {
     int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
     if (cell_idx < n_cells) {
         X[cell_idx].x += dX[cell_idx].x*delta_t;
