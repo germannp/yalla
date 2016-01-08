@@ -28,6 +28,7 @@ private:
     time_t mStart;
 };
 
+
 VtkOutput::VtkOutput(std::string base_name) {
     mBASE_NAME = base_name;
     mkdir("output", 755);
@@ -49,6 +50,7 @@ VtkOutput::VtkOutput(std::string base_name, int N_TIME_STEPS, int SKIP_STEPS) {
     time(&mStart);
 }
 
+
 VtkOutput::~VtkOutput() {
     time_t end = time(NULL), duration;
 
@@ -62,6 +64,7 @@ VtkOutput::~VtkOutput() {
         std::cout << duration/60/60 << "h " << duration % 60*60 << "m";
     std::cout << " taken." << std::endl;
 }
+
 
 template<typename Positions> void VtkOutput::write_positions(int n_cells, Positions X[]) {
     if (mTimeStep % mSKIP_STEPS == 0) {
