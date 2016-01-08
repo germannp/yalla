@@ -14,7 +14,7 @@ const float R_MIN = 0.6;
 const int N_CELLS = 1000;
 const float DELTA_T = 0.0025;
 
-__device__ __managed__ float3 X[N_CELLS];
+__device__ __managed__ float3 X[N_CELLS], dX[N_CELLS];
 
 
 // Smooth transition from step(x < 0) = 0 to step(x > 0) = 1 over dx
@@ -65,7 +65,7 @@ int main(int argc, char const *argv[]) {
         output.write_positions(N_CELLS, X);
 
         if (time_step*DELTA_T <= 1) {
-            euler_step(DELTA_T, N_CELLS, X);
+            euler_step(DELTA_T, N_CELLS, X, dX);
             squeeze<<<(N_CELLS + 16 - 1)/16, 16>>>(X, time_step);
             cudaDeviceSynchronize();
         }

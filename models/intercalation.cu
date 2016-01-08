@@ -15,9 +15,9 @@ const float R_MIN = 0.5;
 const int N_CELLS = 100;
 const int N_CONNECTIONS = 50;
 const int N_TIME_STEPS = 1000;
-const float DELTA_T = 0.05;
+const float DELTA_T = 0.1;
 
-__device__ __managed__ float3 X[N_CELLS];
+__device__ __managed__ float3 X[N_CELLS], dX[N_CELLS];
 __device__ __managed__ int connections[N_CONNECTIONS][2];
 __device__ __managed__ curandState rand_states[N_CONNECTIONS];
 
@@ -94,7 +94,7 @@ int main(int argc, char const *argv[]) {
         output.write_connections(N_CONNECTIONS, connections);
 
         if (time_step < N_TIME_STEPS) {
-            euler_step(DELTA_T, N_CELLS, X);
+            euler_step(DELTA_T, N_CELLS, X, dX);
             intercalate<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>();
             cudaDeviceSynchronize();
         }

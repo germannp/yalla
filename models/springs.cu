@@ -15,7 +15,7 @@ const float delta_t = 0.001;
 const uint N_CELLS = 800;
 const uint N_TIME_STEPS = 100;
 
-__device__ __managed__ float3 X[N_CELLS];
+__device__ __managed__ float3 X[N_CELLS], dX[N_CELLS];
 
 
 __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
@@ -47,7 +47,7 @@ int main(int argc, const char* argv[]) {
         output.write_positions(N_CELLS, X);
 
         if (time_step < N_TIME_STEPS) {
-            euler_step(delta_t, N_CELLS, X);
+            euler_step(delta_t, N_CELLS, X, dX);
         }
     }
 

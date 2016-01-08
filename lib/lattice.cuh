@@ -3,24 +3,26 @@
 #include <assert.h>
 #include <thrust/sort.h>
 
+#include "integrate.cuh"
+
 
 extern const float R_MAX;
 extern __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j);
 
-const int MAX_N_CELLS = 1e6;
+const int MAX_n_cells = 1e6;
 const int LATTICE_SIZE = 100;
 const int N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 const float CUBE_SIZE = 1;
 
-__device__ __managed__ int cube_id[MAX_N_CELLS];
-__device__ __managed__ int cell_id[MAX_N_CELLS];
+__device__ __managed__ int cube_id[MAX_n_cells];
+__device__ __managed__ int cell_id[MAX_n_cells];
 __device__ __managed__ int cube_start[LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE];
 __device__ __managed__ int cube_end[LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE];
 
 
-__global__ void compute_cube_ids(int N_CELLS, float3 X[]) {
+__global__ void compute_cube_ids(int n_cells, float3 X[]) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < N_CELLS) {
+    if (i < n_cells) {
         float3 Xi = X[i];
         int id = (int)(
             (floor(Xi.x/CUBE_SIZE) + LATTICE_SIZE/2) +
@@ -41,21 +43,21 @@ __global__ void reset_cube_start_and_end() {
     }
 }
 
-__global__ void compute_cube_start_and_end(int N_CELLS) {
+__global__ void compute_cube_start_and_end(int n_cells) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < N_CELLS) {
+    if (i < n_cells) {
         int cube = cube_id[i];
         int prev = i > 0 ? cube_id[i - 1] : -1;
         if (cube != prev) cube_start[cube] = i;
-        int next = i < N_CELLS ? cube_id[i + 1] : cube_id[i] + 1;
+        int next = i < n_cells ? cube_id[i + 1] : cube_id[i] + 1;
         if (cube != next) cube_end[cube] = i;
     }
 }
 
 
-__global__ void integrate_step(float delta_t, int N_CELLS, float3 X[]) {
+__global__ void calculate_dX(int n_cells, float3 X[], float3 dX[]) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < N_CELLS) {
+    if (i < n_cells) {
         int interacting_cubes[27];
         interacting_cubes[0] = cube_id[i] - 1;
         interacting_cubes[1] = cube_id[i];
@@ -69,38 +71,40 @@ __global__ void integrate_step(float delta_t, int N_CELLS, float3 X[]) {
             interacting_cubes[j + 18] = interacting_cubes[j % 9] + LATTICE_SIZE*LATTICE_SIZE;
         }
 
-        float3 dF, F  = {0.0f, 0.0f, 0.0f};
+        float3 Fij, F  = {0.0f, 0.0f, 0.0f};
         float3 Xi = X[cell_id[i]];
         for (int j = 0; j < 27; j++) {
             int cube = interacting_cubes[j];
             for (int k = cube_start[cube]; k <= cube_end[cube]; k++) {
                 float3 Xj = X[cell_id[k]];
-                dF = cell_cell_interaction(Xi, Xj, cell_id[i], cell_id[k]);
-                F.x += dF.x;
-                F.y += dF.y;
-                F.z += dF.z;
+                Fij = cell_cell_interaction(Xi, Xj, cell_id[i], cell_id[k]);
+                F.x += Fij.x;
+                F.y += Fij.y;
+                F.z += Fij.z;
             }
         }
-        X[cell_id[i]].x = Xi.x + F.x*delta_t;
-        X[cell_id[i]].y = Xi.y + F.y*delta_t;
-        X[cell_id[i]].z = Xi.z + F.z*delta_t;
+        dX[cell_id[i]].x = F.x;
+        dX[cell_id[i]].y = F.y;
+        dX[cell_id[i]].z = F.z;
     }
 }
 
 
-void euler_step(float delta_t, int N_CELLS, float3 X[]) {
+void euler_step(float delta_t, int n_cells, float3 X[], float3 dX[]) {
     assert(LATTICE_SIZE % 2 == 0); // Needed?
-    assert(N_CELLS <= MAX_N_CELLS);
+    assert(n_cells <= MAX_n_cells);
     assert(R_MAX <= CUBE_SIZE);
 
-    compute_cube_ids<<<(N_CELLS + 16 - 1)/16, 16>>>(N_CELLS, X);
+    compute_cube_ids<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X);
     cudaDeviceSynchronize();
-    thrust::sort_by_key(cube_id, cube_id + N_CELLS, cell_id);
+    thrust::sort_by_key(cube_id, cube_id + n_cells, cell_id);
     reset_cube_start_and_end<<<(N_CUBES + 16 - 1)/16, 16>>>();
     cudaDeviceSynchronize();
-    compute_cube_start_and_end<<<(N_CELLS + 16 - 1)/16, 16>>>(N_CELLS);
+    compute_cube_start_and_end<<<(n_cells + 16 - 1)/16, 16>>>(n_cells);
     cudaDeviceSynchronize();
 
-    integrate_step<<<(N_CELLS + 16 - 1)/16, 16>>>(delta_t, N_CELLS, X);
+    calculate_dX<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X, dX);
+    cudaDeviceSynchronize();
+    integrate<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, dX);
     cudaDeviceSynchronize();
 }

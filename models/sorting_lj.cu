@@ -16,7 +16,7 @@ const int N_TIME_STEPS = 50000;
 const int SKIP_STEPS = 100;
 const float DELTA_T = 0.0001;
 
-__device__ __managed__ float3 X[N_CELLS];
+__device__ __managed__ float3 X[N_CELLS], dX[N_CELLS];
 __device__ __managed__ curandState rand_states[N_CELLS];
 
 
@@ -63,7 +63,7 @@ int main(int argc, char const *argv[]) {
         output.write_field(N_CELLS, "cell_type", cell_type);
 
         if (time_step < N_TIME_STEPS) {
-            euler_step(DELTA_T, N_CELLS, X);
+            euler_step(DELTA_T, N_CELLS, X, dX);
         }
     }
 
