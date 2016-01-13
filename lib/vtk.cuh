@@ -84,7 +84,7 @@ template<typename Positions> void VtkOutput::write_positions(int n_cells, Positi
         assert(file.is_open());
 
         file << "# vtk DataFile Version 3.0\n";
-        file << file_name << "\n";
+        file << mBASE_NAME << "\n";
         file << "ASCII\n";
         file << "DATASET POLYDATA\n";
 
