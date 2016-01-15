@@ -14,7 +14,7 @@ public:
     VtkOutput(std::string base_name, int N_TIME_STEPS);
     VtkOutput(std::string base_name, int N_TIME_STEPS, int SKIP_STEPS);
     ~VtkOutput(void);
-    template<typename Positions> void write_positions(int n_cells, Positions X[]);
+    template<typename Pt> void write_positions(int n_cells, Pt X[]);
     template<typename Field> void write_field(int n_cells,
         const char* data_name, Field f[]);
     void write_connections(int n_connections, int connections[][2]);
@@ -66,7 +66,7 @@ VtkOutput::~VtkOutput() {
 }
 
 
-template<typename Positions> void VtkOutput::write_positions(int n_cells, Positions X[]) {
+template<typename Pt> void VtkOutput::write_positions(int n_cells, Pt X[]) {
     if (mTimeStep % mSKIP_STEPS == 0) {
         std::cout << "Integrating " << mBASE_NAME << ", ";
         if (mN_TIME_STEPS > 0) {

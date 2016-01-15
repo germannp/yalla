@@ -1,4 +1,14 @@
-// Kernels to perform Euler steps
+// Stuff to integrate float3 points
+__device__ void operator+=(float3& a, const float3& b) {
+    a.x += b.x;
+    a.y += b.y;
+    a.z += b.z;
+}
+
+__device__ float3 zero_Pt() {
+    float3 zero = {0.0, 0.0, 0.0};
+    return zero;
+}
 
 __global__ void reset_dX(int n_cells, float3 dX[]) {
     int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;

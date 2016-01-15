@@ -3,11 +3,12 @@
 #include <assert.h>
 #include <thrust/sort.h>
 
-#include "integrate.cuh"
+#include "integrutils.cuh"
 
 
 extern const float R_MAX;
-extern __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j);
+template<typename Pt>
+extern __device__ Pt cell_cell_interaction(Pt Xi, Pt Xj, int i, int j);
 
 const int MAX_n_cells = 1e6;
 const int LATTICE_SIZE = 100;
@@ -20,10 +21,11 @@ __device__ __managed__ int cube_start[LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE];
 __device__ __managed__ int cube_end[LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE];
 
 
-__global__ void compute_cube_ids(int n_cells, const float3 __restrict__ X[]) {
+template<typename Pt>
+__global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ X) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < n_cells) {
-        float3 Xi = X[i];
+        Pt Xi = X[i];
         int id = (int)(
             (floor(Xi.x/CUBE_SIZE) + LATTICE_SIZE/2) +
             (floor(Xi.y/CUBE_SIZE) + LATTICE_SIZE/2)*LATTICE_SIZE +
@@ -54,8 +56,8 @@ __global__ void compute_cube_start_and_end(int n_cells) {
     }
 }
 
-
-__global__ void calculate_dX(int n_cells, const float3 __restrict__ X[], float3 dX[]) {
+template<typename Pt>
+__global__ void calculate_dX(int n_cells, const Pt* __restrict__ X, Pt* dX) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < n_cells) {
         int interacting_cubes[27];
@@ -71,26 +73,22 @@ __global__ void calculate_dX(int n_cells, const float3 __restrict__ X[], float3 
             interacting_cubes[j + 18] = interacting_cubes[j % 9] + LATTICE_SIZE*LATTICE_SIZE;
         }
 
-        float3 Fij, F  = {0.0f, 0.0f, 0.0f};
-        float3 Xi = X[cell_id[i]];
+        Pt Fij, F  = zero_Pt();
+        Pt Xi = X[cell_id[i]];
         for (int j = 0; j < 27; j++) {
             int cube = interacting_cubes[j];
             for (int k = cube_start[cube]; k <= cube_end[cube]; k++) {
-                float3 Xj = X[cell_id[k]];
+                Pt Xj = X[cell_id[k]];
                 Fij = cell_cell_interaction(Xi, Xj, cell_id[i], cell_id[k]);
-                F.x += Fij.x;
-                F.y += Fij.y;
-                F.z += Fij.z;
+                F += Fij;
             }
         }
-        dX[cell_id[i]].x = F.x;
-        dX[cell_id[i]].y = F.y;
-        dX[cell_id[i]].z = F.z;
+        dX[cell_id[i]] = F;
     }
 }
 
-
-void euler_step(float delta_t, int n_cells, float3 X[], float3 dX[]) {
+template<typename Pt>
+void euler_step(float delta_t, int n_cells, Pt* X, Pt* dX) {
     assert(LATTICE_SIZE % 2 == 0); // Needed?
     assert(n_cells <= MAX_n_cells);
     assert(R_MAX <= CUBE_SIZE);
