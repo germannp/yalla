@@ -10,17 +10,17 @@
 
 class VtkOutput {
 public:
-    VtkOutput(std::string base_name);
-    VtkOutput(std::string base_name, int N_TIME_STEPS);
     VtkOutput(std::string base_name, int N_TIME_STEPS, int SKIP_STEPS);
+    VtkOutput(std::string base_name, int N_TIME_STEPS) : VtkOutput(base_name, N_TIME_STEPS, 1) {};
+    VtkOutput(std::string base_name) : VtkOutput(base_name, 0, 1) {};
     ~VtkOutput(void);
     template<typename Pt> void write_positions(int n_cells, Pt X[]);
     template<typename Field> void write_field(int n_cells,
         const char* data_name, Field f[]);
     void write_connections(int n_connections, int connections[][2]);
 private:
-    int mN_TIME_STEPS = 0;
-    int mSKIP_STEPS = 1;
+    int mN_TIME_STEPS;
+    int mSKIP_STEPS;
     int mTimeStep = 0;
     std::string mBASE_NAME;
     std::string mCurrentFile;
@@ -28,19 +28,6 @@ private:
     time_t mStart;
 };
 
-
-VtkOutput::VtkOutput(std::string base_name) {
-    mBASE_NAME = base_name;
-    mkdir("output", 755);
-    time(&mStart);
-}
-
-VtkOutput::VtkOutput(std::string base_name, int N_TIME_STEPS) {
-    mBASE_NAME = base_name;
-    mN_TIME_STEPS = N_TIME_STEPS;
-    mkdir("output", 755);
-    time(&mStart);
-}
 
 VtkOutput::VtkOutput(std::string base_name, int N_TIME_STEPS, int SKIP_STEPS) {
     mBASE_NAME = base_name;
