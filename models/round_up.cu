@@ -57,7 +57,7 @@ __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_sphere(N_CELLS, R_MIN+0.1, X);
+    uniform_sphere(N_CELLS, 0.733333, X);
 
     // Integrate cell positions
     VtkOutput output("round_up");
