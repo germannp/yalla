@@ -3,7 +3,7 @@
 #include <cmath>
 #include <sys/stat.h>
 
-#include "../lib/sphere.cuh"
+#include "../lib/inits.cuh"
 #include "../lib/vtk.cuh"
 // #include "../lib/n2n.cuh"
 #include "../lib/lattice.cuh"

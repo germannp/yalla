@@ -4,7 +4,7 @@
 #include <sys/stat.h>
 #include <curand_kernel.h>
 
-#include "../lib/sphere.cuh"
+#include "../lib/inits.cuh"
 #include "../lib/vtk.cuh"
 #include "../lib/n2n.cuh"
 
