@@ -12,15 +12,14 @@
 
 const float R_MAX = 1;
 const float R_MIN = 0.5;
-const int N_CELLS = 100;
-const int N_CONNECTIONS = 50;
+const int N_CELLS = 500;
+const int N_CONNECTIONS = 250;
 const int N_TIME_STEPS = 1000;
 const float DELTA_T = 0.1;
 
 __device__ __managed__ float3 X[N_CELLS], dX[N_CELLS];
 __device__ __managed__ int connections[N_CONNECTIONS][2];
 __device__ __managed__ curandState rand_states[N_CONNECTIONS];
-
 
 __global__ void setup_rand_states() {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
@@ -61,7 +60,7 @@ __global__ void intercalate() {
         int k = (int)(curand_uniform(&rand_states[i])*N_CELLS);
         r = {X[j].x - X[k].x, X[j].y - X[k].y, X[j].z - X[k].z};
         dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-        if (fabs(r.x/dist) < 0.2) {
+        if ((fabs(r.x/dist) < 0.2) && (j != k) && (dist < 2)) {
             connections[i][0] = j;
             connections[i][1] = k;
         }
@@ -80,19 +79,17 @@ int main(int argc, char const *argv[]) {
         int k = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
         float3 r = {X[j].x - X[k].x, X[j].y - X[k].y, X[j].z - X[k].z};
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-        if (fabs(r.x/dist) < 0.2) {
+        if ((fabs(r.x/dist) < 0.2) && (j != k) && (dist < 2)) {
             connections[i][0] = j;
             connections[i][1] = k;
             i++;
         }
     }
-
     // Integrate cell positions
     VtkOutput output("intercalation");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         output.write_positions(N_CELLS, X);
         output.write_connections(N_CONNECTIONS, connections);
-
         if (time_step < N_TIME_STEPS) {
             euler_step(DELTA_T, N_CELLS, X, dX);
             intercalate<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>();
