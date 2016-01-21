@@ -21,6 +21,7 @@ __device__ __managed__ float3 X[N_CELLS], dX[N_CELLS];
 __device__ __managed__ int connections[N_CONNECTIONS][2];
 __device__ __managed__ curandState rand_states[N_CONNECTIONS];
 
+
 __global__ void setup_rand_states() {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < N_CELLS) curand_init(1337, i, 0, &rand_states[i]);
