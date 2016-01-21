@@ -85,6 +85,7 @@ int main(int argc, char const *argv[]) {
             i++;
         }
     }
+
     // Integrate cell positions
     VtkOutput output("intercalation");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
