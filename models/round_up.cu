@@ -24,8 +24,7 @@ __device__ float step(float x) {
     return x*x*(3 - 2*x);
 }
 
-// Squeeze against floor
-__global__ void squeeze(float3 X[], float time_step) {
+__global__ void squeeze_to_floor(float3 X[], float time_step) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     float time = time_step*DELTA_T;
     if (i < N_CELLS) {
@@ -67,7 +66,7 @@ int main(int argc, char const *argv[]) {
 
         if (time_step*DELTA_T <= 1) {
             euler_step(DELTA_T, N_CELLS, X, dX);
-            squeeze<<<(N_CELLS + 16 - 1)/16, 16>>>(X, time_step);
+            squeeze_to_floor<<<(N_CELLS + 16 - 1)/16, 16>>>(X, time_step);
             cudaDeviceSynchronize();
         }
     }
