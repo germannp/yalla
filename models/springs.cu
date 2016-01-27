@@ -11,14 +11,14 @@
 
 
 const float L_0 = 0.5; // Relaxed spring length
-const float delta_t = 0.001;
+const float DELTA_T = 0.001;
 const uint N_CELLS = 800;
 const uint N_TIME_STEPS = 100;
 
-__device__ __managed__ float3 X[N_CELLS], dX[N_CELLS];
+__device__ __managed__ float3 X[N_CELLS], dX[N_CELLS], X1[N_CELLS], dX1[N_CELLS];
 
 
-__device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 neighbourhood_interaction(float3 Xi, float3 Xj, int i, int j) {
     float3 r;
     float3 dF = {0.0f, 0.0f, 0.0f};
     r.x = Xi.x - Xj.x;
@@ -35,6 +35,9 @@ __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
 }
 
 
+void global_interactions(const __restrict__ float3* X, float3* dX) {}
+
+
 int main(int argc, const char* argv[]) {
     assert(N_CELLS % TILE_SIZE == 0);
 
@@ -47,7 +50,7 @@ int main(int argc, const char* argv[]) {
         output.write_positions(N_CELLS, X);
 
         if (time_step < N_TIME_STEPS) {
-            euler_step(delta_t, N_CELLS, X, dX);
+            heun_step(DELTA_T, N_CELLS, X, dX, X1, dX1);
         }
     }
 

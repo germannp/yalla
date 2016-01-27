@@ -15,20 +15,14 @@ const float R_MIN = 0.5;
 const int N_CELLS = 500;
 const int N_CONNECTIONS = 250;
 const int N_TIME_STEPS = 1000;
-const float DELTA_T = 0.1;
+const float DELTA_T = 0.2;
 
-__device__ __managed__ float3 X[N_CELLS], dX[N_CELLS];
+__device__ __managed__ float3 X[N_CELLS], dX[N_CELLS], X1[N_CELLS], dX1[N_CELLS];
 __device__ __managed__ int connections[N_CONNECTIONS][2];
 __device__ __managed__ curandState rand_states[N_CONNECTIONS];
 
 
-__global__ void setup_rand_states() {
-    int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < N_CELLS) curand_init(1337, i, 0, &rand_states[i]);
-}
-
-
-__device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 neighbourhood_interaction(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
@@ -43,19 +37,40 @@ __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
 }
 
 
-__global__ void intercalate() {
+__global__ void setup_rand_states() {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < N_CELLS) curand_init(1337, i, 0, &rand_states[i]);
+}
+
+__global__ void intercalate(const __restrict__ float3* X, float3* dX) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < N_CONNECTIONS) {
         float3 Xi = X[connections[i][0]];
         float3 Xj = X[connections[i][1]];
         float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-        X[connections[i][0]].x -= r.x/dist*DELTA_T/5;
-        X[connections[i][0]].y -= r.y/dist*DELTA_T/5;
-        X[connections[i][0]].z -= r.z/dist*DELTA_T/5;
-        X[connections[i][1]].x += r.x/dist*DELTA_T/5;
-        X[connections[i][1]].y += r.y/dist*DELTA_T/5;
-        X[connections[i][1]].z += r.z/dist*DELTA_T/5;
+
+        dX[connections[i][0]].x -= r.x/dist/5;
+        dX[connections[i][0]].y -= r.y/dist/5;
+        dX[connections[i][0]].z -= r.z/dist/5;
+        dX[connections[i][1]].x += r.x/dist/5;
+        dX[connections[i][1]].y += r.y/dist/5;
+        dX[connections[i][1]].z += r.z/dist/5;
+    }
+}
+
+void global_interactions(const __restrict__ float3* X, float3* dX) {
+    intercalate<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>(X, dX);
+    cudaDeviceSynchronize();
+}
+
+__global__ void update_connections() {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < N_CONNECTIONS) {
+        float3 Xi = X[connections[i][0]];
+        float3 Xj = X[connections[i][1]];
+        float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+        float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
 
         int j = (int)(curand_uniform(&rand_states[i])*N_CELLS);
         int k = (int)(curand_uniform(&rand_states[i])*N_CELLS);
@@ -93,8 +108,8 @@ int main(int argc, char const *argv[]) {
         output.write_positions(N_CELLS, X);
         output.write_connections(N_CONNECTIONS, connections);
         if (time_step < N_TIME_STEPS) {
-            euler_step(DELTA_T, N_CELLS, X, dX);
-            intercalate<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>();
+            heun_step(DELTA_T, N_CELLS, X, dX, X1, dX1);
+            update_connections<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>();
             cudaDeviceSynchronize();
         }
     }

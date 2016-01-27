@@ -10,21 +10,31 @@ __device__ float3 zero_Pt() {
     return zero;
 }
 
-__global__ void reset_dX(int n_cells, float3 dX[]) {
-    int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
-    if (cell_idx < n_cells) {
-        dX[cell_idx].x = 0;
-        dX[cell_idx].y = 0;
-        dX[cell_idx].z = 0;
+__global__ void reset_dX(int n_cells, float3* dX) {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < n_cells) {
+        dX[i].x = 0;
+        dX[i].y = 0;
+        dX[i].z = 0;
     }
 }
 
-__global__ void integrate(int n_cells, float delta_t, float3 X[],
-    const float3 __restrict__ dX[]) {
-    int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
-    if (cell_idx < n_cells) {
-        X[cell_idx].x += dX[cell_idx].x*delta_t;
-        X[cell_idx].y += dX[cell_idx].y*delta_t;
-        X[cell_idx].z += dX[cell_idx].z*delta_t;
+__global__ void integrate(int n_cells, float delta_t, const float3* __restrict__ X0,
+    float3* X, const float3* __restrict__ dX) {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < n_cells) {
+        X[i].x = X0[i].x + dX[i].x*delta_t;
+        X[i].y = X0[i].y + dX[i].y*delta_t;
+        X[i].z = X0[i].z + dX[i].z*delta_t;
+    }
+}
+
+__global__ void integrate(int n_cells, float delta_t, const float3* __restrict__ X0,
+    float3* X, const float3* __restrict__ dX, const float3* __restrict__ dX1) {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < n_cells) {
+        X[i].x = X0[i].x + (dX[i].x + dX1[i].x)*0.5*delta_t;
+        X[i].y = X0[i].y + (dX[i].y + dX1[i].y)*0.5*delta_t;
+        X[i].z = X0[i].z + (dX[i].z + dX1[i].z)*0.5*delta_t;
     }
 }

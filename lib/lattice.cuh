@@ -8,7 +8,9 @@
 
 extern const float R_MAX;
 template<typename Pt>
-extern __device__ Pt cell_cell_interaction(Pt Xi, Pt Xj, int i, int j);
+extern __device__ Pt neighbourhood_interaction(Pt Xi, Pt Xj, int i, int j);
+template<typename Pt>
+extern void global_interactions(const __restrict__ Pt* X, Pt* dX);
 
 const int MAX_n_cells = 1e6;
 const int LATTICE_SIZE = 100;
@@ -79,7 +81,7 @@ __global__ void calculate_dX(int n_cells, const Pt* __restrict__ X, Pt* dX) {
             int cube = interacting_cubes[j];
             for (int k = cube_start[cube]; k <= cube_end[cube]; k++) {
                 Pt Xj = X[cell_id[k]];
-                Fij = cell_cell_interaction(Xi, Xj, cell_id[i], cell_id[k]);
+                Fij = neighbourhood_interaction(Xi, Xj, cell_id[i], cell_id[k]);
                 F += Fij;
             }
         }
@@ -88,11 +90,12 @@ __global__ void calculate_dX(int n_cells, const Pt* __restrict__ X, Pt* dX) {
 }
 
 template<typename Pt>
-void euler_step(float delta_t, int n_cells, Pt* X, Pt* dX) {
+void heun_step(float delta_t, int n_cells, Pt* X, Pt* dX, Pt* X1, Pt* dX1) {
     assert(LATTICE_SIZE % 2 == 0); // Needed?
     assert(n_cells <= MAX_n_cells);
     assert(R_MAX <= CUBE_SIZE);
 
+    // 1st step
     compute_cube_ids<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X);
     cudaDeviceSynchronize();
     thrust::sort_by_key(cube_id, cube_id + n_cells, cell_id);
@@ -103,6 +106,22 @@ void euler_step(float delta_t, int n_cells, Pt* X, Pt* dX) {
 
     calculate_dX<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X, dX);
     cudaDeviceSynchronize();
-    integrate<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, dX);
+    global_interactions(X, dX);
+    integrate<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X1, dX);
+    cudaDeviceSynchronize();
+
+    // 2nd step
+    compute_cube_ids<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X1);
+    cudaDeviceSynchronize();
+    thrust::sort_by_key(cube_id, cube_id + n_cells, cell_id);
+    reset_cube_start_and_end<<<(N_CUBES + 16 - 1)/16, 16>>>();
+    cudaDeviceSynchronize();
+    compute_cube_start_and_end<<<(n_cells + 16 - 1)/16, 16>>>(n_cells);
+    cudaDeviceSynchronize();
+
+    calculate_dX<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X1, dX1);
+    cudaDeviceSynchronize();
+    global_interactions(X1, dX1);
+    integrate<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X, dX, dX1);
     cudaDeviceSynchronize();
 }

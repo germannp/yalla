@@ -16,11 +16,11 @@ const int N_TIME_STEPS = 50000;
 const int SKIP_STEPS = 100;
 const float DELTA_T = 0.0001;
 
-__device__ __managed__ float3 X[N_CELLS], dX[N_CELLS];
+__device__ __managed__ float3 X[N_CELLS], dX[N_CELLS], X1[N_CELLS], dX1[N_CELLS];
 __device__ __managed__ curandState rand_states[N_CELLS];
 
 
-__device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 neighbourhood_interaction(float3 Xi, float3 Xj, int i, int j) {
     int strength = (1 + 2*(j < N_CELLS/2))*(1 + 2*(i < N_CELLS/2));
     float3 dF = {0.0f, 0.0f, 0.0f};
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
@@ -38,6 +38,9 @@ __device__ float3 cell_cell_interaction(float3 Xi, float3 Xj, int i, int j) {
     assert(dF.x == dF.x); // For NaN f != f.
     return dF;
 }
+
+
+void global_interactions(const __restrict__ float3* X, float3* dX) {}
 
 
 __global__ void setup_rand_states() {
@@ -63,7 +66,7 @@ int main(int argc, char const *argv[]) {
         output.write_field(N_CELLS, "cell_type", cell_type);
 
         if (time_step < N_TIME_STEPS) {
-            euler_step(DELTA_T, N_CELLS, X, dX);
+            heun_step(DELTA_T, N_CELLS, X, dX, X1, dX1);
         }
     }
 
