@@ -19,8 +19,8 @@ const float CUBE_SIZE = 1;
 
 __device__ __managed__ int cube_id[MAX_n_cells];
 __device__ __managed__ int cell_id[MAX_n_cells];
-__device__ __managed__ int cube_start[LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE];
-__device__ __managed__ int cube_end[LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE];
+__device__ __managed__ int cube_start[N_CUBES];
+__device__ __managed__ int cube_end[N_CUBES];
 
 
 template<typename Pt>
@@ -33,7 +33,7 @@ __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ X) {
             (floor(Xi.y/CUBE_SIZE) + LATTICE_SIZE/2)*LATTICE_SIZE +
             (floor(Xi.z/CUBE_SIZE) + LATTICE_SIZE/2)*LATTICE_SIZE*LATTICE_SIZE);
         assert(id >= 0);
-        assert(id <= LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE);
+        assert(id <= N_CUBES);
         cube_id[i] = id;
         cell_id[i] = i;
     }
