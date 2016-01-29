@@ -2,6 +2,7 @@
 // http://docs.nvidia.com/cuda/samples/5_Simulations/particles/doc/particles.pdf
 #include <assert.h>
 #include <thrust/sort.h>
+#include <thrust/execution_policy.h>
 
 #include "integrutils.cuh"
 
@@ -13,7 +14,7 @@ template<typename Pt>
 extern void global_interactions(const __restrict__ Pt* X, Pt* dX);
 
 const int MAX_n_cells = 1e6;
-const int LATTICE_SIZE = 100;
+const int LATTICE_SIZE = 50;
 const int N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 const float CUBE_SIZE = 1;
 
@@ -96,12 +97,12 @@ void heun_step(float delta_t, int n_cells, Pt* X, Pt* dX, Pt* X1, Pt* dX1) {
     assert(R_MAX <= CUBE_SIZE);
 
     // 1st step
-    compute_cube_ids<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X);
+    compute_cube_ids<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, X);
     cudaDeviceSynchronize();
-    thrust::sort_by_key(cube_id, cube_id + n_cells, cell_id);
-    reset_cube_start_and_end<<<(N_CUBES + 16 - 1)/16, 16>>>();
+    thrust::sort_by_key(thrust::device, cube_id, cube_id + n_cells, cell_id);
+    reset_cube_start_and_end<<<(N_CUBES + 32 - 1)/32, 32>>>();
     cudaDeviceSynchronize();
-    compute_cube_start_and_end<<<(n_cells + 16 - 1)/16, 16>>>(n_cells);
+    compute_cube_start_and_end<<<(n_cells + 32 - 1)/32, 32>>>(n_cells);
     cudaDeviceSynchronize();
 
     calculate_dX<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X, dX);
@@ -111,12 +112,12 @@ void heun_step(float delta_t, int n_cells, Pt* X, Pt* dX, Pt* X1, Pt* dX1) {
     cudaDeviceSynchronize();
 
     // 2nd step
-    compute_cube_ids<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X1);
+    compute_cube_ids<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, X1);
     cudaDeviceSynchronize();
-    thrust::sort_by_key(cube_id, cube_id + n_cells, cell_id);
-    reset_cube_start_and_end<<<(N_CUBES + 16 - 1)/16, 16>>>();
+    thrust::sort_by_key(thrust::device, cube_id, cube_id + n_cells, cell_id);
+    reset_cube_start_and_end<<<(N_CUBES + 32 - 1)/32, 32>>>();
     cudaDeviceSynchronize();
-    compute_cube_start_and_end<<<(n_cells + 16 - 1)/16, 16>>>(n_cells);
+    compute_cube_start_and_end<<<(n_cells + 32 - 1)/32, 32>>>(n_cells);
     cudaDeviceSynchronize();
 
     calculate_dX<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X1, dX1);
