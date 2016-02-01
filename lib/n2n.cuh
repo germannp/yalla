@@ -19,7 +19,7 @@ __global__ void calculate_dX(int n_cells, const Pt* __restrict__ X, Pt* dX) {
     __shared__ Pt shX[TILE_SIZE];
     int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
     Pt Xi = X[cell_idx];
-    Pt dFi = zero_Pt();
+    Pt dFi = zero_Pt(&dFi);
 
     for (int tile_start = 0; tile_start < n_cells; tile_start += TILE_SIZE) {
         int other_cell_idx = tile_start + threadIdx.x;

@@ -76,7 +76,7 @@ __global__ void calculate_dX(int n_cells, const Pt* __restrict__ X, Pt* dX) {
             interacting_cubes[j + 18] = interacting_cubes[j % 9] + LATTICE_SIZE*LATTICE_SIZE;
         }
 
-        Pt Fij, F  = zero_Pt();
+        Pt Fij, F = zero_Pt(&F);
         Pt Xi = X[cell_id[i]];
         for (int j = 0; j < 27; j++) {
             int cube = interacting_cubes[j];
