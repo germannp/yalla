@@ -42,8 +42,10 @@ void global_interactions(const __restrict__ float3* X, float3* dX) {}
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_circle(N_CELLS, 0.733333/2, X);
-    X[0].x = 0.2;
+    uniform_circle(N_CELLS, 0.733333/1.5, X);
+    for (int i = 0; i < N_CELLS; i++) {
+        X[i].x = sin(X[i].y);
+    }
 
     // Integrate cell positions
     VtkOutput output("layer");
