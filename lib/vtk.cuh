@@ -15,8 +15,7 @@ public:
     VtkOutput(std::string base_name) : VtkOutput(base_name, 0, 1) {};
     ~VtkOutput(void);
     template<typename Pt> void write_positions(int n_cells, Pt X[]);
-    template<typename Field> void write_field(int n_cells,
-        const char* data_name, Field f[]);
+    void write_type(int n_cells, int type[]);
     void write_field(int n_cells, const char* data_name, float4 f[]);
     void write_connections(int n_connections, int connections[][2]);
 private:
@@ -91,17 +90,16 @@ template<typename Pt> void VtkOutput::write_positions(int n_cells, Pt X[]) {
     mTimeStep += 1;
 }
 
-template<typename Field> void VtkOutput::write_field(int n_cells,
-    const char* data_name, Field f[]) {
+void VtkOutput::write_type(int n_cells, int type[]) {
     if (mWrite) {
         std::ofstream file(mCurrentFile, std::ios_base::app);
         assert(file.is_open());
 
         file << "\nPOINT_DATA " << n_cells << "\n";
-        file << "SCALARS " << data_name << " int\n";
+        file << "SCALARS cell_type int\n";
         file << "LOOKUP_TABLE default\n";
         for (int i = 0; i < n_cells; i++)
-            file << f[i] << "\n";
+            file << type[i] << "\n";
     }
 }
 
@@ -111,7 +109,7 @@ void VtkOutput::write_field(int n_cells, const char* data_name, float4 f[]) {
         assert(file.is_open());
 
         file << "\nPOINT_DATA " << n_cells << "\n";
-        file << "SCALARS " << data_name << " int\n";
+        file << "SCALARS " << data_name << " float\n";
         file << "LOOKUP_TABLE default\n";
         for (int i = 0; i < n_cells; i++)
             file << f[i].w << "\n";
