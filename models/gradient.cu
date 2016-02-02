@@ -28,10 +28,11 @@ __device__ float4 neighbourhood_interaction(float4 Xi, float4 Xj, int i, int j) 
         float strength = 100;
         float F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1)
             + strength*powf(R_MAX - dist, n);
+        float D = dist > 1 ? 0 : 10;
         dF.x = r.x*F/dist;
         dF.y = r.y*F/dist;
         dF.z = r.z*F/dist;
-        dF.w = i == 0 ? 0 : -r.w/powf(dist/2, 2);
+        dF.w = i == 0 ? 0 : -r.w*D;
     }
     assert(dF.x == dF.x); // For NaN f != f.
     return dF;
