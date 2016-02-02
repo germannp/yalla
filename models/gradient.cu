@@ -23,7 +23,7 @@ __device__ float4 neighbourhood_interaction(float4 Xi, float4 Xj, int i, int j) 
     float4 dF = {0.0f, 0.0f, 0.0f, 0.0f};
     float4 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z, Xi.w - Xj.w};
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
-    if (dist > 1e-7) {
+    if (i != j) {
         int n = 2;
         float strength = 100;
         float F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1)

@@ -25,7 +25,7 @@ __device__ float3 neighbourhood_interaction(float3 Xi, float3 Xj, int i, int j) 
     r.y = Xi.y - Xj.y;
     r.z = Xi.z - Xj.z;
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if (dist > 1e-7) {
+    if (i != j) {
         dF.x = r.x*(L_0 - dist)/dist;
         dF.y = r.y*(L_0 - dist)/dist;
         dF.z = r.z*(L_0 - dist)/dist;
