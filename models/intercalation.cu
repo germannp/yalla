@@ -59,7 +59,7 @@ __global__ void intercalate(const __restrict__ float3* X, float3* dX) {
     }
 }
 
-void global_interactions(const __restrict__ float3* X, float3* dX) {
+void global_interactions(const float3* __restrict__ X, float3* dX) {
     intercalate<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>(X, dX);
     cudaDeviceSynchronize();
 }

@@ -54,7 +54,7 @@ __global__ void squeeze_to_floor(const __restrict__ float3* X, float3* dX) {
     }
 }
 
-void global_interactions(const __restrict__ float3* X, float3* dX) {
+void global_interactions(const float3* __restrict__ X, float3* dX) {
     squeeze_to_floor<<<(N_CELLS + 16 - 1)/16, 16>>>(X, dX);
     cudaDeviceSynchronize();
 }

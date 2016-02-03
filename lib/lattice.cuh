@@ -11,7 +11,7 @@ extern const float R_MAX;
 template<typename Pt>
 extern __device__ Pt neighbourhood_interaction(Pt Xi, Pt Xj, int i, int j);
 template<typename Pt>
-extern void global_interactions(const __restrict__ Pt* X, Pt* dX);
+extern void global_interactions(const Pt* __restrict__ X, Pt* dX);
 
 const int MAX_n_cells = 1e6;
 const int LATTICE_SIZE = 50;

@@ -40,7 +40,7 @@ __device__ float3 neighbourhood_interaction(float3 Xi, float3 Xj, int i, int j) 
 }
 
 
-void global_interactions(const __restrict__ float3* X, float3* dX) {}
+void global_interactions(const float3* __restrict__ X, float3* dX) {}
 
 
 __global__ void setup_rand_states() {

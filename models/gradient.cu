@@ -39,7 +39,7 @@ __device__ float4 neighbourhood_interaction(float4 Xi, float4 Xj, int i, int j) 
 }
 
 
-void global_interactions(const __restrict__ float4* X, float4* dX) {}
+void global_interactions(const float4* __restrict__ X, float4* dX) {}
 
 
 int main(int argc, char const *argv[]) {

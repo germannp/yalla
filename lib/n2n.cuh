@@ -10,7 +10,7 @@ const uint TILE_SIZE = 32;
 template<typename Pt>
 extern __device__ Pt neighbourhood_interaction(Pt Xi, Pt Xj, int i, int j);
 template<typename Pt>
-extern void global_interactions(const __restrict__ Pt* X, Pt* dX);
+extern void global_interactions(const Pt* __restrict__ X, Pt* dX);
 
 
 // Calculate dX one thread per cell, to TILE_SIZE other bodies at a time
