@@ -4,7 +4,7 @@
 #include <thrust/sort.h>
 #include <thrust/execution_policy.h>
 
-#include "integrutils.cuh"
+#include "dtypes.cuh"
 
 
 extern const float R_MAX;

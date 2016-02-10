@@ -2,7 +2,7 @@
 // after http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html.
 #include <assert.h>
 
-#include "integrutils.cuh"
+#include "dtypes.cuh"
 
 
 const uint TILE_SIZE = 32;
