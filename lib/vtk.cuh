@@ -18,7 +18,7 @@ public:
     void write_type(int n_cells, int type[]);
     void write_field(int n_cells, const char* data_name, float4 f[]);
     void write_connections(int n_connections, int connections[][2]);
-private:
+protected:
     int mN_TIME_STEPS;
     int mSKIP_STEPS;
     int mTimeStep = 0;
