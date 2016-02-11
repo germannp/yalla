@@ -52,7 +52,7 @@ int main(int argc, char const *argv[]) {
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         output.write_positions(N_CELLS, X);
 
-        if (time_step*DELTA_T <= 1) {
+        if (time_step < N_TIME_STEPS) {
             heun_step(DELTA_T, N_CELLS, X, dX, X1, dX1);
         }
     }

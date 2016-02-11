@@ -55,7 +55,7 @@ int main(int argc, char const *argv[]) {
         output.write_positions(N_CELLS, X);
         output.write_field(N_CELLS, "w", X);
 
-        if (time_step*DELTA_T <= 1) {
+        if (time_step < N_TIME_STEPS) {
             heun_step(DELTA_T, N_CELLS, X, dX, X1, dX1);
         }
     }
