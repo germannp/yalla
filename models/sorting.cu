@@ -4,9 +4,8 @@
 #include <sys/stat.h>
 
 #include "../lib/inits.cuh"
+#include "../lib/solvers.cuh"
 #include "../lib/vtk.cuh"
-// #include "../lib/n2n.cuh"
-#include "../lib/lattice.cuh"
 
 
 const float R_MAX = 1;
@@ -15,7 +14,8 @@ const int N_CELLS = 100;
 const int N_TIME_STEPS = 300;
 const float DELTA_T = 0.05;
 
-__device__ __managed__ float3 X[N_CELLS], dX[N_CELLS], X1[N_CELLS], dX1[N_CELLS];
+__device__ __managed__ float3 X[N_CELLS];
+__device__ __managed__ LatticeSolver<float3, N_CELLS> solver;
 
 
 __device__ float3 neighbourhood_interaction(float3 Xi, float3 Xj, int i, int j) {
@@ -52,7 +52,7 @@ int main(int argc, char const *argv[]) {
         output.write_type(N_CELLS, cell_type);
 
         if (time_step < N_TIME_STEPS) {
-            heun_step(DELTA_T, N_CELLS, X, dX, X1, dX1);
+            solver.step(DELTA_T, N_CELLS, X);
         }
     }
 

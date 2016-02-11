@@ -5,8 +5,8 @@
 #include <curand_kernel.h>
 
 #include "../lib/inits.cuh"
+#include "../lib/solvers.cuh"
 #include "../lib/vtk.cuh"
-#include "../lib/n2n.cuh"
 
 
 const float R_MIN = 0.5;
@@ -16,7 +16,8 @@ const int N_TIME_STEPS = 50000;
 const int SKIP_STEPS = 100;
 const float DELTA_T = 0.0001;
 
-__device__ __managed__ float3 X[N_CELLS], dX[N_CELLS], X1[N_CELLS], dX1[N_CELLS];
+__device__ __managed__ float3 X[N_CELLS];
+__device__ __managed__ N2nSolver<float3, N_CELLS> solver;
 __device__ __managed__ curandState rand_states[N_CELLS];
 
 
@@ -66,7 +67,7 @@ int main(int argc, char const *argv[]) {
         output.write_type(N_CELLS, cell_type);
 
         if (time_step < N_TIME_STEPS) {
-            heun_step(DELTA_T, N_CELLS, X, dX, X1, dX1);
+            solver.step(DELTA_T, N_CELLS, X);
         }
     }
 
