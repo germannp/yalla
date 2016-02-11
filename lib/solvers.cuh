@@ -93,7 +93,7 @@ protected:
 
 template<typename Pt>
 __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ X,
-    int cube_id[], int cell_id[]) {
+    int* cube_id, int* cell_id) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < n_cells) {
         Pt Xi = X[i];
@@ -108,7 +108,7 @@ __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ X,
     }
 }
 
-__global__ void reset_cube_start_and_end(int cube_start[], int cube_end[]) {
+__global__ void reset_cube_start_and_end(int* cube_start, int* cube_end) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < N_CUBES) {
         cube_start[i] = -1;
@@ -116,8 +116,8 @@ __global__ void reset_cube_start_and_end(int cube_start[], int cube_end[]) {
     }
 }
 
-__global__ void compute_cube_start_and_end(int n_cells, int cube_id[],
-    int cube_start[], int cube_end[]) {
+__global__ void compute_cube_start_and_end(int n_cells, const int* __restrict__ cube_id,
+    int* cube_start, int* cube_end) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < n_cells) {
         int cube = cube_id[i];
@@ -130,7 +130,8 @@ __global__ void compute_cube_start_and_end(int n_cells, int cube_id[],
 
 template<typename Pt>
 __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
-    int cell_id[], int cube_id[], int cube_start[], int cube_end[]) {
+    const int* __restrict__ cell_id, const int* __restrict__ cube_id,
+    const int* __restrict__ cube_start, const int* __restrict__ cube_end) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < n_cells) {
         int interacting_cubes[27];
