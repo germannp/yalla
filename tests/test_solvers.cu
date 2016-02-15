@@ -25,8 +25,19 @@ __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
 
 __device__ __managed__ nhoodint<float3> p_spring = spring;
 
+float3 center_of_mass(int N_CELLS, float3* X) {
+    float3 com = {0, 0, 0};
+    for (int i = 0; i < N_CELLS; i++) {
+        com.x += X[i].x/N_CELLS;
+        com.y += X[i].y/N_CELLS;
+        com.z += X[i].z/N_CELLS;
+    }
+    return com;
+}
+
 const char* test_n2n_tetrahedron() {
     uniform_sphere(4, 1, n2n.X);
+    float3 com_i = center_of_mass(4, n2n.X);
     for (int i = 0; i < 500; i++) {
         n2n.step(0.1, 4, p_spring);
     }
@@ -36,11 +47,16 @@ const char* test_n2n_tetrahedron() {
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
         mu_assert("ERROR: Spring not relaxed in n2n tetrahedron", mu_isclose(dist, 1));
     }
+    float3 com_f = center_of_mass(4, n2n.X);
+    mu_assert("ERROR: Momentum in n2n tetrahedron", mu_isclose(com_i.x, com_f.x));
+    mu_assert("ERROR: Momentum in n2n tetrahedron", mu_isclose(com_i.y, com_f.y));
+    mu_assert("ERROR: Momentum in n2n tetrahedron", mu_isclose(com_i.z, com_f.z));
     return NULL;
 }
 
 const char* test_latt_tetrahedron() {
     uniform_sphere(4, 1, latt.X);
+    float3 com_i = center_of_mass(4, latt.X);
     for (int i = 0; i < 500; i++) {
         latt.step(0.1, 4, p_spring);
     }
@@ -50,6 +66,10 @@ const char* test_latt_tetrahedron() {
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
         mu_assert("ERROR: Spring not relaxed in lattice tetrahedron", mu_isclose(dist, 1));
     }
+    float3 com_f = center_of_mass(4, latt.X);
+    mu_assert("ERROR: Momentum in lattice tetrahedron", mu_isclose(com_i.x, com_f.x));
+    mu_assert("ERROR: Momentum in lattice tetrahedron", mu_isclose(com_i.y, com_f.y));
+    mu_assert("ERROR: Momentum in lattice tetrahedron", mu_isclose(com_i.z, com_f.z));
     return NULL;
 }
 
