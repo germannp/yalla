@@ -17,7 +17,7 @@ __device__ __managed__ LatticeSolver<float3, N_CELLS> solver;
 __device__ __managed__ int time_step;
 
 
-__device__ float3 clipped_polynome(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 clipped_polynomial(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
@@ -34,7 +34,7 @@ __device__ float3 clipped_polynome(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ nhoodint<float3> potential = clipped_polynome;
+__device__ __managed__ nhoodint<float3> potential = clipped_polynomial;
 
 
 // Smooth transition from step(x < 0) = 0 to step(x > 0) = 1 over dx
