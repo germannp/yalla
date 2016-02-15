@@ -7,25 +7,31 @@
 
 
 template<typename Pt>
-extern __device__ Pt neighbourhood_interaction(Pt Xi, Pt Xj, int i, int j);
+using nhoodint = Pt (*)(Pt Xi, Pt Xj, int i, int j);
+
 template<typename Pt>
-extern void global_interactions(const Pt* __restrict__ X, Pt* dX);
+using globints = void (*)(const Pt* __restrict__ X, Pt* dX);
+
+template<typename Pt>
+void none(const Pt* __restrict__ X, Pt* dX) {}
 
 
-// Parallelization with interactions among all pairs, after
-// http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html.
+/* Parallelization with interactions among all pairs, after
+   http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html. */
 const uint TILE_SIZE = 32;
 
 template<typename Pt, int N_MAX_CELLS>class N2nSolver {
 public:
-    void step(float delta_t, int n_cells, Pt* X);
+    Pt X[N_MAX_CELLS];
+    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global = none);
 protected:
     Pt dX[N_MAX_CELLS], X1[N_MAX_CELLS], dX1[N_MAX_CELLS];
 };
 
 // Calculate dX one thread per cell, to TILE_SIZE other bodies at a time
 template<typename Pt>
-__global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX) {
+__global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
+    nhoodint<Pt> local) {
     __shared__ Pt shX[TILE_SIZE];
     int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
     Pt Xi = X[cell_idx];
@@ -40,7 +46,7 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX) 
         for (int i = 0; i < TILE_SIZE; i++) {
             int other_cell_idx = tile_start + i;
             if ((cell_idx < n_cells) && (other_cell_idx < n_cells)) {
-                Pt Fij = neighbourhood_interaction(Xi, shX[i], cell_idx, other_cell_idx);
+                Pt Fij = local(Xi, shX[i], cell_idx, other_cell_idx);
                 dFi += Fij;
             }
         }
@@ -52,38 +58,40 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX) 
 }
 
 template<typename Pt, int N_MAX_CELLS>
-void N2nSolver<Pt, N_MAX_CELLS>::step(float delta_t, int n_cells, Pt* X) {
+void N2nSolver<Pt, N_MAX_CELLS>::step(float delta_t, int n_cells,
+    nhoodint<Pt> local, globints<Pt> global) {
     int n_blocks = (n_cells + TILE_SIZE - 1)/TILE_SIZE; // ceil int div.
 
     // 1st step
     reset_dX<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, dX);
     cudaDeviceSynchronize();
-    calculate_n2n_dX<<<n_blocks, TILE_SIZE>>>(n_cells, X, dX);
+    calculate_n2n_dX<<<n_blocks, TILE_SIZE>>>(n_cells, X, dX, local);
     cudaDeviceSynchronize();
-    global_interactions(X, dX);
+    global(X, dX);
     integrate<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X1, dX);
     cudaDeviceSynchronize();
 
     // 2nd step
     reset_dX<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, dX1);
     cudaDeviceSynchronize();
-    calculate_n2n_dX<<<n_blocks, TILE_SIZE>>>(n_cells, X1, dX1);
+    calculate_n2n_dX<<<n_blocks, TILE_SIZE>>>(n_cells, X1, dX1, local);
     cudaDeviceSynchronize();
-    global_interactions(X1, dX1);
+    global(X1, dX1);
     integrate<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X, dX, dX1);
     cudaDeviceSynchronize();
 }
 
 
-// Sorting based lattice with limited interaction, after
-// http://docs.nvidia.com/cuda/samples/5_Simulations/particles/doc/particles.pdf
+/* Sorting based lattice with limited interaction, after
+   http://docs.nvidia.com/cuda/samples/5_Simulations/particles/doc/particles.pdf */
 const float CUBE_SIZE = 1;
 const int LATTICE_SIZE = 50;
 const int N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
 template<typename Pt, int N_MAX_CELLS>class LatticeSolver {
 public:
-    void step(float delta_t, int n_cells, Pt* X);
+    Pt X[N_MAX_CELLS];
+    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global = none);
 protected:
     Pt dX[N_MAX_CELLS], X1[N_MAX_CELLS], dX1[N_MAX_CELLS];
 
@@ -131,7 +139,8 @@ __global__ void compute_cube_start_and_end(int n_cells, const int* __restrict__ 
 template<typename Pt>
 __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
     const int* __restrict__ cell_id, const int* __restrict__ cube_id,
-    const int* __restrict__ cube_start, const int* __restrict__ cube_end) {
+    const int* __restrict__ cube_start, const int* __restrict__ cube_end,
+    nhoodint<Pt> local) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < n_cells) {
         int interacting_cubes[27];
@@ -153,7 +162,7 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* 
             int cube = interacting_cubes[j];
             for (int k = cube_start[cube]; k <= cube_end[cube]; k++) {
                 Pt Xj = X[cell_id[k]];
-                Fij = neighbourhood_interaction(Xi, Xj, cell_id[i], cell_id[k]);
+                Fij = local(Xi, Xj, cell_id[i], cell_id[k]);
                 F += Fij;
             }
         }
@@ -162,7 +171,8 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* 
 }
 
 template<typename Pt, int N_MAX_CELLS>
-void LatticeSolver<Pt, N_MAX_CELLS>::step(float delta_t, int n_cells, Pt* X) {
+void LatticeSolver<Pt, N_MAX_CELLS>::step(float delta_t, int n_cells,
+    nhoodint<Pt> local, globints<Pt> global) {
     assert(LATTICE_SIZE % 2 == 0); // Needed?
     assert(n_cells <= N_MAX_CELLS);
 
@@ -177,9 +187,9 @@ void LatticeSolver<Pt, N_MAX_CELLS>::step(float delta_t, int n_cells, Pt* X) {
     cudaDeviceSynchronize();
 
     calculate_lattice_dX<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X, dX,
-        cell_id, cube_id, cube_start, cube_end);
+        cell_id, cube_id, cube_start, cube_end, local);
     cudaDeviceSynchronize();
-    global_interactions(X, dX);
+    global(X, dX);
     integrate<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X1, dX);
     cudaDeviceSynchronize();
 
@@ -194,9 +204,9 @@ void LatticeSolver<Pt, N_MAX_CELLS>::step(float delta_t, int n_cells, Pt* X) {
     cudaDeviceSynchronize();
 
     calculate_lattice_dX<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X1, dX1,
-        cell_id, cube_id, cube_start, cube_end);
+        cell_id, cube_id, cube_start, cube_end, local);
     cudaDeviceSynchronize();
-    global_interactions(X1, dX1);
+    global(X1, dX1);
     integrate<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X, dX, dX1);
     cudaDeviceSynchronize();
 }

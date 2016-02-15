@@ -15,11 +15,10 @@ const float DELTA_T = 0.001;
 const uint N_CELLS = 800;
 const uint N_TIME_STEPS = 100;
 
-__device__ __managed__ float3 X[N_CELLS];
 __device__ __managed__ N2nSolver<float3, N_CELLS> solver;
 
 
-__device__ float3 neighbourhood_interaction(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
     float3 r;
     float3 dF = {0.0f, 0.0f, 0.0f};
     r.x = Xi.x - Xj.x;
@@ -35,21 +34,20 @@ __device__ float3 neighbourhood_interaction(float3 Xi, float3 Xj, int i, int j) 
     return dF;
 }
 
-
-void global_interactions(const float3* __restrict__ X, float3* dX) {}
+__device__ __managed__ nhoodint<float3> p_spring = spring;
 
 
 int main(int argc, const char* argv[]) {
     // Prepare initial state
-    uniform_sphere(N_CELLS, L_0, X);
+    uniform_sphere(N_CELLS, L_0, solver.X);
 
     // Integrate positions
     VtkOutput output("springs");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(N_CELLS, X);
+        output.write_positions(N_CELLS, solver.X);
 
         if (time_step < N_TIME_STEPS) {
-            solver.step(DELTA_T, N_CELLS, X);
+            solver.step(DELTA_T, N_CELLS, p_spring);
         }
     }
 

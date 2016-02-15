@@ -15,11 +15,10 @@ const int N_CELLS = 100;
 const int N_TIME_STEPS = 200;
 const float DELTA_T = 0.005;
 
-__device__ __managed__ float4 X[N_CELLS];
 __device__ __managed__ LatticeSolver<float4, N_CELLS> solver;
 
 
-__device__ float4 neighbourhood_interaction(float4 Xi, float4 Xj, int i, int j) {
+__device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
     float4 dF = {0.0f, 0.0f, 0.0f, 0.0f};
     float4 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z, Xi.w - Xj.w};
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
@@ -38,25 +37,24 @@ __device__ float4 neighbourhood_interaction(float4 Xi, float4 Xj, int i, int j) 
     return dF;
 }
 
-
-void global_interactions(const float4* __restrict__ X, float4* dX) {}
+__device__ __managed__ nhoodint<float4> local = cubic_w_diffusion;
 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_circle(N_CELLS, 0.733333, X);
+    uniform_circle(N_CELLS, 0.733333, solver.X);
     for (int i = 0; i < N_CELLS; i++) {
-        X[i].w = i == 0 ? 1 : 0;
+        solver.X[i].w = i == 0 ? 1 : 0;
     }
 
     // Integrate cell positions
     VtkOutput output("gradient");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(N_CELLS, X);
-        output.write_field(N_CELLS, "w", X);
+        output.write_positions(N_CELLS, solver.X);
+        output.write_field(N_CELLS, "w", solver.X);
 
         if (time_step < N_TIME_STEPS) {
-            solver.step(DELTA_T, N_CELLS, X);
+            solver.step(DELTA_T, N_CELLS, local);
         }
     }
 

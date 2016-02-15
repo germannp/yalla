@@ -15,11 +15,10 @@ const int N_CELLS = 1000;
 const int N_TIME_STEPS = 200;
 const float DELTA_T = 0.005;
 
-__device__ __managed__ float3 X[N_CELLS];
 __device__ __managed__ LatticeSolver<float3, N_CELLS> solver;
 
 
-__device__ float3 neighbourhood_interaction(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
@@ -36,24 +35,23 @@ __device__ float3 neighbourhood_interaction(float3 Xi, float3 Xj, int i, int j) 
     return dF;
 }
 
-
-void global_interactions(const float3* __restrict__ X, float3* dX) {}
+__device__ __managed__ nhoodint<float3> potential = clipped_cubic;
 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_circle(N_CELLS, 0.733333/1.5, X);
+    uniform_circle(N_CELLS, 0.733333/1.5, solver.X);
     for (int i = 0; i < N_CELLS; i++) {
-        X[i].x = sin(X[i].y);
+        solver.X[i].x = sin(solver.X[i].y);
     }
 
     // Integrate cell positions
     VtkOutput output("layer");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(N_CELLS, X);
+        output.write_positions(N_CELLS, solver.X);
 
         if (time_step < N_TIME_STEPS) {
-            solver.step(DELTA_T, N_CELLS, X);
+            solver.step(DELTA_T, N_CELLS, potential);
         }
     }
 

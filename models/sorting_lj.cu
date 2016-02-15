@@ -16,12 +16,11 @@ const int N_TIME_STEPS = 50000;
 const int SKIP_STEPS = 100;
 const float DELTA_T = 0.0001;
 
-__device__ __managed__ float3 X[N_CELLS];
 __device__ __managed__ N2nSolver<float3, N_CELLS> solver;
 __device__ __managed__ curandState rand_states[N_CELLS];
 
 
-__device__ float3 neighbourhood_interaction(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 lj_sorting(float3 Xi, float3 Xj, int i, int j) {
     int strength = (1 + 2*(j < N_CELLS/2))*(1 + 2*(i < N_CELLS/2));
     float3 dF = {0.0f, 0.0f, 0.0f};
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
@@ -40,8 +39,7 @@ __device__ float3 neighbourhood_interaction(float3 Xi, float3 Xj, int i, int j) 
     return dF;
 }
 
-
-void global_interactions(const float3* __restrict__ X, float3* dX) {}
+__device__ __managed__ nhoodint<float3> p_sorting = lj_sorting;
 
 
 __global__ void setup_rand_states() {
@@ -52,7 +50,7 @@ __global__ void setup_rand_states() {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_sphere(N_CELLS, R_MIN, X);
+    uniform_sphere(N_CELLS, R_MIN, solver.X);
     int cell_type[N_CELLS];
     for (int i = 0; i < N_CELLS; i++) {
         cell_type[i] = (i < N_CELLS/2) ? 0 : 1;
@@ -63,11 +61,11 @@ int main(int argc, char const *argv[]) {
     // Integrate cell positions
     VtkOutput output("sorting-lj", N_TIME_STEPS, SKIP_STEPS);
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(N_CELLS, X);
+        output.write_positions(N_CELLS, solver.X);
         output.write_type(N_CELLS, cell_type);
 
         if (time_step < N_TIME_STEPS) {
-            solver.step(DELTA_T, N_CELLS, X);
+            solver.step(DELTA_T, N_CELLS, p_sorting);
         }
     }
 

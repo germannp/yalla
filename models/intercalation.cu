@@ -16,13 +16,12 @@ const int N_CONNECTIONS = 250;
 const int N_TIME_STEPS = 1000;
 const float DELTA_T = 0.2;
 
-__device__ __managed__ float3 X[N_CELLS];
 __device__ __managed__ LatticeSolver<float3, N_CELLS> solver;
 __device__ __managed__ int connections[N_CONNECTIONS][2];
 __device__ __managed__ curandState rand_states[N_CONNECTIONS];
 
 
-__device__ float3 neighbourhood_interaction(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
@@ -35,6 +34,8 @@ __device__ float3 neighbourhood_interaction(float3 Xi, float3 Xj, int i, int j) 
     assert(dF.x == dF.x); // For NaN f != f.
     return dF;
 }
+
+__device__ __managed__ nhoodint<float3> potential = clipped_cubic;
 
 
 __global__ void setup_rand_states() {
@@ -59,7 +60,7 @@ __global__ void intercalate(const __restrict__ float3* X, float3* dX) {
     }
 }
 
-void global_interactions(const float3* __restrict__ X, float3* dX) {
+void intercalation(const float3* __restrict__ X, float3* dX) {
     intercalate<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>(X, dX);
     cudaDeviceSynchronize();
 }
@@ -67,14 +68,15 @@ void global_interactions(const float3* __restrict__ X, float3* dX) {
 __global__ void update_connections() {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < N_CONNECTIONS) {
-        float3 Xi = X[connections[i][0]];
-        float3 Xj = X[connections[i][1]];
+        float3 Xi = solver. X[connections[i][0]];
+        float3 Xj = solver. X[connections[i][1]];
         float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
 
         int j = (int)(curand_uniform(&rand_states[i])*N_CELLS);
         int k = (int)(curand_uniform(&rand_states[i])*N_CELLS);
-        r = {X[j].x - X[k].x, X[j].y - X[k].y, X[j].z - X[k].z};
+        r = {solver. X[j].x - solver. X[k].x, solver. X[j].y - solver. X[k].y,
+            solver. X[j].z - solver. X[k].z};
         dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
         if ((fabs(r.x/dist) < 0.2) && (j != k) && (dist < 2)) {
             connections[i][0] = j;
@@ -86,14 +88,15 @@ __global__ void update_connections() {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_sphere(N_CELLS, R_MIN, X);
+    uniform_sphere(N_CELLS, R_MIN, solver.X);
     setup_rand_states<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>();
     cudaDeviceSynchronize();
     int i = 0;
     while (i < N_CONNECTIONS) {
         int j = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
         int k = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
-        float3 r = {X[j].x - X[k].x, X[j].y - X[k].y, X[j].z - X[k].z};
+        float3 r = {solver.X[j].x - solver.X[k].x, solver.X[j].y - solver.X[k].y,
+            solver.X[j].z - solver.X[k].z};
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
         if ((fabs(r.x/dist) < 0.2) && (j != k) && (dist < 2)) {
             connections[i][0] = j;
@@ -105,10 +108,10 @@ int main(int argc, char const *argv[]) {
     // Integrate cell positions
     VtkOutput output("intercalation");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(N_CELLS, X);
+        output.write_positions(N_CELLS, solver.X);
         output.write_connections(N_CONNECTIONS, connections);
         if (time_step < N_TIME_STEPS) {
-            solver.step(DELTA_T, N_CELLS, X);
+            solver.step(DELTA_T, N_CELLS, potential, intercalation);
             update_connections<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>();
             cudaDeviceSynchronize();
         }
