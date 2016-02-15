@@ -54,9 +54,44 @@ const char* test_latt_tetrahedron() {
 }
 
 
+__device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
+    float3 dF = {0.0f, 0.0f, 0.0f};
+    float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), 1);
+    if (i != j) {
+        float F = 2*(0.6 - dist)*(1 - dist) + (1 - dist)*(1 - dist);
+        dF.x = r.x*F/dist;
+        dF.y = r.y*F/dist;
+        dF.z = r.z*F/dist;
+    }
+    assert(dF.x == dF.x); // For NaN f != f.
+    return dF;
+}
+
+__device__ __managed__ nhoodint<float3> p_cubic = clipped_cubic;
+
+const char* test_compare_methods() {
+    uniform_sphere(N_MAX_CELLS, 0.733333, n2n.X);
+    for (int i = 0; i < N_MAX_CELLS; i++) {
+        latt.X[i].x = n2n.X[i].x;
+        latt.X[i].y = n2n.X[i].y;
+        latt.X[i].z = n2n.X[i].z;
+    }
+    n2n.step(0.5, N_MAX_CELLS, p_cubic);
+    latt.step(0.5, N_MAX_CELLS, p_cubic);
+    for (int i = 0; i < N_MAX_CELLS; i++) {
+        mu_assert("ERROR: Methods disagree", mu_isclose(latt.X[i].x, n2n.X[i].x));
+        mu_assert("ERROR: Methods disagree", mu_isclose(latt.X[i].y, n2n.X[i].y));
+        mu_assert("ERROR: Methods disagree", mu_isclose(latt.X[i].z, n2n.X[i].z));
+    }
+    return NULL;
+}
+
+
 const char* all_tests() {
     mu_run_test(test_n2n_tetrahedron);
     mu_run_test(test_latt_tetrahedron);
+    mu_run_test(test_compare_methods);
     return NULL;
 }
 
