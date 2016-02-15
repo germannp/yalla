@@ -16,6 +16,24 @@ template<typename Pt>
 void none(const Pt* __restrict__ X, Pt* dX) {}
 
 
+template<typename Pt> __global__ void euler_step(int n_cells, float delta_t,
+    const Pt* __restrict__ X0, Pt* X, const Pt* __restrict__ dX) {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < n_cells) {
+        X[i] = X0[i] + dX[i]*delta_t;
+    }
+}
+
+template<typename Pt> __global__ void heun_step(int n_cells, float delta_t,
+    const Pt* __restrict__ X0, Pt* X, const Pt* __restrict__ dX,
+    const Pt* __restrict__ dX1) {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < n_cells) {
+        X[i] = X0[i] + (dX[i] + dX1[i])*0.5*delta_t;
+    }
+}
+
+
 /* Parallelization with interactions among all pairs, after
    http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html. */
 const uint TILE_SIZE = 32;
@@ -28,6 +46,13 @@ protected:
     Pt dX[N_MAX_CELLS], X1[N_MAX_CELLS], dX1[N_MAX_CELLS];
 };
 
+template<typename Pt> __global__ void reset_dX(int n_cells, Pt* dX) {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < n_cells) {
+        dX[i] = dX[i]*0;
+    }
+}
+
 // Calculate dX one thread per cell, to TILE_SIZE other bodies at a time
 template<typename Pt>
 __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
@@ -35,7 +60,7 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
     __shared__ Pt shX[TILE_SIZE];
     int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
     Pt Xi = X[cell_idx];
-    Pt dFi = zero_Pt(&dFi);
+    Pt dFi = Xi*0;
 
     for (int tile_start = 0; tile_start < n_cells; tile_start += TILE_SIZE) {
         int other_cell_idx = tile_start + threadIdx.x;
@@ -47,13 +72,13 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
             int other_cell_idx = tile_start + i;
             if ((cell_idx < n_cells) && (other_cell_idx < n_cells)) {
                 Pt Fij = local(Xi, shX[i], cell_idx, other_cell_idx);
-                dFi += Fij;
+                dFi = dFi + Fij;
             }
         }
     }
 
     if (cell_idx < n_cells) {
-        dX[cell_idx] += dFi;
+        dX[cell_idx] = dX[cell_idx] + dFi;
     }
 }
 
@@ -68,7 +93,7 @@ void N2nSolver<Pt, N_MAX_CELLS>::step(float delta_t, int n_cells,
     calculate_n2n_dX<<<n_blocks, TILE_SIZE>>>(n_cells, X, dX, local);
     cudaDeviceSynchronize();
     global(X, dX);
-    integrate<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X1, dX);
+    euler_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X1, dX);
     cudaDeviceSynchronize();
 
     // 2nd step
@@ -77,7 +102,7 @@ void N2nSolver<Pt, N_MAX_CELLS>::step(float delta_t, int n_cells,
     calculate_n2n_dX<<<n_blocks, TILE_SIZE>>>(n_cells, X1, dX1, local);
     cudaDeviceSynchronize();
     global(X1, dX1);
-    integrate<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X, dX, dX1);
+    heun_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X, dX, dX1);
     cudaDeviceSynchronize();
 }
 
@@ -156,14 +181,14 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* 
             interacting_cubes[j + 18] = interacting_cubes[j % 9] + LATTICE_SIZE*LATTICE_SIZE;
         }
 
-        Pt Fij, F = zero_Pt(&F);
         Pt Xi = X[cell_id[i]];
+        Pt Fij, F = Xi*0;
         for (int j = 0; j < 27; j++) {
             int cube = interacting_cubes[j];
             for (int k = cube_start[cube]; k <= cube_end[cube]; k++) {
                 Pt Xj = X[cell_id[k]];
                 Fij = local(Xi, Xj, cell_id[i], cell_id[k]);
-                F += Fij;
+                F = F + Fij;
             }
         }
         dX[cell_id[i]] = F;
@@ -190,7 +215,7 @@ void LatticeSolver<Pt, N_MAX_CELLS>::step(float delta_t, int n_cells,
         cell_id, cube_id, cube_start, cube_end, local);
     cudaDeviceSynchronize();
     global(X, dX);
-    integrate<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X1, dX);
+    euler_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X1, dX);
     cudaDeviceSynchronize();
 
     // 2nd step
@@ -207,6 +232,6 @@ void LatticeSolver<Pt, N_MAX_CELLS>::step(float delta_t, int n_cells,
         cell_id, cube_id, cube_start, cube_end, local);
     cudaDeviceSynchronize();
     global(X1, dX1);
-    integrate<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X, dX, dX1);
+    heun_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X, dX, dX1);
     cudaDeviceSynchronize();
 }
