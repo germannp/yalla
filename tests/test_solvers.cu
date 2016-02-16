@@ -3,11 +3,11 @@
 #include "../lib/solvers.cuh"
 
 
-const int N_MAX_CELLS = 1000;
+const int N_MAX = 1000;
 const float L_0 = 1;
 
-__device__ __managed__ Solution<float3, N_MAX_CELLS, N2nSolver> n2n;
-__device__ __managed__ Solution<float3, N_MAX_CELLS, LatticeSolver> latt;
+__device__ __managed__ Solution<float3, N_MAX, N2nSolver> n2n;
+__device__ __managed__ Solution<float3, N_MAX, LatticeSolver> latt;
 
 
 __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
@@ -92,15 +92,15 @@ __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
 __device__ __managed__ nhoodint<float3> p_cubic = clipped_cubic;
 
 const char* test_compare_methods() {
-    uniform_sphere(N_MAX_CELLS, 0.733333, n2n);
-    for (int i = 0; i < N_MAX_CELLS; i++) {
+    uniform_sphere(N_MAX, 0.733333, n2n);
+    for (int i = 0; i < N_MAX; i++) {
         latt[i].x = n2n[i].x;
         latt[i].y = n2n[i].y;
         latt[i].z = n2n[i].z;
     }
-    n2n.step(0.5, N_MAX_CELLS, p_cubic);
-    latt.step(0.5, N_MAX_CELLS, p_cubic);
-    for (int i = 0; i < N_MAX_CELLS; i++) {
+    n2n.step(0.5, N_MAX, p_cubic);
+    latt.step(0.5, N_MAX, p_cubic);
+    for (int i = 0; i < N_MAX; i++) {
         mu_assert("ERROR: Methods disagree", mu_isclose(latt[i].x, n2n[i].x));
         mu_assert("ERROR: Methods disagree", mu_isclose(latt[i].y, n2n[i].y));
         mu_assert("ERROR: Methods disagree", mu_isclose(latt[i].z, n2n[i].z));
