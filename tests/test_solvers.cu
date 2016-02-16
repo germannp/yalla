@@ -6,8 +6,8 @@
 const int N_MAX_CELLS = 1000;
 const float L_0 = 1;
 
-__device__ __managed__ N2nSolver<float3, N_MAX_CELLS> n2n;
-__device__ __managed__ LatticeSolver<float3, N_MAX_CELLS> latt;
+__device__ __managed__ Solution<float3, N_MAX_CELLS, N2nSolver> n2n;
+__device__ __managed__ Solution<float3, N_MAX_CELLS, LatticeSolver> latt;
 
 
 __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
@@ -25,29 +25,30 @@ __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
 
 __device__ __managed__ nhoodint<float3> p_spring = spring;
 
-float3 center_of_mass(int N_CELLS, float3* X) {
+template<typename Pt, int N_MAX, template<typename, int> class Solver>
+float3 center_of_mass(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
     float3 com = {0, 0, 0};
-    for (int i = 0; i < N_CELLS; i++) {
-        com.x += X[i].x/N_CELLS;
-        com.y += X[i].y/N_CELLS;
-        com.z += X[i].z/N_CELLS;
+    for (int i = 0; i < n_cells; i++) {
+        com.x += X[i].x/n_cells;
+        com.y += X[i].y/n_cells;
+        com.z += X[i].z/n_cells;
     }
     return com;
 }
 
 const char* test_n2n_tetrahedron() {
-    uniform_sphere(4, 1, n2n.X);
-    float3 com_i = center_of_mass(4, n2n.X);
+    uniform_sphere(4, 1, n2n);
+    float3 com_i = center_of_mass(4, n2n);
     for (int i = 0; i < 500; i++) {
         n2n.step(0.1, 4, p_spring);
     }
     for (int i = 1; i < 4; i++) {
-        float3 r = {n2n.X[0].x - n2n.X[i].x, n2n.X[0].y - n2n.X[i].y,
-            n2n.X[0].z - n2n.X[i].z};
+        float3 r = {n2n[0].x - n2n[i].x, n2n[0].y - n2n[i].y,
+            n2n[0].z - n2n[i].z};
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
         mu_assert("ERROR: Spring not relaxed in n2n tetrahedron", mu_isclose(dist, 1));
     }
-    float3 com_f = center_of_mass(4, n2n.X);
+    float3 com_f = center_of_mass(4, n2n);
     mu_assert("ERROR: Momentum in n2n tetrahedron", mu_isclose(com_i.x, com_f.x));
     mu_assert("ERROR: Momentum in n2n tetrahedron", mu_isclose(com_i.y, com_f.y));
     mu_assert("ERROR: Momentum in n2n tetrahedron", mu_isclose(com_i.z, com_f.z));
@@ -55,18 +56,18 @@ const char* test_n2n_tetrahedron() {
 }
 
 const char* test_latt_tetrahedron() {
-    uniform_sphere(4, 1, latt.X);
-    float3 com_i = center_of_mass(4, latt.X);
+    uniform_sphere(4, 1, latt);
+    float3 com_i = center_of_mass(4, latt);
     for (int i = 0; i < 500; i++) {
         latt.step(0.1, 4, p_spring);
     }
     for (int i = 1; i < 4; i++) {
-        float3 r = {latt.X[0].x - latt.X[i].x, latt.X[0].y - latt.X[i].y,
-            latt.X[0].z - latt.X[i].z};
+        float3 r = {latt[0].x - latt[i].x, latt[0].y - latt[i].y,
+            latt[0].z - latt[i].z};
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
         mu_assert("ERROR: Spring not relaxed in lattice tetrahedron", mu_isclose(dist, 1));
     }
-    float3 com_f = center_of_mass(4, latt.X);
+    float3 com_f = center_of_mass(4, latt);
     mu_assert("ERROR: Momentum in lattice tetrahedron", mu_isclose(com_i.x, com_f.x));
     mu_assert("ERROR: Momentum in lattice tetrahedron", mu_isclose(com_i.y, com_f.y));
     mu_assert("ERROR: Momentum in lattice tetrahedron", mu_isclose(com_i.z, com_f.z));
@@ -91,18 +92,18 @@ __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
 __device__ __managed__ nhoodint<float3> p_cubic = clipped_cubic;
 
 const char* test_compare_methods() {
-    uniform_sphere(N_MAX_CELLS, 0.733333, n2n.X);
+    uniform_sphere(N_MAX_CELLS, 0.733333, n2n);
     for (int i = 0; i < N_MAX_CELLS; i++) {
-        latt.X[i].x = n2n.X[i].x;
-        latt.X[i].y = n2n.X[i].y;
-        latt.X[i].z = n2n.X[i].z;
+        latt[i].x = n2n[i].x;
+        latt[i].y = n2n[i].y;
+        latt[i].z = n2n[i].z;
     }
     n2n.step(0.5, N_MAX_CELLS, p_cubic);
     latt.step(0.5, N_MAX_CELLS, p_cubic);
     for (int i = 0; i < N_MAX_CELLS; i++) {
-        mu_assert("ERROR: Methods disagree", mu_isclose(latt.X[i].x, n2n.X[i].x));
-        mu_assert("ERROR: Methods disagree", mu_isclose(latt.X[i].y, n2n.X[i].y));
-        mu_assert("ERROR: Methods disagree", mu_isclose(latt.X[i].z, n2n.X[i].z));
+        mu_assert("ERROR: Methods disagree", mu_isclose(latt[i].x, n2n[i].x));
+        mu_assert("ERROR: Methods disagree", mu_isclose(latt[i].y, n2n[i].y));
+        mu_assert("ERROR: Methods disagree", mu_isclose(latt[i].z, n2n[i].z));
     }
     return NULL;
 }

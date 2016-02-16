@@ -15,7 +15,7 @@ const int N_CELLS = 1000;
 const int N_TIME_STEPS = 200;
 const float DELTA_T = 0.005;
 
-__device__ __managed__ LatticeSolver<float3, N_CELLS> solver;
+__device__ __managed__ Solution<float3, N_CELLS, LatticeSolver> X;
 
 
 __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
@@ -40,18 +40,18 @@ __device__ __managed__ nhoodint<float3> potential = clipped_cubic;
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_circle(N_CELLS, 0.733333/1.5, solver.X);
+    uniform_circle(N_CELLS, 0.733333/1.5, X);
     for (int i = 0; i < N_CELLS; i++) {
-        solver.X[i].x = sin(solver.X[i].y);
+        X[i].x = sin(X[i].y);
     }
 
     // Integrate cell positions
     VtkOutput output("layer");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(N_CELLS, solver.X);
+        output.write_positions(N_CELLS, X);
 
         if (time_step < N_TIME_STEPS) {
-            solver.step(DELTA_T, N_CELLS, potential);
+            X.step(DELTA_T, N_CELLS, potential);
         }
     }
 

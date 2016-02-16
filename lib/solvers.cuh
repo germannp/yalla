@@ -15,7 +15,19 @@ using globints = void (*)(const Pt* __restrict__ X, Pt* dX);
 template<typename Pt>
 void none(const Pt* __restrict__ X, Pt* dX) {}
 
+template<typename Pt, int N_MAX, template<typename, int> class Solver>
+class Solution: protected Solver<Pt, N_MAX> {
+public:
+    __device__ __host__ Pt& operator[](int idx) { return Solver<Pt, N_MAX>::X[idx]; };
+    __device__ __host__ const Pt& operator[](int idx) const { return Solver<Pt, N_MAX>::X[idx]; };
+    void step(float delta_t, int n_cells, nhoodint<Pt> loc, globints<Pt> glob = none) {
+        assert(n_cells <= N_MAX);
+        return Solver<Pt, N_MAX>::step(delta_t, n_cells, loc, glob);
+    };
+};
 
+
+// Integration templates
 template<typename Pt> __global__ void euler_step(int n_cells, float delta_t,
     const Pt* __restrict__ X0, Pt* X, const Pt* __restrict__ dX) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
@@ -38,12 +50,10 @@ template<typename Pt> __global__ void heun_step(int n_cells, float delta_t,
    http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html. */
 const uint TILE_SIZE = 32;
 
-template<typename Pt, int N_MAX_CELLS>class N2nSolver {
-public:
-    Pt X[N_MAX_CELLS];
-    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global = none);
+template<typename Pt, int N_MAX>class N2nSolver {
 protected:
-    Pt dX[N_MAX_CELLS], X1[N_MAX_CELLS], dX1[N_MAX_CELLS];
+    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global = none);
+    Pt X[N_MAX], dX[N_MAX], X1[N_MAX], dX1[N_MAX];
 };
 
 template<typename Pt> __global__ void reset_dX(int n_cells, Pt* dX) {
@@ -82,8 +92,8 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
     }
 }
 
-template<typename Pt, int N_MAX_CELLS>
-void N2nSolver<Pt, N_MAX_CELLS>::step(float delta_t, int n_cells,
+template<typename Pt, int N_MAX>
+void N2nSolver<Pt, N_MAX>::step(float delta_t, int n_cells,
     nhoodint<Pt> local, globints<Pt> global) {
     int n_blocks = (n_cells + TILE_SIZE - 1)/TILE_SIZE; // ceil int div.
 
@@ -113,14 +123,12 @@ const float CUBE_SIZE = 1;
 const int LATTICE_SIZE = 50;
 const int N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
-template<typename Pt, int N_MAX_CELLS>class LatticeSolver {
-public:
-    Pt X[N_MAX_CELLS];
-    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global = none);
+template<typename Pt, int N_MAX>class LatticeSolver {
 protected:
-    Pt dX[N_MAX_CELLS], X1[N_MAX_CELLS], dX1[N_MAX_CELLS];
+    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global = none);
+    Pt X[N_MAX], dX[N_MAX], X1[N_MAX], dX1[N_MAX];
 
-    int cube_id[N_MAX_CELLS], cell_id[N_MAX_CELLS];
+    int cube_id[N_MAX], cell_id[N_MAX];
     int cube_start[N_CUBES], cube_end[N_CUBES];
 };
 
@@ -195,11 +203,11 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* 
     }
 }
 
-template<typename Pt, int N_MAX_CELLS>
-void LatticeSolver<Pt, N_MAX_CELLS>::step(float delta_t, int n_cells,
+template<typename Pt, int N_MAX>
+void LatticeSolver<Pt, N_MAX>::step(float delta_t, int n_cells,
     nhoodint<Pt> local, globints<Pt> global) {
     assert(LATTICE_SIZE % 2 == 0); // Needed?
-    assert(n_cells <= N_MAX_CELLS);
+    assert(n_cells <= N_MAX);
 
     // 1st step
     compute_cube_ids<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, X, cube_id, cell_id);

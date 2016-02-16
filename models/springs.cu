@@ -15,7 +15,7 @@ const float DELTA_T = 0.001;
 const uint N_CELLS = 800;
 const uint N_TIME_STEPS = 100;
 
-__device__ __managed__ N2nSolver<float3, N_CELLS> solver;
+__device__ __managed__ Solution<float3, N_CELLS, N2nSolver> X;
 
 
 __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
@@ -39,15 +39,15 @@ __device__ __managed__ nhoodint<float3> p_spring = spring;
 
 int main(int argc, const char* argv[]) {
     // Prepare initial state
-    uniform_sphere(N_CELLS, L_0, solver.X);
+    uniform_sphere(N_CELLS, L_0, X);
 
     // Integrate positions
     VtkOutput output("springs");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(N_CELLS, solver.X);
+        output.write_positions(N_CELLS, X);
 
         if (time_step < N_TIME_STEPS) {
-            solver.step(DELTA_T, N_CELLS, p_spring);
+            X.step(DELTA_T, N_CELLS, p_spring);
         }
     }
 

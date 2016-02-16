@@ -8,15 +8,21 @@
 #include <time.h>
 
 
+template<typename Pt, int N_MAX, template<typename, int> class Solver>
+class Solution;
+
+
 class VtkOutput {
 public:
     VtkOutput(std::string base_name, int N_TIME_STEPS, int SKIP_STEPS);
     VtkOutput(std::string base_name, int N_TIME_STEPS) : VtkOutput(base_name, N_TIME_STEPS, 1) {};
     VtkOutput(std::string base_name) : VtkOutput(base_name, 0, 1) {};
     ~VtkOutput(void);
-    template<typename Pt> void write_positions(int n_cells, Pt X[]);
+    template<typename Pt, int N_MAX, template<typename, int> class Solver>
+    void write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X);
     void write_type(int n_cells, int type[]);
-    void write_field(int n_cells, const char* data_name, float4 f[]);
+    template<typename Pt, int N_MAX, template<typename, int> class Solver>
+    void write_field(int n_cells, const char* data_name, Solution<Pt, N_MAX, Solver>& X);
     void write_connections(int n_connections, int connections[][2]);
 protected:
     int mN_TIME_STEPS;
@@ -53,7 +59,8 @@ VtkOutput::~VtkOutput() {
 }
 
 
-template<typename Pt> void VtkOutput::write_positions(int n_cells, Pt X[]) {
+template<typename Pt, int N_MAX, template<typename, int> class Solver>
+void VtkOutput::write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
     if (mTimeStep % mSKIP_STEPS == 0) {
         std::cout << "Integrating " << mBASE_NAME << ", ";
         if (mN_TIME_STEPS > 0) {
@@ -103,7 +110,8 @@ void VtkOutput::write_type(int n_cells, int type[]) {
     }
 }
 
-void VtkOutput::write_field(int n_cells, const char* data_name, float4 f[]) {
+template<typename Pt, int N_MAX, template<typename, int> class Solver>
+void VtkOutput::write_field(int n_cells, const char* data_name, Solution<Pt, N_MAX, Solver>& X) {
     if (mWrite) {
         std::ofstream file(mCurrentFile, std::ios_base::app);
         assert(file.is_open());
@@ -112,7 +120,7 @@ void VtkOutput::write_field(int n_cells, const char* data_name, float4 f[]) {
         file << "SCALARS " << data_name << " float\n";
         file << "LOOKUP_TABLE default\n";
         for (int i = 0; i < n_cells; i++)
-            file << f[i].w << "\n";
+            file << X[i].w << "\n";
     }
 }
 

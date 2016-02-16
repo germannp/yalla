@@ -15,7 +15,7 @@ const int N_CELLS = 100;
 const int N_TIME_STEPS = 200;
 const float DELTA_T = 0.005;
 
-__device__ __managed__ LatticeSolver<float4, N_CELLS> solver;
+__device__ __managed__ Solution<float4, N_CELLS, LatticeSolver> X;
 
 
 __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
@@ -42,19 +42,19 @@ __device__ __managed__ nhoodint<float4> local = cubic_w_diffusion;
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_circle(N_CELLS, 0.733333, solver.X);
+    uniform_circle(N_CELLS, 0.733333, X);
     for (int i = 0; i < N_CELLS; i++) {
-        solver.X[i].w = i == 0 ? 1 : 0;
+        X[i].w = i == 0 ? 1 : 0;
     }
 
     // Integrate cell positions
     VtkOutput output("gradient");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(N_CELLS, solver.X);
-        output.write_field(N_CELLS, "w", solver.X);
+        output.write_positions(N_CELLS, X);
+        output.write_field(N_CELLS, "w", X);
 
         if (time_step < N_TIME_STEPS) {
-            solver.step(DELTA_T, N_CELLS, local);
+            X.step(DELTA_T, N_CELLS, local);
         }
     }
 

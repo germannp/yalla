@@ -13,7 +13,7 @@ const float R_MIN = 0.6;
 const int N_CELLS = 100;
 const float DELTA_T = 0.005;
 
-__device__ __managed__ LatticeSolver<float3, N_CELLS> solver;
+__device__ __managed__ Solution<float3, N_CELLS, LatticeSolver> X;
 __device__ __managed__ int time_step;
 
 
@@ -63,16 +63,16 @@ void squeeze_to_floor(const float3* __restrict__ X, float3* dX) {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_circle(N_CELLS, 0.733333, solver.X);
-    // uniform_sphere(N_CELLS, 0.733333, solver.X);
+    uniform_circle(N_CELLS, 0.733333, X);
+    // uniform_sphere(N_CELLS, 0.733333, X);
 
     // Integrate cell positions
     VtkOutput output("round_up");
     for (time_step = 0; time_step*DELTA_T <= 1; time_step++) {
-        output.write_positions(N_CELLS, solver.X);
+        output.write_positions(N_CELLS, X);
 
         if (time_step*DELTA_T <= 1) {
-            solver.step(DELTA_T, N_CELLS, potential, squeeze_to_floor);
+            X.step(DELTA_T, N_CELLS, potential, squeeze_to_floor);
         }
     }
 
