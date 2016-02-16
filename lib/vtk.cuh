@@ -61,6 +61,7 @@ VtkOutput::~VtkOutput() {
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 void VtkOutput::write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
+    assert(n_cells <= N_MAX);
     if (mTimeStep % mSKIP_STEPS == 0) {
         std::cout << "Integrating " << mBASE_NAME << ", ";
         if (mN_TIME_STEPS > 0) {
@@ -112,6 +113,7 @@ void VtkOutput::write_type(int n_cells, int type[]) {
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 void VtkOutput::write_field(int n_cells, const char* data_name, Solution<Pt, N_MAX, Solver>& X) {
+    assert(n_cells <= N_MAX);
     if (mWrite) {
         std::ofstream file(mCurrentFile, std::ios_base::app);
         assert(file.is_open());
