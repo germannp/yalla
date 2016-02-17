@@ -15,7 +15,7 @@ const int N_CELLS = 100;
 const int N_TIME_STEPS = 200;
 const float DELTA_T = 0.005;
 
-__device__ __managed__ Solution<float4, N_CELLS, LatticeSolver> X;
+__device__ __managed__ Solution<float4, N_CELLS, N2nSolver> X;
 
 
 __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
@@ -27,7 +27,7 @@ __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
         float strength = 100;
         float F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1)
             + strength*powf(R_MAX - dist, n);
-        float D = dist > 1 ? 0 : 10;
+        float D = dist < 1 ? 10 : 0;
         dF.x = r.x*F/dist;
         dF.y = r.y*F/dist;
         dF.z = r.z*F/dist;
