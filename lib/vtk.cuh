@@ -19,6 +19,7 @@ public:
     VtkOutput(std::string base_name) : VtkOutput(base_name, 0, 1) {};
     ~VtkOutput(void);
     void print_progress();
+    void print_done();
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X);
     void write_type(int n_cells, int type[]);
@@ -33,6 +34,7 @@ protected:
     std::string mCurrentFile;
     bool mWrite = 0;
     bool mPDataStarted = 0;
+    bool mDone = 0;
     time_t mStart;
 };
 
@@ -46,17 +48,7 @@ VtkOutput::VtkOutput(std::string base_name, int N_TIME_STEPS, int SKIP_STEPS) {
 }
 
 VtkOutput::~VtkOutput() {
-    time_t end = time(NULL), duration;
-
-    duration = end - mStart;
-    std::cout << "Integrating " << mBASE_NAME << ", ";
-    if (duration < 60)
-        std::cout << duration << " seconds";
-    else if (duration < 60*60)
-        std::cout << duration/60 << "m " << duration % 60 << "s";
-    else
-        std::cout << duration/60/60 << "h " << duration % 60*60 << "m";
-    std::cout << " taken." << std::endl;
+    if (!mDone) print_done();
 }
 
 
@@ -76,6 +68,22 @@ void VtkOutput::print_progress() {
         mWrite = 0;
     }
     mTimeStep += 1;
+}
+
+void VtkOutput::print_done() {
+    time_t end = time(NULL), duration;
+
+    duration = end - mStart;
+    std::cout << "Integrating " << mBASE_NAME << ", ";
+    if (duration < 60)
+    std::cout << duration << " seconds";
+    else if (duration < 60*60)
+    std::cout << duration/60 << "m " << duration % 60 << "s";
+    else
+    std::cout << duration/60/60 << "h " << duration % 60*60 << "m";
+    std::cout << " taken." << std::endl;
+
+    mDone = 1;
 }
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
