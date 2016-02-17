@@ -18,6 +18,7 @@ public:
     VtkOutput(std::string base_name, int N_TIME_STEPS) : VtkOutput(base_name, N_TIME_STEPS, 1) {};
     VtkOutput(std::string base_name) : VtkOutput(base_name, 0, 1) {};
     ~VtkOutput(void);
+    void print_progress();
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X);
     void write_type(int n_cells, int type[]);
@@ -44,7 +45,6 @@ VtkOutput::VtkOutput(std::string base_name, int N_TIME_STEPS, int SKIP_STEPS) {
     time(&mStart);
 }
 
-
 VtkOutput::~VtkOutput() {
     time_t end = time(NULL), duration;
 
@@ -60,9 +60,7 @@ VtkOutput::~VtkOutput() {
 }
 
 
-template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void VtkOutput::write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
-    assert(n_cells <= N_MAX);
+void VtkOutput::print_progress() {
     if (mTimeStep % mSKIP_STEPS == 0) {
         std::cout << "Integrating " << mBASE_NAME << ", ";
         if (mN_TIME_STEPS > 0) {
@@ -72,7 +70,20 @@ void VtkOutput::write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
             std::cout << mTimeStep << " steps done\r";
         }
         std::cout.flush();
+        mWrite = 1;
+        mPDataStarted = 0;
+    } else {
+        mWrite = 0;
+    }
+    mTimeStep += 1;
+}
 
+template<typename Pt, int N_MAX, template<typename, int> class Solver>
+void VtkOutput::write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
+    assert(n_cells <= N_MAX);
+    print_progress();
+
+    if (mWrite) {
         std::stringstream file_name;
         file_name << "output/" << mBASE_NAME << "_" << mTimeStep/mSKIP_STEPS << ".vtk";
         mCurrentFile = file_name.str();
@@ -91,13 +102,7 @@ void VtkOutput::write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
         file << "\nVERTICES " << n_cells << " " << 2*n_cells << "\n";
         for (int i = 0; i < n_cells; i++)
             file << "1 " << i << "\n";
-
-        mWrite = 1;
-    } else {
-        mWrite = 0;
     }
-    mTimeStep += 1;
-    mPDataStarted = 0;
 }
 
 void VtkOutput::write_type(int n_cells, int type[]) {
