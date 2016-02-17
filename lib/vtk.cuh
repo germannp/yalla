@@ -31,6 +31,7 @@ protected:
     std::string mBASE_NAME;
     std::string mCurrentFile;
     bool mWrite = 0;
+    bool mPDataStarted = 0;
     time_t mStart;
 };
 
@@ -96,6 +97,7 @@ void VtkOutput::write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
         mWrite = 0;
     }
     mTimeStep += 1;
+    mPDataStarted = 0;
 }
 
 void VtkOutput::write_type(int n_cells, int type[]) {
@@ -103,11 +105,15 @@ void VtkOutput::write_type(int n_cells, int type[]) {
         std::ofstream file(mCurrentFile, std::ios_base::app);
         assert(file.is_open());
 
-        file << "\nPOINT_DATA " << n_cells << "\n";
+        if (!mPDataStarted) {
+            file << "\nPOINT_DATA " << n_cells << "\n";
+            mPDataStarted = 1;
+        }
         file << "SCALARS cell_type int\n";
         file << "LOOKUP_TABLE default\n";
         for (int i = 0; i < n_cells; i++)
             file << type[i] << "\n";
+        mPDataStarted = 1;
     }
 }
 
@@ -118,7 +124,10 @@ void VtkOutput::write_field(int n_cells, const char* data_name, Solution<Pt, N_M
         std::ofstream file(mCurrentFile, std::ios_base::app);
         assert(file.is_open());
 
-        file << "\nPOINT_DATA " << n_cells << "\n";
+        if (!mPDataStarted) {
+            file << "\nPOINT_DATA " << n_cells << "\n";
+            mPDataStarted = 1;
+        }
         file << "SCALARS " << data_name << " float\n";
         file << "LOOKUP_TABLE default\n";
         for (int i = 0; i < n_cells; i++)
