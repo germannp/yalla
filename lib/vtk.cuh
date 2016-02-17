@@ -29,7 +29,7 @@ public:
 protected:
     int mN_TIME_STEPS;
     int mSKIP_STEPS;
-    int mTimeStep = 0;
+    int mTimeStep = -1;
     std::string mBASE_NAME;
     std::string mCurrentFile;
     bool mWrite = 0;
