@@ -123,11 +123,9 @@ const float CUBE_SIZE = 1;
 const int LATTICE_SIZE = 50;
 const int N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
-template<typename Pt, int N_MAX>class LatticeSolver {
-protected:
-    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global);
-    Pt X[N_MAX], dX[N_MAX], X1[N_MAX], dX1[N_MAX];
-
+template<typename Pt, int N_MAX>class Lattice {
+public:
+    void build(int n_cells, const Pt* __restrict__ X, float cube_size = CUBE_SIZE);
     int cube_id[N_MAX], cell_id[N_MAX];
     int cube_start[N_CUBES], cube_end[N_CUBES];
 };
@@ -169,6 +167,27 @@ __global__ void compute_cube_start_and_end(int n_cells, const int* __restrict__ 
     }
 }
 
+template<typename Pt, int N_MAX>
+void Lattice<Pt, N_MAX>::build(int n_cells, const Pt* __restrict__ X, float cube_size) {
+    assert(n_cells <= N_MAX);
+    compute_cube_ids<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, X, cube_id, cell_id);
+    cudaDeviceSynchronize();
+    thrust::sort_by_key(thrust::device, cube_id, cube_id + n_cells, cell_id);
+    reset_cube_start_and_end<<<(N_CUBES + 32 - 1)/32, 32>>>(cube_start, cube_end);
+    cudaDeviceSynchronize();
+    compute_cube_start_and_end<<<(n_cells + 32 - 1)/32, 32>>>(n_cells,
+        cube_id, cube_start, cube_end);
+    cudaDeviceSynchronize();
+}
+
+
+template<typename Pt, int N_MAX>class LatticeSolver {
+protected:
+    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global);
+    Pt X[N_MAX], dX[N_MAX], X1[N_MAX], dX1[N_MAX];
+    Lattice<Pt, N_MAX> latt;
+};
+
 template<typename Pt>
 __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
     const int* __restrict__ cell_id, const int* __restrict__ cube_id,
@@ -209,34 +228,18 @@ void LatticeSolver<Pt, N_MAX>::step(float delta_t, int n_cells,
     assert(LATTICE_SIZE % 2 == 0); // Needed?
 
     // 1st step
-    compute_cube_ids<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, X, cube_id, cell_id);
-    cudaDeviceSynchronize();
-    thrust::sort_by_key(thrust::device, cube_id, cube_id + n_cells, cell_id);
-    reset_cube_start_and_end<<<(N_CUBES + 32 - 1)/32, 32>>>(cube_start, cube_end);
-    cudaDeviceSynchronize();
-    compute_cube_start_and_end<<<(n_cells + 32 - 1)/32, 32>>>(n_cells,
-        cube_id, cube_start, cube_end);
-    cudaDeviceSynchronize();
-
+    latt.build(n_cells, X);
     calculate_lattice_dX<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X, dX,
-        cell_id, cube_id, cube_start, cube_end, local);
+        latt.cell_id, latt.cube_id, latt.cube_start, latt.cube_end, local);
     cudaDeviceSynchronize();
     global(X, dX);
     euler_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X1, dX);
     cudaDeviceSynchronize();
 
     // 2nd step
-    compute_cube_ids<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, X1, cube_id, cell_id);
-    cudaDeviceSynchronize();
-    thrust::sort_by_key(thrust::device, cube_id, cube_id + n_cells, cell_id);
-    reset_cube_start_and_end<<<(N_CUBES + 32 - 1)/32, 32>>>(cube_start, cube_end);
-    cudaDeviceSynchronize();
-    compute_cube_start_and_end<<<(n_cells + 32 - 1)/32, 32>>>(n_cells,
-        cube_id, cube_start, cube_end);
-    cudaDeviceSynchronize();
-
+    latt.build(n_cells, X1);
     calculate_lattice_dX<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X1, dX1,
-        cell_id, cube_id, cube_start, cube_end, local);
+        latt.cell_id, latt.cube_id, latt.cube_start, latt.cube_end, local);
     cudaDeviceSynchronize();
     global(X1, dX1);
     heun_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X, dX, dX1);
