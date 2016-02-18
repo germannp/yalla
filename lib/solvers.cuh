@@ -52,7 +52,7 @@ const uint TILE_SIZE = 32;
 
 template<typename Pt, int N_MAX>class N2nSolver {
 protected:
-    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global = none);
+    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global);
     Pt X[N_MAX], dX[N_MAX], X1[N_MAX], dX1[N_MAX];
 };
 
@@ -125,7 +125,7 @@ const int N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
 template<typename Pt, int N_MAX>class LatticeSolver {
 protected:
-    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global = none);
+    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global);
     Pt X[N_MAX], dX[N_MAX], X1[N_MAX], dX1[N_MAX];
 
     int cube_id[N_MAX], cell_id[N_MAX];
@@ -207,7 +207,6 @@ template<typename Pt, int N_MAX>
 void LatticeSolver<Pt, N_MAX>::step(float delta_t, int n_cells,
     nhoodint<Pt> local, globints<Pt> global) {
     assert(LATTICE_SIZE % 2 == 0); // Needed?
-    assert(n_cells <= N_MAX);
 
     // 1st step
     compute_cube_ids<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, X, cube_id, cell_id);
