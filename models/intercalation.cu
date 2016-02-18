@@ -1,7 +1,6 @@
 // Simulate intercalating cells
 #include <assert.h>
 #include <cmath>
-#include <sys/stat.h>
 #include <curand_kernel.h>
 
 #include "../lib/inits.cuh"

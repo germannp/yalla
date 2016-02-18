@@ -3,7 +3,6 @@
 #include <iostream>
 #include <sstream>
 #include <cmath>
-#include <sys/stat.h>
 
 #include "../lib/inits.cuh"
 #include "../lib/solvers.cuh"

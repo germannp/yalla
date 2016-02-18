@@ -1,7 +1,6 @@
 // Simulating a layer.
 #include <assert.h>
 #include <cmath>
-#include <sys/stat.h>
 #include <iostream>
 
 #include "../lib/inits.cuh"

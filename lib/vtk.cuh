@@ -6,6 +6,7 @@
 #include <iostream>
 #include <iomanip>
 #include <time.h>
+#include <sys/stat.h>
 
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>

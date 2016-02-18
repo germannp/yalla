@@ -1,7 +1,6 @@
 // Simulating rounding up.
 #include <assert.h>
 #include <cmath>
-#include <sys/stat.h>
 
 #include "../lib/inits.cuh"
 #include "../lib/solvers.cuh"
