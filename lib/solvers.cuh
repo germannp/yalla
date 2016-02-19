@@ -16,7 +16,7 @@ template<typename Pt>
 void none(const Pt* __restrict__ X, Pt* dX) {}
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-class Solution: protected Solver<Pt, N_MAX> {
+class Solution: public Solver<Pt, N_MAX> {
 public:
     __device__ __host__ Pt& operator[](int idx) { return Solver<Pt, N_MAX>::X[idx]; };
     __device__ __host__ const Pt& operator[](int idx) const { return Solver<Pt, N_MAX>::X[idx]; };
@@ -123,23 +123,28 @@ const float CUBE_SIZE = 1;
 const int LATTICE_SIZE = 50;
 const int N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
-template<typename Pt, int N_MAX>class Lattice {
+template<typename Pt, int N_MAX>class LatticeSolver {
 public:
-    void build(int n_cells, const Pt* __restrict__ X, float cube_size = CUBE_SIZE);
+    void build_lattice(int n_cells, float cubesize);
     int cube_id[N_MAX], cell_id[N_MAX];
     int cube_start[N_CUBES], cube_end[N_CUBES];
+protected:
+    Pt X[N_MAX], dX[N_MAX], X1[N_MAX], dX1[N_MAX];
+    void build_lattice(int n_cells, const Pt* __restrict__ X, float cube_size = CUBE_SIZE);
+    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global);
 };
+
 
 template<typename Pt>
 __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ X,
-    int* cube_id, int* cell_id) {
+    int* cube_id, int* cell_id, float cube_size) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < n_cells) {
         Pt Xi = X[i];
         int id = (int)(
-            (floor(Xi.x/CUBE_SIZE) + LATTICE_SIZE/2) +
-            (floor(Xi.y/CUBE_SIZE) + LATTICE_SIZE/2)*LATTICE_SIZE +
-            (floor(Xi.z/CUBE_SIZE) + LATTICE_SIZE/2)*LATTICE_SIZE*LATTICE_SIZE);
+            (floor(Xi.x/cube_size) + LATTICE_SIZE/2) +
+            (floor(Xi.y/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE +
+            (floor(Xi.z/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE*LATTICE_SIZE);
         assert(id >= 0);
         assert(id <= N_CUBES);
         cube_id[i] = id;
@@ -168,9 +173,10 @@ __global__ void compute_cube_start_and_end(int n_cells, const int* __restrict__ 
 }
 
 template<typename Pt, int N_MAX>
-void Lattice<Pt, N_MAX>::build(int n_cells, const Pt* __restrict__ X, float cube_size) {
+void LatticeSolver<Pt, N_MAX>::build_lattice(int n_cells, const Pt* __restrict__ X,
+    float cube_size) {
     assert(n_cells <= N_MAX);
-    compute_cube_ids<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, X, cube_id, cell_id);
+    compute_cube_ids<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, X, cube_id, cell_id, cube_size);
     cudaDeviceSynchronize();
     thrust::sort_by_key(thrust::device, cube_id, cube_id + n_cells, cell_id);
     reset_cube_start_and_end<<<(N_CUBES + 32 - 1)/32, 32>>>(cube_start, cube_end);
@@ -180,13 +186,11 @@ void Lattice<Pt, N_MAX>::build(int n_cells, const Pt* __restrict__ X, float cube
     cudaDeviceSynchronize();
 }
 
+template<typename Pt, int N_MAX>
+void LatticeSolver<Pt, N_MAX>::build_lattice(int n_cells, float cube_size) {
+    build_lattice(n_cells, X, cube_size);
+}
 
-template<typename Pt, int N_MAX>class LatticeSolver {
-protected:
-    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global);
-    Pt X[N_MAX], dX[N_MAX], X1[N_MAX], dX1[N_MAX];
-    Lattice<Pt, N_MAX> latt;
-};
 
 template<typename Pt>
 __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
@@ -228,18 +232,18 @@ void LatticeSolver<Pt, N_MAX>::step(float delta_t, int n_cells,
     assert(LATTICE_SIZE % 2 == 0); // Needed?
 
     // 1st step
-    latt.build(n_cells, X);
+    build_lattice(n_cells, X);
     calculate_lattice_dX<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X, dX,
-        latt.cell_id, latt.cube_id, latt.cube_start, latt.cube_end, local);
+        cell_id, cube_id, cube_start, cube_end, local);
     cudaDeviceSynchronize();
     global(X, dX);
     euler_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X1, dX);
     cudaDeviceSynchronize();
 
     // 2nd step
-    latt.build(n_cells, X1);
+    build_lattice(n_cells, X1);
     calculate_lattice_dX<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X1, dX1,
-        latt.cell_id, latt.cube_id, latt.cube_start, latt.cube_end, local);
+        cell_id, cube_id, cube_start, cube_end, local);
     cudaDeviceSynchronize();
     global(X1, dX1);
     heun_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X, dX, dX1);
