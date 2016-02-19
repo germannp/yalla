@@ -109,10 +109,35 @@ const char* test_compare_methods() {
 }
 
 
+const char* test_lattice_spacing() {
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < 10; j++) {
+            for (int k = 0; k < 10; k++) {
+                latt[100*i + 10*j + k].x = k + 0.5;
+                latt[100*i + 10*j + k].y = j + 0.5;
+                latt[100*i + 10*j + k].z = i + 0.5;
+            }
+        }
+    }
+    latt.build_lattice(1000, 1);
+    for (int i = 0; i < 1000; i++) {
+        int expected_cube = pow(LATTICE_SIZE, 3)/2 + pow(LATTICE_SIZE, 2)/2 + LATTICE_SIZE/2
+            + i%10 + (i%100/10)*LATTICE_SIZE + (i/100)*LATTICE_SIZE*LATTICE_SIZE;
+        mu_assert("ERROR: Single lattice", latt.cube_id[i] == expected_cube);
+    }
+    latt.build_lattice(1000, 2);
+    for (int i = 0; i < 1000 - 8; i++) {
+        mu_assert("ERROR: Double lattice", latt.cube_id[i] == latt.cube_id[i - i%8]);
+    }
+    return NULL;
+}
+
+
 const char* all_tests() {
     mu_run_test(test_n2n_tetrahedron);
     mu_run_test(test_latt_tetrahedron);
     mu_run_test(test_compare_methods);
+    mu_run_test(test_lattice_spacing);
     return NULL;
 }
 
