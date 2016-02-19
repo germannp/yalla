@@ -58,9 +58,9 @@ void VtkOutput::print_progress() {
         std::cout << "Integrating " << mBASE_NAME << ", ";
         if (mN_TIME_STEPS > 0) {
             std::cout << std::setw(3)
-                << (int)(100.0*mTimeStep/mN_TIME_STEPS) << "% done\r";
+                << (int)(100.0*(mTimeStep + 1)/mN_TIME_STEPS) << "% done\r";
         } else {
-            std::cout << mTimeStep << " steps done\r";
+            std::cout << mTimeStep + 1 << " steps done\r";
         }
         std::cout.flush();
         mWrite = 1;
