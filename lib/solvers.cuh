@@ -125,7 +125,8 @@ const int N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
 template<typename Pt, int N_MAX>class LatticeSolver {
 public:
-    void build_lattice(int n_cells, float cubesize);
+    void build_lattice(int n_cells, float cube_size);
+    void z_order(int n_cells, float cube_size);
     int cube_id[N_MAX], cell_id[N_MAX];
     int cube_start[N_CUBES], cube_end[N_CUBES];
 protected:
@@ -135,6 +136,7 @@ protected:
 };
 
 
+// Build lattice
 template<typename Pt>
 __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ X,
     int* cube_id, int* cell_id, float cube_size) {
@@ -192,6 +194,58 @@ void LatticeSolver<Pt, N_MAX>::build_lattice(int n_cells, float cube_size) {
 }
 
 
+// Morton sorting, after http://stackoverflow.com/a/1024889/3853140
+template<typename Pt>
+__global__ void z_index(int n_cells, const Pt* __restrict__ X, Pt* X1,
+    int* cube_id, int* cell_id, float cube_size) {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < n_cells) {
+        int x = (int)(X[i].x/cube_size) + 512; assert(x < 1024);
+        int y = (int)(X[i].y/cube_size) + 512; assert(y < 1024);
+        int z = (int)(X[i].z/cube_size) + 512; assert(z < 1024);
+
+        x = (x | (x << 16)) & 0x030000FF;
+        x = (x | (x <<  8)) & 0x0300F00F;
+        x = (x | (x <<  4)) & 0x030C30C3;
+        x = (x | (x <<  2)) & 0x09249249;
+
+        y = (y | (y << 16)) & 0x030000FF;
+        y = (y | (y <<  8)) & 0x0300F00F;
+        y = (y | (y <<  4)) & 0x030C30C3;
+        y = (y | (y <<  2)) & 0x09249249;
+
+        z = (z | (z << 16)) & 0x030000FF;
+        z = (z | (z <<  8)) & 0x0300F00F;
+        z = (z | (z <<  4)) & 0x030C30C3;
+        z = (z | (z <<  2)) & 0x09249249;
+
+        cube_id[i] = x | (y << 1) | (z << 2);
+        cell_id[i] = i;
+        X1[i] = X[i];
+    }
+}
+
+template<typename Pt>
+__global__ void reorder(int n_cells, Pt* X, const Pt* __restrict__ X1,
+    const int* __restrict__ cell_id) {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < n_cells) {
+        X[i] = X1[cell_id[i]];
+    }
+}
+
+template<typename Pt, int N_MAX>
+void LatticeSolver<Pt, N_MAX>::z_order(int n_cells, float cube_size) {
+    assert(n_cells <= N_MAX);
+    z_index<<<(n_cells + 128 - 1)/128, 128>>>(n_cells, X, X1, cube_id, cell_id, cube_size);
+    cudaDeviceSynchronize();
+    thrust::sort_by_key(thrust::device, cube_id, cube_id + n_cells, cell_id);
+    reorder<<<(n_cells + 128 - 1)/128, 128>>>(n_cells, X, X1, cell_id);
+    cudaDeviceSynchronize();
+}
+
+
+// Integration
 template<typename Pt>
 __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
     const int* __restrict__ cell_id, const int* __restrict__ cube_id,
