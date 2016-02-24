@@ -40,7 +40,7 @@ const char* test_n2n_tetrahedron() {
     uniform_sphere(4, 1, n2n);
     float3 com_i = center_of_mass(4, n2n);
     for (int i = 0; i < 500; i++) {
-        n2n.step(0.1, 4, p_spring);
+        n2n.step(0.1, p_spring, none, 4);
     }
     for (int i = 1; i < 4; i++) {
         float3 r = {n2n[0].x - n2n[i].x, n2n[0].y - n2n[i].y,
@@ -59,7 +59,7 @@ const char* test_latt_tetrahedron() {
     uniform_sphere(4, 1, latt);
     float3 com_i = center_of_mass(4, latt);
     for (int i = 0; i < 500; i++) {
-        latt.step(0.1, 4, p_spring);
+        latt.step(0.1, p_spring, none, 4);
     }
     for (int i = 1; i < 4; i++) {
         float3 r = {latt[0].x - latt[i].x, latt[0].y - latt[i].y,
@@ -98,8 +98,8 @@ const char* test_compare_methods() {
         latt[i].y = n2n[i].y;
         latt[i].z = n2n[i].z;
     }
-    n2n.step(0.5, N_MAX, p_cubic);
-    latt.step(0.5, N_MAX, p_cubic);
+    n2n.step(0.5, p_cubic);
+    latt.step(0.5, p_cubic);
     for (int i = 0; i < N_MAX; i++) {
         mu_assert("ERROR: Methods disagree", mu_isclose(latt[i].x, n2n[i].x));
         mu_assert("ERROR: Methods disagree", mu_isclose(latt[i].y, n2n[i].y));

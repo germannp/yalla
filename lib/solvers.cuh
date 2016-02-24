@@ -20,9 +20,9 @@ class Solution: public Solver<Pt, N_MAX> {
 public:
     __device__ __host__ Pt& operator[](int idx) { return Solver<Pt, N_MAX>::X[idx]; };
     __device__ __host__ const Pt& operator[](int idx) const { return Solver<Pt, N_MAX>::X[idx]; };
-    void step(float delta_t, int n_cells, nhoodint<Pt> loc, globints<Pt> glob = none) {
+    void step(float delta_t, nhoodint<Pt> loc, globints<Pt> glob = none, int n_cells = N_MAX) {
         assert(n_cells <= N_MAX);
-        return Solver<Pt, N_MAX>::step(delta_t, n_cells, loc, glob);
+        return Solver<Pt, N_MAX>::step(delta_t, loc, glob, n_cells);
     };
 };
 
@@ -48,7 +48,7 @@ const uint TILE_SIZE = 32;
 
 template<typename Pt, int N_MAX>class N2nSolver {
 protected:
-    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global);
+    void step(float delta_t, nhoodint<Pt> local, globints<Pt> global, int n_cells);
     Pt X[N_MAX], dX[N_MAX], X1[N_MAX], dX1[N_MAX];
 };
 
@@ -87,8 +87,8 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
 }
 
 template<typename Pt, int N_MAX>
-void N2nSolver<Pt, N_MAX>::step(float delta_t, int n_cells,
-        nhoodint<Pt> local, globints<Pt> global) {
+void N2nSolver<Pt, N_MAX>::step(float delta_t, nhoodint<Pt> local, globints<Pt> global,
+        int n_cells) {
     int n_blocks = (n_cells + TILE_SIZE - 1)/TILE_SIZE;  // ceil int div.
 
     // 1st step
@@ -125,10 +125,11 @@ public:
 protected:
     Pt X[N_MAX], dX[N_MAX], X1[N_MAX], dX1[N_MAX];
     void build_lattice(int n_cells, const Pt* __restrict__ X, float cube_size = CUBE_SIZE);
-    void step(float delta_t, int n_cells, nhoodint<Pt> local, globints<Pt> global);
+    void step(float delta_t, nhoodint<Pt> local, globints<Pt> global, int n_cells);
 };
 
 
+// Build lattice
 template<typename Pt>
 __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ X,
         int* cube_id, int* cell_id, float cube_size) {
@@ -186,6 +187,7 @@ void LatticeSolver<Pt, N_MAX>::build_lattice(int n_cells, float cube_size) {
 }
 
 
+// Integration
 template<typename Pt>
 __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
         const int* __restrict__ cell_id, const int* __restrict__ cube_id,
@@ -221,8 +223,8 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* 
 }
 
 template<typename Pt, int N_MAX>
-void LatticeSolver<Pt, N_MAX>::step(float delta_t, int n_cells,
-        nhoodint<Pt> local, globints<Pt> global) {
+void LatticeSolver<Pt, N_MAX>::step(float delta_t, nhoodint<Pt> local,
+        globints<Pt> global, int n_cells) {
     assert(LATTICE_SIZE % 2 == 0);  // Needed?
 
     // 1st step

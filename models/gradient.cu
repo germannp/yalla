@@ -53,7 +53,7 @@ int main(int argc, char const *argv[]) {
         output.write_field(N_CELLS, "w", X);
 
         if (time_step < N_TIME_STEPS) {
-            X.step(DELTA_T, N_CELLS, local);
+            X.step(DELTA_T, local);
         }
     }
 

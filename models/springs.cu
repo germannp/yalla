@@ -46,7 +46,7 @@ int main(int argc, const char* argv[]) {
         output.write_positions(N_CELLS, X);
 
         if (time_step < N_TIME_STEPS) {
-            X.step(DELTA_T, N_CELLS, p_spring);
+            X.step(DELTA_T, p_spring);
         }
     }
 

@@ -50,7 +50,7 @@ int main(int argc, char const *argv[]) {
         output.write_positions(N_CELLS, X);
 
         if (time_step < N_TIME_STEPS) {
-            X.step(DELTA_T, N_CELLS, potential);
+            X.step(DELTA_T, potential);
         }
     }
 

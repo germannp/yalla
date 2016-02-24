@@ -64,7 +64,7 @@ int main(int argc, char const *argv[]) {
         output.write_type(N_CELLS, cell_type);
 
         if (time_step < N_TIME_STEPS) {
-            X.step(DELTA_T, N_CELLS, p_sorting);
+            X.step(DELTA_T, p_sorting);
         }
     }
 
