@@ -89,7 +89,7 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
 template<typename Pt, int N_MAX>
 void N2nSolver<Pt, N_MAX>::step(float delta_t, int n_cells,
         nhoodint<Pt> local, globints<Pt> global) {
-    int n_blocks = (n_cells + TILE_SIZE - 1)/TILE_SIZE; // ceil int div.
+    int n_blocks = (n_cells + TILE_SIZE - 1)/TILE_SIZE;  // ceil int div.
 
     // 1st step
     reset_dX<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, dX);
@@ -223,7 +223,7 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* 
 template<typename Pt, int N_MAX>
 void LatticeSolver<Pt, N_MAX>::step(float delta_t, int n_cells,
         nhoodint<Pt> local, globints<Pt> global) {
-    assert(LATTICE_SIZE % 2 == 0); // Needed?
+    assert(LATTICE_SIZE % 2 == 0);  // Needed?
 
     // 1st step
     build_lattice(n_cells, X);

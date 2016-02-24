@@ -32,7 +32,7 @@ __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
     dF.w = i == 0 ? 0 : -r.w*D;
-    assert(dF.x == dF.x); // For NaN f != f.
+    assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
 

@@ -27,7 +27,7 @@ __device__ float3 cubic_sorting(float3 Xi, float3 Xj, int i, int j) {
     dF.x = strength*r.x*F/dist;
     dF.y = strength*r.y*F/dist;
     dF.z = strength*r.z*F/dist;
-    assert(dF.x == dF.x); // For NaN f != f.
+    assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
 
