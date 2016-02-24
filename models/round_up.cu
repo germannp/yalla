@@ -49,7 +49,7 @@ __global__ void squeeze_kernel(const __restrict__ float3* X, float3* dX) {
 
     float time = time_step*DELTA_T;
     dX[i].z += 10*step(-2 - X[i].z); // Floor
-    if ((time >= 0.1) && (time <= 0.5))
+    if ((time >= 0.1) && (time <= 0.5)) {
         dX[i].z -= 10*step(X[i].z - (2 - (time - 0.1)/0.3));
     }
 }
@@ -71,7 +71,7 @@ int main(int argc, char const *argv[]) {
         output.write_positions(N_CELLS, X);
 
         if (time_step*DELTA_T <= 1) {
-            X.step(DELTA_T, N_CELLS, potential, squeeze_to_floor);
+            X.step(DELTA_T, potential, squeeze_to_floor);
         }
     }
 
