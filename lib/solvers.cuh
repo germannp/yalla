@@ -29,14 +29,14 @@ public:
 
 // Integration templates
 template<typename Pt> __global__ void euler_step(int n_cells, float delta_t,
-    const Pt* __restrict__ X0, Pt* X, const Pt* __restrict__ dX) {
+        const Pt* __restrict__ X0, Pt* X, const Pt* __restrict__ dX) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < n_cells) X[i] = X0[i] + dX[i]*delta_t;
 }
 
 template<typename Pt> __global__ void heun_step(int n_cells, float delta_t,
-    const Pt* __restrict__ X0, Pt* X, const Pt* __restrict__ dX,
-    const Pt* __restrict__ dX1) {
+        const Pt* __restrict__ X0, Pt* X, const Pt* __restrict__ dX,
+        const Pt* __restrict__ dX1) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < n_cells) X[i] = X0[i] + (dX[i] + dX1[i])*0.5*delta_t;
 }
@@ -60,7 +60,7 @@ template<typename Pt> __global__ void reset_dX(int n_cells, Pt* dX) {
 // Calculate dX one thread per cell, to TILE_SIZE other bodies at a time
 template<typename Pt>
 __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
-    nhoodint<Pt> local) {
+        nhoodint<Pt> local) {
     __shared__ Pt shX[TILE_SIZE];
     int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
     Pt Xi = X[cell_idx];
@@ -88,7 +88,7 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
 
 template<typename Pt, int N_MAX>
 void N2nSolver<Pt, N_MAX>::step(float delta_t, int n_cells,
-    nhoodint<Pt> local, globints<Pt> global) {
+        nhoodint<Pt> local, globints<Pt> global) {
     int n_blocks = (n_cells + TILE_SIZE - 1)/TILE_SIZE; // ceil int div.
 
     // 1st step
@@ -131,7 +131,7 @@ protected:
 
 template<typename Pt>
 __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ X,
-    int* cube_id, int* cell_id, float cube_size) {
+        int* cube_id, int* cell_id, float cube_size) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
@@ -155,7 +155,7 @@ __global__ void reset_cube_start_and_end(int* cube_start, int* cube_end) {
 }
 
 __global__ void compute_cube_start_and_end(int n_cells, const int* __restrict__ cube_id,
-    int* cube_start, int* cube_end) {
+        int* cube_start, int* cube_end) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
@@ -168,7 +168,7 @@ __global__ void compute_cube_start_and_end(int n_cells, const int* __restrict__ 
 
 template<typename Pt, int N_MAX>
 void LatticeSolver<Pt, N_MAX>::build_lattice(int n_cells, const Pt* __restrict__ X,
-    float cube_size) {
+        float cube_size) {
     assert(n_cells <= N_MAX);
     compute_cube_ids<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, X, cube_id, cell_id, cube_size);
     cudaDeviceSynchronize();
@@ -188,9 +188,9 @@ void LatticeSolver<Pt, N_MAX>::build_lattice(int n_cells, float cube_size) {
 
 template<typename Pt>
 __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
-    const int* __restrict__ cell_id, const int* __restrict__ cube_id,
-    const int* __restrict__ cube_start, const int* __restrict__ cube_end,
-    nhoodint<Pt> local) {
+        const int* __restrict__ cell_id, const int* __restrict__ cube_id,
+        const int* __restrict__ cube_start, const int* __restrict__ cube_end,
+        nhoodint<Pt> local) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
@@ -222,7 +222,7 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* 
 
 template<typename Pt, int N_MAX>
 void LatticeSolver<Pt, N_MAX>::step(float delta_t, int n_cells,
-    nhoodint<Pt> local, globints<Pt> global) {
+        nhoodint<Pt> local, globints<Pt> global) {
     assert(LATTICE_SIZE % 2 == 0); // Needed?
 
     // 1st step
