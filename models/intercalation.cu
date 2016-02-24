@@ -22,7 +22,7 @@ __device__ __managed__ curandState rand_states[N_CONNECTIONS];
 
 __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
-    if (i == j) return;
+    if (i == j) return dF;
 
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
@@ -103,7 +103,7 @@ int main(int argc, char const *argv[]) {
         output.write_positions(N_CELLS, X);
         output.write_connections(N_CONNECTIONS, connections);
         if (time_step < N_TIME_STEPS) {
-            X.step(DELTA_T, N_CELLS, potential, intercalation);
+            X.step(DELTA_T, potential, intercalation);
             update_connections<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>();
             cudaDeviceSynchronize();
         }
