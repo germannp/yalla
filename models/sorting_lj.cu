@@ -20,20 +20,20 @@ __device__ __managed__ curandState rand_states[N_CELLS];
 
 
 __device__ float3 lj_sorting(float3 Xi, float3 Xj, int i, int j) {
-    int strength = (1 + 2*(j < N_CELLS/2))*(1 + 2*(i < N_CELLS/2));
     float3 dF = {0.0f, 0.0f, 0.0f};
+    if (i == j) return dF;
+
+    int strength = (1 + 2*(j < N_CELLS/2))*(1 + 2*(i < N_CELLS/2));
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if (i != j) {
-        dist = fmaxf(dist, MIN_DIST);
-        float r_rel = R_MIN/dist;
-        float F = powf(r_rel, 13);
-        F -= powf(r_rel, 7);
-        F += curand_normal(&rand_states[i])*10/sqrtf(N_CELLS);
-        dF.x = strength*r.x*F/dist;
-        dF.y = strength*r.y*F/dist;
-        dF.z = strength*r.z*F/dist;
-    }
+    dist = fmaxf(dist, MIN_DIST);
+    float r_rel = R_MIN/dist;
+    float F = powf(r_rel, 13);
+    F -= powf(r_rel, 7);
+    F += curand_normal(&rand_states[i])*10/sqrtf(N_CELLS);
+    dF.x = strength*r.x*F/dist;
+    dF.y = strength*r.y*F/dist;
+    dF.z = strength*r.z*F/dist;
     assert(dF.x == dF.x); // For NaN f != f.
     return dF;
 }

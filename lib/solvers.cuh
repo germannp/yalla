@@ -31,18 +31,14 @@ public:
 template<typename Pt> __global__ void euler_step(int n_cells, float delta_t,
     const Pt* __restrict__ X0, Pt* X, const Pt* __restrict__ dX) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < n_cells) {
-        X[i] = X0[i] + dX[i]*delta_t;
-    }
+    if (i < n_cells) X[i] = X0[i] + dX[i]*delta_t;
 }
 
 template<typename Pt> __global__ void heun_step(int n_cells, float delta_t,
     const Pt* __restrict__ X0, Pt* X, const Pt* __restrict__ dX,
     const Pt* __restrict__ dX1) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < n_cells) {
-        X[i] = X0[i] + (dX[i] + dX1[i])*0.5*delta_t;
-    }
+    if (i < n_cells) X[i] = X0[i] + (dX[i] + dX1[i])*0.5*delta_t;
 }
 
 
@@ -58,9 +54,7 @@ protected:
 
 template<typename Pt> __global__ void reset_dX(int n_cells, Pt* dX) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < n_cells) {
-        dX[i] = dX[i]*0;
-    }
+    if (i < n_cells) dX[i] = dX[i]*0;
 }
 
 // Calculate dX one thread per cell, to TILE_SIZE other bodies at a time
@@ -139,37 +133,37 @@ template<typename Pt>
 __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ X,
     int* cube_id, int* cell_id, float cube_size) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < n_cells) {
-        Pt Xi = X[i];
-        int id = (int)(
-            (floor(Xi.x/cube_size) + LATTICE_SIZE/2) +
-            (floor(Xi.y/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE +
-            (floor(Xi.z/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE*LATTICE_SIZE);
-        assert(id >= 0);
-        assert(id <= N_CUBES);
-        cube_id[i] = id;
-        cell_id[i] = i;
-    }
+    if (i >= n_cells) return;
+
+    Pt Xi = X[i];
+    int id = (int)(
+        (floor(Xi.x/cube_size) + LATTICE_SIZE/2) +
+        (floor(Xi.y/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE +
+        (floor(Xi.z/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE*LATTICE_SIZE);
+    assert(id >= 0);
+    assert(id <= N_CUBES);
+    cube_id[i] = id;
+    cell_id[i] = i;
 }
 
 __global__ void reset_cube_start_and_end(int* cube_start, int* cube_end) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < N_CUBES) {
-        cube_start[i] = -1;
-        cube_end[i] = -2;
-    }
+    if (i >= N_CUBES) return;
+
+    cube_start[i] = -1;
+    cube_end[i] = -2;
 }
 
 __global__ void compute_cube_start_and_end(int n_cells, const int* __restrict__ cube_id,
     int* cube_start, int* cube_end) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < n_cells) {
-        int cube = cube_id[i];
-        int prev = i > 0 ? cube_id[i - 1] : -1;
-        if (cube != prev) cube_start[cube] = i;
-        int next = i < n_cells ? cube_id[i + 1] : cube_id[i] + 1;
-        if (cube != next) cube_end[cube] = i;
-    }
+    if (i >= n_cells) return;
+
+    int cube = cube_id[i];
+    int prev = i > 0 ? cube_id[i - 1] : -1;
+    if (cube != prev) cube_start[cube] = i;
+    int next = i < n_cells ? cube_id[i + 1] : cube_id[i] + 1;
+    if (cube != next) cube_end[cube] = i;
 }
 
 template<typename Pt, int N_MAX>
@@ -198,32 +192,32 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* 
     const int* __restrict__ cube_start, const int* __restrict__ cube_end,
     nhoodint<Pt> local) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < n_cells) {
-        int interacting_cubes[27];
-        interacting_cubes[0] = cube_id[i] - 1;
-        interacting_cubes[1] = cube_id[i];
-        interacting_cubes[2] = cube_id[i] + 1;
-        for (int j = 0; j < 3; j++) {
-            interacting_cubes[j + 3] = interacting_cubes[j % 3] - LATTICE_SIZE;
-            interacting_cubes[j + 6] = interacting_cubes[j % 3] + LATTICE_SIZE;
-        }
-        for (int j = 0; j < 9; j++) {
-            interacting_cubes[j +  9] = interacting_cubes[j % 9] - LATTICE_SIZE*LATTICE_SIZE;
-            interacting_cubes[j + 18] = interacting_cubes[j % 9] + LATTICE_SIZE*LATTICE_SIZE;
-        }
+    if (i >= n_cells) return;
 
-        Pt Xi = X[cell_id[i]];
-        Pt Fij, F = Xi*0;
-        for (int j = 0; j < 27; j++) {
-            int cube = interacting_cubes[j];
-            for (int k = cube_start[cube]; k <= cube_end[cube]; k++) {
-                Pt Xj = X[cell_id[k]];
-                Fij = local(Xi, Xj, cell_id[i], cell_id[k]);
-                F = F + Fij;
-            }
-        }
-        dX[cell_id[i]] = F;
+    int interacting_cubes[27];
+    interacting_cubes[0] = cube_id[i] - 1;
+    interacting_cubes[1] = cube_id[i];
+    interacting_cubes[2] = cube_id[i] + 1;
+    for (int j = 0; j < 3; j++) {
+        interacting_cubes[j + 3] = interacting_cubes[j % 3] - LATTICE_SIZE;
+        interacting_cubes[j + 6] = interacting_cubes[j % 3] + LATTICE_SIZE;
     }
+    for (int j = 0; j < 9; j++) {
+        interacting_cubes[j +  9] = interacting_cubes[j % 9] - LATTICE_SIZE*LATTICE_SIZE;
+        interacting_cubes[j + 18] = interacting_cubes[j % 9] + LATTICE_SIZE*LATTICE_SIZE;
+    }
+
+    Pt Xi = X[cell_id[i]];
+    Pt Fij, F = Xi*0;
+    for (int j = 0; j < 27; j++) {
+        int cube = interacting_cubes[j];
+        for (int k = cube_start[cube]; k <= cube_end[cube]; k++) {
+            Pt Xj = X[cell_id[k]];
+            Fij = local(Xi, Xj, cell_id[i], cell_id[k]);
+            F = F + Fij;
+        }
+    }
+    dX[cell_id[i]] = F;
 }
 
 template<typename Pt, int N_MAX>

@@ -19,17 +19,17 @@ __device__ __managed__ Solution<float3, N_CELLS, LatticeSolver> X;
 
 __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
+    if (i == j) return dF;
+
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
-    if (i != j) {
-        int n = 2;
-        float strength = 100;
-        float F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1)
-            + strength*powf(R_MAX - dist, n);
-        dF.x = r.x*F/dist;
-        dF.y = r.y*F/dist;
-        dF.z = r.z*F/dist;
-    }
+    int n = 2;
+    float strength = 100;
+    float F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1)
+        + strength*powf(R_MAX - dist, n);
+    dF.x = r.x*F/dist;
+    dF.y = r.y*F/dist;
+    dF.z = r.z*F/dist;
     assert(dF.x == dF.x); // For NaN f != f.
     return dF;
 }

@@ -12,13 +12,13 @@ __device__ __managed__ Solution<float3, N_MAX, LatticeSolver> latt;
 
 __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
+    if (i == j) return dF;
+
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if (i != j) {
-        dF.x = r.x*(L_0 - dist)/dist;
-        dF.y = r.y*(L_0 - dist)/dist;
-        dF.z = r.z*(L_0 - dist)/dist;
-    }
+    dF.x = r.x*(L_0 - dist)/dist;
+    dF.y = r.y*(L_0 - dist)/dist;
+    dF.z = r.z*(L_0 - dist)/dist;
     assert(dF.x == dF.x); // For NaN f != f.
     return dF;
 }
@@ -77,14 +77,14 @@ const char* test_latt_tetrahedron() {
 
 __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
+    if (i == j) return dF;
+
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), 1);
-    if (i != j) {
-        float F = 2*(0.6 - dist)*(1 - dist) + (1 - dist)*(1 - dist);
-        dF.x = r.x*F/dist;
-        dF.y = r.y*F/dist;
-        dF.z = r.z*F/dist;
-    }
+    float F = 2*(0.6 - dist)*(1 - dist) + (1 - dist)*(1 - dist);
+    dF.x = r.x*F/dist;
+    dF.y = r.y*F/dist;
+    dF.z = r.z*F/dist;
     assert(dF.x == dF.x); // For NaN f != f.
     return dF;
 }

@@ -18,17 +18,17 @@ __device__ __managed__ Solution<float3, N_CELLS, N2nSolver> X;
 
 
 __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
-    float3 r;
     float3 dF = {0.0f, 0.0f, 0.0f};
+    if (i == j) return dF;
+
+    float3 r;
     r.x = Xi.x - Xj.x;
     r.y = Xi.y - Xj.y;
     r.z = Xi.z - Xj.z;
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if (i != j) {
-        dF.x = r.x*(L_0 - dist)/dist;
-        dF.y = r.y*(L_0 - dist)/dist;
-        dF.z = r.z*(L_0 - dist)/dist;
-    }
+    dF.x = r.x*(L_0 - dist)/dist;
+    dF.y = r.y*(L_0 - dist)/dist;
+    dF.z = r.z*(L_0 - dist)/dist;
     assert(dF.x == dF.x); // For NaN f != f.
     return dF;
 }

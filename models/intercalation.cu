@@ -22,14 +22,14 @@ __device__ __managed__ curandState rand_states[N_CONNECTIONS];
 
 __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
+    if (i == j) return;
+
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
-    if (i != j) {
-        float F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
-        dF.x = r.x*F/dist;
-        dF.y = r.y*F/dist;
-        dF.z = r.z*F/dist;
-    }
+    float F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
+    dF.x = r.x*F/dist;
+    dF.y = r.y*F/dist;
+    dF.z = r.z*F/dist;
     assert(dF.x == dF.x); // For NaN f != f.
     return dF;
 }
@@ -44,19 +44,19 @@ __global__ void setup_rand_states() {
 
 __global__ void intercalate(const __restrict__ float3* X, float3* dX) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < N_CONNECTIONS) {
-        float3 Xi = X[connections[i][0]];
-        float3 Xj = X[connections[i][1]];
-        float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
-        float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    if (i >= N_CONNECTIONS) return;
 
-        dX[connections[i][0]].x -= r.x/dist/5;
-        dX[connections[i][0]].y -= r.y/dist/5;
-        dX[connections[i][0]].z -= r.z/dist/5;
-        dX[connections[i][1]].x += r.x/dist/5;
-        dX[connections[i][1]].y += r.y/dist/5;
-        dX[connections[i][1]].z += r.z/dist/5;
-    }
+    float3 Xi = X[connections[i][0]];
+    float3 Xj = X[connections[i][1]];
+    float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+
+    dX[connections[i][0]].x -= r.x/dist/5;
+    dX[connections[i][0]].y -= r.y/dist/5;
+    dX[connections[i][0]].z -= r.z/dist/5;
+    dX[connections[i][1]].x += r.x/dist/5;
+    dX[connections[i][1]].y += r.y/dist/5;
+    dX[connections[i][1]].z += r.z/dist/5;
 }
 
 void intercalation(const float3* __restrict__ X, float3* dX) {
@@ -66,15 +66,15 @@ void intercalation(const float3* __restrict__ X, float3* dX) {
 
 __global__ void update_connections() {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < N_CONNECTIONS) {
-        int j = (int)(curand_uniform(&rand_states[i])*N_CELLS);
-        int k = (int)(curand_uniform(&rand_states[i])*N_CELLS);
-        float3 r = {X[j].x - X[k].x, X[j].y - X[k].y, X[j].z - X[k].z};
-        float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-        if ((fabs(r.x/dist) < 0.2) && (j != k) && (dist < 2)) {
-            connections[i][0] = j;
-            connections[i][1] = k;
-        }
+    if (i >= N_CONNECTIONS) return;
+
+    int j = (int)(curand_uniform(&rand_states[i])*N_CELLS);
+    int k = (int)(curand_uniform(&rand_states[i])*N_CELLS);
+    float3 r = {X[j].x - X[k].x, X[j].y - X[k].y, X[j].z - X[k].z};
+    float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    if ((fabs(r.x/dist) < 0.2) && (j != k) && (dist < 2)) {
+        connections[i][0] = j;
+        connections[i][1] = k;
     }
 }
 

@@ -45,12 +45,12 @@ __device__ float step(float x) {
 
 __global__ void squeeze_kernel(const __restrict__ float3* X, float3* dX) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i >= N_CELLS) return;
+
     float time = time_step*DELTA_T;
-    if (i < N_CELLS) {
-        dX[i].z += 10*step(-2 - X[i].z); // Floor
-        if ((time >= 0.1) && (time <= 0.5)) {
-            dX[i].z -= 10*step(X[i].z - (2 - (time - 0.1)/0.3));
-        }
+    dX[i].z += 10*step(-2 - X[i].z); // Floor
+    if ((time >= 0.1) && (time <= 0.5))
+        dX[i].z -= 10*step(X[i].z - (2 - (time - 0.1)/0.3));
     }
 }
 

@@ -92,70 +92,71 @@ void VtkOutput::write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
     assert(n_cells <= N_MAX);
     print_progress();
 
-    if (mWrite) {
-        std::stringstream file_name;
-        file_name << "output/" << mBASE_NAME << "_" << mTimeStep/mSKIP_STEPS << ".vtk";
-        mCurrentFile = file_name.str();
-        std::ofstream file(mCurrentFile);
-        assert(file.is_open());
+    if (!mWrite) return;
 
-        file << "# vtk DataFile Version 3.0\n";
-        file << mBASE_NAME << "\n";
-        file << "ASCII\n";
-        file << "DATASET POLYDATA\n";
+    std::stringstream file_name;
+    file_name << "output/" << mBASE_NAME << "_" << mTimeStep/mSKIP_STEPS << ".vtk";
+    mCurrentFile = file_name.str();
+    std::ofstream file(mCurrentFile);
+    assert(file.is_open());
 
-        file << "\nPOINTS " << n_cells << " float\n";
-        for (int i = 0; i < n_cells; i++)
-            file << X[i].x << " " << X[i].y << " " << X[i].z << "\n";
+    file << "# vtk DataFile Version 3.0\n";
+    file << mBASE_NAME << "\n";
+    file << "ASCII\n";
+    file << "DATASET POLYDATA\n";
 
-        file << "\nVERTICES " << n_cells << " " << 2*n_cells << "\n";
-        for (int i = 0; i < n_cells; i++)
-            file << "1 " << i << "\n";
-    }
+    file << "\nPOINTS " << n_cells << " float\n";
+    for (int i = 0; i < n_cells; i++)
+        file << X[i].x << " " << X[i].y << " " << X[i].z << "\n";
+
+    file << "\nVERTICES " << n_cells << " " << 2*n_cells << "\n";
+    for (int i = 0; i < n_cells; i++)
+        file << "1 " << i << "\n";
 }
 
 void VtkOutput::write_type(int n_cells, int type[]) {
-    if (mWrite) {
-        std::ofstream file(mCurrentFile, std::ios_base::app);
-        assert(file.is_open());
+    if (!mWrite) return;
 
-        if (!mPDataStarted) {
-            file << "\nPOINT_DATA " << n_cells << "\n";
-            mPDataStarted = 1;
-        }
-        file << "SCALARS cell_type int\n";
-        file << "LOOKUP_TABLE default\n";
-        for (int i = 0; i < n_cells; i++)
-            file << type[i] << "\n";
+    std::ofstream file(mCurrentFile, std::ios_base::app);
+    assert(file.is_open());
+
+    if (!mPDataStarted) {
+        file << "\nPOINT_DATA " << n_cells << "\n";
         mPDataStarted = 1;
     }
+    file << "SCALARS cell_type int\n";
+    file << "LOOKUP_TABLE default\n";
+    for (int i = 0; i < n_cells; i++)
+        file << type[i] << "\n";
+    mPDataStarted = 1;
 }
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 void VtkOutput::write_field(int n_cells, const char* data_name, Solution<Pt, N_MAX, Solver>& X) {
-    assert(n_cells <= N_MAX);
-    if (mWrite) {
-        std::ofstream file(mCurrentFile, std::ios_base::app);
-        assert(file.is_open());
+    if (!mWrite) return;
 
-        if (!mPDataStarted) {
-            file << "\nPOINT_DATA " << n_cells << "\n";
-            mPDataStarted = 1;
-        }
-        file << "SCALARS " << data_name << " float\n";
-        file << "LOOKUP_TABLE default\n";
-        for (int i = 0; i < n_cells; i++)
-            file << X[i].w << "\n";
+    assert(n_cells <= N_MAX);
+
+    std::ofstream file(mCurrentFile, std::ios_base::app);
+    assert(file.is_open());
+
+    if (!mPDataStarted) {
+        file << "\nPOINT_DATA " << n_cells << "\n";
+        mPDataStarted = 1;
     }
+    file << "SCALARS " << data_name << " float\n";
+    file << "LOOKUP_TABLE default\n";
+    for (int i = 0; i < n_cells; i++)
+        file << X[i].w << "\n";
 }
 
 void VtkOutput::write_connections(int n_connections, int connections[][2]) {
-    if (mWrite) {
-        std::ofstream file(mCurrentFile, std::ios_base::app);
-        assert(file.is_open());
+    if (!mWrite) return;
 
-        file << "\nLINES " << n_connections << " " << 3*n_connections << "\n";
-        for (int i = 0; i < n_connections; i++)
-            file << "2 " << connections[i][0] << " " << connections[i][1] << "\n";
-    }
+    std::ofstream file(mCurrentFile, std::ios_base::app);
+    assert(file.is_open());
+
+    file << "\nLINES " << n_connections << " " << 3*n_connections << "\n";
+    for (int i = 0; i < n_connections; i++)
+        file << "2 " << connections[i][0] << " " << connections[i][1] << "\n";
 }

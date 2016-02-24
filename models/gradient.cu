@@ -19,19 +19,19 @@ __device__ __managed__ Solution<float4, N_CELLS, N2nSolver> X;
 
 __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
     float4 dF = {0.0f, 0.0f, 0.0f, 0.0f};
+    if (i == j) return dF;
+
     float4 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z, Xi.w - Xj.w};
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
-    if (i != j) {
-        int n = 2;
-        float strength = 100;
-        float F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1)
-            + strength*powf(R_MAX - dist, n);
-        float D = dist < 1 ? 10 : 0;
-        dF.x = r.x*F/dist;
-        dF.y = r.y*F/dist;
-        dF.z = r.z*F/dist;
-        dF.w = i == 0 ? 0 : -r.w*D;
-    }
+    int n = 2;
+    float strength = 100;
+    float F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1)
+        + strength*powf(R_MAX - dist, n);
+    float D = dist < 1 ? 10 : 0;
+    dF.x = r.x*F/dist;
+    dF.y = r.y*F/dist;
+    dF.z = r.z*F/dist;
+    dF.w = i == 0 ? 0 : -r.w*D;
     assert(dF.x == dF.x); // For NaN f != f.
     return dF;
 }
