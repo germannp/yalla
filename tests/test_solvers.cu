@@ -40,7 +40,7 @@ const char* test_n2n_tetrahedron() {
     uniform_sphere(4, 1, n2n);
     float3 com_i = center_of_mass(4, n2n);
     for (int i = 0; i < 500; i++) {
-        n2n.step(0.1, p_spring, none, 4);
+        n2n.step(0.1, p_spring, 4);
     }
     for (int i = 1; i < 4; i++) {
         float3 r = {n2n[0].x - n2n[i].x, n2n[0].y - n2n[i].y,
@@ -59,7 +59,7 @@ const char* test_latt_tetrahedron() {
     uniform_sphere(4, 1, latt);
     float3 com_i = center_of_mass(4, latt);
     for (int i = 0; i < 500; i++) {
-        latt.step(0.1, p_spring, none, 4);
+        latt.step(0.1, p_spring, 4);
     }
     for (int i = 1; i < 4; i++) {
         float3 r = {latt[0].x - latt[i].x, latt[0].y - latt[i].y,

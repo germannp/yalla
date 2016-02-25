@@ -6,6 +6,9 @@
 #include "dtypes.cuh"
 
 
+/* Solution<Pt, N_MAX, Solver> X; combines a method Solver with a point type Pt.
+   The current solution can be accessed like Pt X[N_MAX] and the subsequent
+   solution calculated with X.step(delta_t, loc, glob = none, n_cells = N_MAX). */
 template<typename Pt>
 using nhoodint = Pt (*)(Pt Xi, Pt Xj, int i, int j);
 
@@ -18,9 +21,15 @@ void none(const Pt* __restrict__ X, Pt* dX) {}
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution: public Solver<Pt, N_MAX> {
 public:
-    __device__ __host__ Pt& operator[](int idx) { return Solver<Pt, N_MAX>::X[idx]; };
-    __device__ __host__ const Pt& operator[](int idx) const { return Solver<Pt, N_MAX>::X[idx]; };
-    void step(float delta_t, nhoodint<Pt> loc, globints<Pt> glob = none, int n_cells = N_MAX) {
+    __device__ __host__
+    Pt& operator[](int idx) { return Solver<Pt, N_MAX>::X[idx]; };
+    __device__ __host__
+    const Pt& operator[](int idx) const { return Solver<Pt, N_MAX>::X[idx]; };
+    void step(float delta_t, nhoodint<Pt> loc, int n_cells = N_MAX) {
+        assert(n_cells <= N_MAX);
+        return Solver<Pt, N_MAX>::step(delta_t, loc, none, n_cells);
+    };
+    void step(float delta_t, nhoodint<Pt> loc, globints<Pt> glob, int n_cells = N_MAX) {
         assert(n_cells <= N_MAX);
         return Solver<Pt, N_MAX>::step(delta_t, loc, glob, n_cells);
     };
