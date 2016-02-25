@@ -238,19 +238,19 @@ void LatticeSolver<Pt, N_MAX>::step(float delta_t, nhoodint<Pt> local,
 
     // 1st step
     build_lattice(n_cells, X);
-    calculate_lattice_dX<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X, dX,
+    calculate_lattice_dX<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, X, dX,
         cell_id, cube_id, cube_start, cube_end, local);
     cudaDeviceSynchronize();
     global(X, dX);
-    euler_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X1, dX);
+    euler_step<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, delta_t, X, X1, dX);
     cudaDeviceSynchronize();
 
     // 2nd step
     build_lattice(n_cells, X1);
-    calculate_lattice_dX<<<(n_cells + 16 - 1)/16, 16>>>(n_cells, X1, dX1,
+    calculate_lattice_dX<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, X1, dX1,
         cell_id, cube_id, cube_start, cube_end, local);
     cudaDeviceSynchronize();
     global(X1, dX1);
-    heun_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X, dX, dX1);
+    heun_step<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, delta_t, X, X, dX, dX1);
     cudaDeviceSynchronize();
 }
