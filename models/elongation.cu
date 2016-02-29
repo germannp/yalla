@@ -11,7 +11,7 @@
 
 const float R_MAX = 1;
 const float R_MIN = 0.6;
-const int N_MAX = 20000;
+const int N_MAX = 15000;
 const float R_CONN = 1.5;
 const int N_CONNECTIONS = N_MAX/2;
 const int N_TIME_STEPS = 500;
@@ -121,7 +121,7 @@ void intercalation(const float4* __restrict__ X, float4* dX) {
 void proliferate(float rate, float mean_distance) {
     assert(rate*n_cells <= N_MAX);
     int i; float phi, theta;
-    for (int j = 0; j < rate*n_cells; j++) {
+    for (int j = 1; j < rate*n_cells; j++) {
         i = (int)(rand()/(RAND_MAX + 1.)*n_cells);
         phi = rand()/(RAND_MAX + 1.)*M_PI;
         theta = rand()/(RAND_MAX + 1.)*2*M_PI;
@@ -175,16 +175,14 @@ int main(int argc, char const *argv[]) {
         sim_output.write_connections(n_cells/2, connections);
         sim_output.write_type(n_cells, cell_type);
         sim_output.write_field(n_cells, "w", X);
-        if (time_step < N_TIME_STEPS) {
-            X.step(DELTA_T, p_potential, n_cells);
-            // X.step(DELTA_T, p_potential, intercalation, n_cells);
-            proliferate(0.002, 0.733333);
-            X.build_lattice(n_cells, R_CONN);
-            update_connections<<<(n_cells/2 + 32 - 1)/32, 32>>>(X.cell_id, X.cube_id,
-                X.cube_start, X.cube_end);
-            cudaDeviceSynchronize();
-        }
-    }
+        if (time_step == N_TIME_STEPS) return 0;
 
-    return 0;
+        X.step(DELTA_T, p_potential, n_cells);
+        // X.step(DELTA_T, p_potential, intercalation, n_cells);
+        proliferate(0.002, 0.733333);
+        X.build_lattice(n_cells, R_CONN);
+        update_connections<<<(n_cells/2 + 32 - 1)/32, 32>>>(X.cell_id, X.cube_id,
+            X.cube_start, X.cube_end);
+        cudaDeviceSynchronize();
+    }
 }
