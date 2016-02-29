@@ -31,7 +31,7 @@ __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
     if (i != j) {
         float F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
-        dF.x = r.x*F/dist;
+        dF.x = r.x*F/dist*(Xi.x > 0);
         dF.y = r.y*F/dist;
         dF.z = r.z*F/dist;
         float D = dist < R_MAX ? 0.1 : 0;
