@@ -98,12 +98,11 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
 template<typename Pt, int N_MAX>
 void N2nSolver<Pt, N_MAX>::step(float delta_t, nhoodint<Pt> local, globints<Pt> global,
         int n_cells) {
-    int n_blocks = (n_cells + TILE_SIZE - 1)/TILE_SIZE;  // ceil int div.
-
     // 1st step
-    reset_dX<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, dX);
+    reset_dX<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, dX);  // ceil int div.
     cudaDeviceSynchronize();
-    calculate_n2n_dX<<<n_blocks, TILE_SIZE>>>(n_cells, X, dX, local);
+    calculate_n2n_dX<<<(n_cells + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n_cells,
+        X, dX, local);
     cudaDeviceSynchronize();
     global(X, dX);
     euler_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X1, dX);
@@ -112,7 +111,8 @@ void N2nSolver<Pt, N_MAX>::step(float delta_t, nhoodint<Pt> local, globints<Pt> 
     // 2nd step
     reset_dX<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, dX1);
     cudaDeviceSynchronize();
-    calculate_n2n_dX<<<n_blocks, TILE_SIZE>>>(n_cells, X1, dX1, local);
+    calculate_n2n_dX<<<(n_cells + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n_cells,
+        X1, dX1, local);
     cudaDeviceSynchronize();
     global(X1, dX1);
     heun_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X, dX, dX1);
