@@ -104,12 +104,12 @@ __global__ void intercalate(const __restrict__ float4* X, float4* dX) {
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
 
-    dX[connections[i][0]].x -= r.x/dist;
-    dX[connections[i][0]].y -= r.y/dist;
-    dX[connections[i][0]].z -= r.z/dist;
-    dX[connections[i][1]].x += r.x/dist;
-    dX[connections[i][1]].y += r.y/dist;
-    dX[connections[i][1]].z += r.z/dist;
+    atomicAdd(&dX[connections[i][0]].x, -r.x/dist/5);
+    atomicAdd(&dX[connections[i][0]].y, -r.y/dist/5);
+    atomicAdd(&dX[connections[i][0]].z, -r.z/dist/5);
+    atomicAdd(&dX[connections[i][1]].x, r.x/dist/5);
+    atomicAdd(&dX[connections[i][1]].y, r.y/dist/5);
+    atomicAdd(&dX[connections[i][1]].z, r.z/dist/5);
 }
 
 void intercalation(const float4* __restrict__ X, float4* dX) {
@@ -177,8 +177,8 @@ int main(int argc, char const *argv[]) {
         sim_output.write_field(n_cells, "w", X);
         if (time_step == N_TIME_STEPS) return 0;
 
-        X.step(DELTA_T, p_potential, n_cells);
-        // X.step(DELTA_T, p_potential, intercalation, n_cells);
+        // X.step(DELTA_T, p_potential, n_cells);
+        X.step(DELTA_T, p_potential, intercalation, n_cells);
         proliferate(0.002, 0.733333);
         X.build_lattice(n_cells, R_CONN);
         update_connections<<<(n_cells/2 + 32 - 1)/32, 32>>>(X.cell_id, X.cube_id,

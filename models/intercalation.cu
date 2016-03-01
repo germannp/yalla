@@ -51,12 +51,12 @@ __global__ void intercalate(const __restrict__ float3* X, float3* dX) {
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
 
-    dX[connections[i][0]].x -= r.x/dist/5;
-    dX[connections[i][0]].y -= r.y/dist/5;
-    dX[connections[i][0]].z -= r.z/dist/5;
-    dX[connections[i][1]].x += r.x/dist/5;
-    dX[connections[i][1]].y += r.y/dist/5;
-    dX[connections[i][1]].z += r.z/dist/5;
+    atomicAdd(&dX[connections[i][0]].x, -r.x/dist/5);
+    atomicAdd(&dX[connections[i][0]].y, -r.y/dist/5);
+    atomicAdd(&dX[connections[i][0]].z, -r.z/dist/5);
+    atomicAdd(&dX[connections[i][1]].x, r.x/dist/5);
+    atomicAdd(&dX[connections[i][1]].y, r.y/dist/5);
+    atomicAdd(&dX[connections[i][1]].z, r.z/dist/5);
 }
 
 void intercalation(const float3* __restrict__ X, float3* dX) {
