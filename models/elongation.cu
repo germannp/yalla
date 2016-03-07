@@ -13,7 +13,7 @@ const float R_MAX = 1;
 const float R_MIN = 0.6;
 const int N_MAX = 61000;
 const float R_CONN = 1.5;
-const int N_CONNECTIONS = N_MAX/2;
+const float CONNS_P_CELL = 1;
 const int N_TIME_STEPS = 500;
 const float DELTA_T = 0.2;
 
@@ -21,8 +21,8 @@ __device__ __managed__ Solution<float4, N_MAX, LatticeSolver> X;
 __device__ __managed__ int cell_type[N_MAX];
 __device__ __managed__ int n_cells = 5000;
 
-__device__ __managed__ int connections[N_CONNECTIONS][2];
-__device__ __managed__ curandState rand_states[N_CONNECTIONS];
+__device__ __managed__ int connections[(int)(N_MAX*CONNS_P_CELL)][2];
+__device__ curandState rand_states[(int)(N_MAX*CONNS_P_CELL)];
 
 
 __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
@@ -63,7 +63,7 @@ __device__ __managed__ nhoodint<float4> p_count = count_neighbours;
 
 __global__ void setup_rand_states() {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < N_CONNECTIONS) curand_init(1337, i, 0, &rand_states[i]);
+    if (i < N_MAX*CONNS_P_CELL) curand_init(1337, i, 0, &rand_states[i]);
 }
 
 
@@ -71,7 +71,7 @@ __global__ void update_connections(const int* __restrict__ cell_id,
         const int* __restrict__ cube_id, const int* __restrict__ cube_start,
         const int* __restrict__ cube_end) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells/2) return;
+    if (i >= n_cells*CONNS_P_CELL) return;
 
     int j = (int)(curand_uniform(&rand_states[i])*n_cells);
     int rand_cube = cube_id[j]
@@ -88,6 +88,7 @@ __global__ void update_connections(const int* __restrict__ cell_id,
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if ((j != k) && (cell_type[cell_id[j]] != 1) && (cell_type[cell_id[k]] != 1)
             && (dist < R_CONN) && (fabs(r.w/(X[cell_id[j]].w + X[cell_id[k]].w)) > 0.2)) {
+            // && (fabs(r.x/dist) < 0.2) && (j != k) && (dist < 2)) {
         connections[i][0] = cell_id[j];
         connections[i][1] = cell_id[k];
     }
@@ -95,7 +96,7 @@ __global__ void update_connections(const int* __restrict__ cell_id,
 
 __global__ void intercalate(const __restrict__ float4* X, float4* dX) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells/2) return;
+    if (i >= n_cells*CONNS_P_CELL) return;
 
     if (connections[i][0] == connections[i][1]) return;
 
@@ -104,16 +105,16 @@ __global__ void intercalate(const __restrict__ float4* X, float4* dX) {
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
 
-    atomicAdd(&dX[connections[i][0]].x, -r.x/dist/5);
-    atomicAdd(&dX[connections[i][0]].y, -r.y/dist/5);
-    atomicAdd(&dX[connections[i][0]].z, -r.z/dist/5);
-    atomicAdd(&dX[connections[i][1]].x, r.x/dist/5);
-    atomicAdd(&dX[connections[i][1]].y, r.y/dist/5);
-    atomicAdd(&dX[connections[i][1]].z, r.z/dist/5);
+    atomicAdd(&dX[connections[i][0]].x, -r.x/dist/2);
+    atomicAdd(&dX[connections[i][0]].y, -r.y/dist/2);
+    atomicAdd(&dX[connections[i][0]].z, -r.z/dist/2);
+    atomicAdd(&dX[connections[i][1]].x, r.x/dist/2);
+    atomicAdd(&dX[connections[i][1]].y, r.y/dist/2);
+    atomicAdd(&dX[connections[i][1]].z, r.z/dist/2);
 }
 
 void intercalation(const float4* __restrict__ X, float4* dX) {
-    intercalate<<<(n_cells/2 + 32 - 1)/32, 32>>>(X, dX);
+    intercalate<<<(n_cells*CONNS_P_CELL + 32 - 1)/32, 32>>>(X, dX);
     cudaDeviceSynchronize();
 }
 
@@ -145,11 +146,11 @@ int main(int argc, char const *argv[]) {
         X[i].w = 0;
         cell_type[i] = 0;
     }
-    for (int i = 0; i < n_cells/2; i++) {
+    for (int i = 0; i < N_MAX*CONNS_P_CELL; i++) {
         connections[i][0] = 0;
         connections[i][1] = 0;
     }
-    setup_rand_states<<<(N_CONNECTIONS + 128 - 1)/128, 128>>>();
+    setup_rand_states<<<(N_MAX*CONNS_P_CELL + 128 - 1)/128, 128>>>();
     cudaDeviceSynchronize();
 
     // Relax
@@ -172,7 +173,7 @@ int main(int argc, char const *argv[]) {
     VtkOutput sim_output("elongation");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         sim_output.write_positions(n_cells, X);
-        sim_output.write_connections(n_cells/2, connections);
+        sim_output.write_connections(n_cells*CONNS_P_CELL, connections);
         sim_output.write_type(n_cells, cell_type);
         sim_output.write_field(n_cells, "w", X);
         if (time_step == N_TIME_STEPS) return 0;
@@ -181,7 +182,7 @@ int main(int argc, char const *argv[]) {
         X.step(DELTA_T, p_potential, intercalation, n_cells);
         proliferate(0.005, 0.733333);
         X.build_lattice(n_cells, R_CONN);
-        update_connections<<<(n_cells/2 + 32 - 1)/32, 32>>>(X.cell_id, X.cube_id,
+        update_connections<<<(n_cells*CONNS_P_CELL + 32 - 1)/32, 32>>>(X.cell_id, X.cube_id,
             X.cube_start, X.cube_end);
         cudaDeviceSynchronize();
     }
