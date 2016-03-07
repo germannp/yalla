@@ -11,7 +11,7 @@
 
 const float R_MAX = 1;
 const float R_MIN = 0.6;
-const int N_MAX = 15000;
+const int N_MAX = 61000;
 const float R_CONN = 1.5;
 const int N_CONNECTIONS = N_MAX/2;
 const int N_TIME_STEPS = 500;
@@ -149,7 +149,7 @@ int main(int argc, char const *argv[]) {
         connections[i][0] = 0;
         connections[i][1] = 0;
     }
-    setup_rand_states<<<(n_cells/2 + 128 - 1)/128, 128>>>();
+    setup_rand_states<<<(N_CONNECTIONS + 128 - 1)/128, 128>>>();
     cudaDeviceSynchronize();
 
     // Relax
@@ -179,7 +179,7 @@ int main(int argc, char const *argv[]) {
 
         // X.step(DELTA_T, p_potential, n_cells);
         X.step(DELTA_T, p_potential, intercalation, n_cells);
-        proliferate(0.002, 0.733333);
+        proliferate(0.005, 0.733333);
         X.build_lattice(n_cells, R_CONN);
         update_connections<<<(n_cells/2 + 32 - 1)/32, 32>>>(X.cell_id, X.cube_id,
             X.cube_start, X.cube_end);
