@@ -102,12 +102,10 @@ int main(int argc, char const *argv[]) {
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         output.write_positions(N_CELLS, X);
         output.write_connections(N_CONNECTIONS, connections);
-        if (time_step < N_TIME_STEPS) {
-            X.step(DELTA_T, potential, intercalation);
-            update_connections<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>();
-            cudaDeviceSynchronize();
-        }
-    }
+        if (time_step == N_TIME_STEPS) return 0;
 
-    return 0;
+        X.step(DELTA_T, potential, intercalation);
+        update_connections<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>();
+        cudaDeviceSynchronize();
+    }
 }

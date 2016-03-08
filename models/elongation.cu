@@ -182,8 +182,8 @@ int main(int argc, char const *argv[]) {
         X.step(DELTA_T, p_potential, intercalation, n_cells);
         proliferate(0.005, 0.733333);
         X.build_lattice(n_cells, R_CONN);
-        update_connections<<<(n_cells*CONNS_P_CELL + 32 - 1)/32, 32>>>(X.cell_id, X.cube_id,
-            X.cube_start, X.cube_end);
+        update_connections<<<(n_cells*CONNS_P_CELL + 32 - 1)/32, 32>>>(X.cell_id,
+            X.cube_id, X.cube_start, X.cube_end);
         cudaDeviceSynchronize();
     }
 }

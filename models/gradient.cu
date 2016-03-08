@@ -51,11 +51,8 @@ int main(int argc, char const *argv[]) {
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         output.write_positions(N_CELLS, X);
         output.write_field(N_CELLS, "w", X);
+        if (time_step == N_TIME_STEPS) return 0;
 
-        if (time_step < N_TIME_STEPS) {
-            X.step(DELTA_T, local);
-        }
+        X.step(DELTA_T, local);
     }
-
-    return 0;
 }

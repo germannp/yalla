@@ -48,11 +48,8 @@ int main(int argc, char const *argv[]) {
     VtkOutput output("layer");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         output.write_positions(N_CELLS, X);
+        if (time_step == N_TIME_STEPS) return 0;
 
-        if (time_step < N_TIME_STEPS) {
-            X.step(DELTA_T, potential);
-        }
+        X.step(DELTA_T, potential);
     }
-
-    return 0;
 }

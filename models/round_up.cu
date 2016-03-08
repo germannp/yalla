@@ -18,17 +18,17 @@ __device__ __managed__ int time_step;
 
 __device__ float3 clipped_polynomial(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
+    if (i == j) return dF;
+
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
-    if (i != j) {
-        int n = 2;
-        float strength = 100;
-        float F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1)
-            + strength*powf(R_MAX - dist, n);
-        dF.x = r.x*F/dist;
-        dF.y = r.y*F/dist;
-        dF.z = r.z*F/dist;
-    }
+    int n = 2;
+    float strength = 100;
+    float F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1)
+        + strength*powf(R_MAX - dist, n);
+    dF.x = r.x*F/dist;
+    dF.y = r.y*F/dist;
+    dF.z = r.z*F/dist;
     assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
@@ -69,11 +69,8 @@ int main(int argc, char const *argv[]) {
     VtkOutput output("round_up");
     for (time_step = 0; time_step*DELTA_T <= 1; time_step++) {
         output.write_positions(N_CELLS, X);
+        if (time_step*DELTA_T == 1) return 0;
 
-        if (time_step*DELTA_T <= 1) {
-            X.step(DELTA_T, potential, squeeze_to_floor);
-        }
+        X.step(DELTA_T, potential, squeeze_to_floor);
     }
-
-    return 0;
 }

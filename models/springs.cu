@@ -44,11 +44,8 @@ int main(int argc, const char* argv[]) {
     VtkOutput output("springs");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         output.write_positions(N_CELLS, X);
+        if (time_step == N_TIME_STEPS) return 0;
 
-        if (time_step < N_TIME_STEPS) {
-            X.step(DELTA_T, p_spring);
-        }
+        X.step(DELTA_T, p_spring);
     }
-
-    return 0;
 }
