@@ -16,7 +16,7 @@ const int SKIP_STEPS = 100;
 const float DELTA_T = 0.0001;
 
 __device__ __managed__ Solution<float3, N_CELLS, N2nSolver> X;
-__device__ __managed__ curandState rand_states[N_CELLS];
+__device__ curandState rand_states[N_CELLS];
 
 
 __device__ float3 lj_sorting(float3 Xi, float3 Xj, int i, int j) {

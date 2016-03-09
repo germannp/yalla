@@ -17,7 +17,7 @@ const float DELTA_T = 0.2;
 
 __device__ __managed__ Solution<float3, N_CELLS, LatticeSolver> X;
 __device__ __managed__ int connections[N_CONNECTIONS][2];
-__device__ __managed__ curandState rand_states[N_CONNECTIONS];
+__device__ curandState rand_states[N_CONNECTIONS];
 
 
 __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
