@@ -33,7 +33,7 @@ __device__ pocell operator*(const pocell& a, const float b) {
 __device__ __managed__ Solution<pocell, N_CELLS, LatticeSolver> X;
 
 
-// Cubic potential plus (p_i . r_ij)^2/2r
+// Cubic potential plus (p_i . r_ij/r)^2/2
 __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
     pocell dF = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
@@ -80,7 +80,7 @@ void PocellOutput::write_polarity(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
 
     file << "\nPOINT_DATA " << n_cells << "\n";
     file << "NORMALS polarity float\n";
-    float3 n = {0, 0, 0};
+    float3 n;
     for (int i = 0; i < n_cells; i++) {
         n.x = sinf(X[i].theta)*cosf(X[i].phi);
         n.y = sinf(X[i].theta)*sinf(X[i].phi);
