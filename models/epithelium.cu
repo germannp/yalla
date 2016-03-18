@@ -1,4 +1,4 @@
-// Simulating a layer.
+// Simulating a polarized layer
 #include <assert.h>
 #include <cmath>
 #include <iostream>
