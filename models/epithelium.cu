@@ -33,7 +33,7 @@ __device__ pocell operator*(const pocell& a, const float b) {
 __device__ __managed__ Solution<pocell, N_CELLS, LatticeSolver> X;
 
 
-// Cubic potential plus (p_i . r_ij/r)^2/2
+// Cubic potential plus k*(n_i . r_ij/r)^2/2 for all i, j
 __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
     pocell dF = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
@@ -50,24 +50,25 @@ __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
     float k = 1./5;
     float3 ni = {sinf(Xi.theta)*cosf(Xi.phi), sinf(Xi.theta)*sinf(Xi.phi),
         cosf(Xi.theta)};
-    float n_prodi = (ni.x*r.x + ni.y*r.y + ni.z*r.z)/dist;
-    dF.x -= k*(n_prodi*ni.x/dist - powf(n_prodi, 2)*r.x/powf(dist, 2));
-    dF.y -= k*(n_prodi*ni.y/dist - powf(n_prodi, 2)*r.y/powf(dist, 2));
-    dF.z -= k*(n_prodi*ni.z/dist - powf(n_prodi, 2)*r.z/powf(dist, 2));
-
-    float3 nj = {sinf(Xj.theta)*cosf(Xj.phi), sinf(Xj.theta)*sinf(Xj.phi),
-        cosf(Xj.theta)};
-    float n_prodj = - (nj.x*r.x + nj.y*r.y + nj.z*r.z)/dist;
-    dF.x += k*(n_prodj*nj.x/dist + powf(n_prodj, 2)*r.x/powf(dist, 2));
-    dF.y += k*(n_prodj*nj.y/dist + powf(n_prodj, 2)*r.y/powf(dist, 2));
-    dF.z += k*(n_prodj*nj.z/dist + powf(n_prodj, 2)*r.z/powf(dist, 2));
+    float prodi = ni.x*r.x + ni.y*r.y + ni.z*r.z;
+    dF.x -= k*(prodi/powf(dist, 2)*ni.x - powf(prodi, 2)/powf(dist, 4)*r.x);
+    dF.y -= k*(prodi/powf(dist, 2)*ni.y - powf(prodi, 2)/powf(dist, 4)*r.y);
+    dF.z -= k*(prodi/powf(dist, 2)*ni.z - powf(prodi, 2)/powf(dist, 4)*r.z);
 
     // n1 . n2 = sin(t1)*sin(t2)*cos(p1 - p2) + cos(t1)*cos(t2)
     float r_phi = atan2(r.y, r.x);
     float r_theta = acosf(r.z/dist);
-    dF.phi = k*n_prodi*(sinf(Xi.theta)*sinf(r_theta)*sinf(Xi.phi - r_phi));
-    dF.theta = - k*n_prodi*(cosf(Xi.theta)*sinf(r_theta)*cosf(Xi.phi - r_phi) -
+    dF.phi = k*prodi*(sinf(Xi.theta)*sinf(r_theta)*sinf(Xi.phi - r_phi));
+    dF.theta = - k*prodi*(cosf(Xi.theta)*sinf(r_theta)*cosf(Xi.phi - r_phi) -
         sinf(Xi.theta)*cosf(r_theta));
+
+    // Contribution from (n_j . r_ji/r)^2/2
+    float3 nj = {sinf(Xj.theta)*cosf(Xj.phi), sinf(Xj.theta)*sinf(Xj.phi),
+        cosf(Xj.theta)};
+    float prodj = - (nj.x*r.x + nj.y*r.y + nj.z*r.z);
+    dF.x += k*(prodj/powf(dist, 2)*nj.x + powf(prodj, 2)/powf(dist, 4)*r.x);
+    dF.y += k*(prodj/powf(dist, 2)*nj.y + powf(prodj, 2)/powf(dist, 4)*r.y);
+    dF.z += k*(prodj/powf(dist, 2)*nj.z + powf(prodj, 2)/powf(dist, 4)*r.z);
 
     assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
