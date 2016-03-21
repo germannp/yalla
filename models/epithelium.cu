@@ -11,9 +11,9 @@
 
 const float R_MAX = 1;
 const float R_MIN = 0.6;
-const int N_CELLS = 20;
+const int N_CELLS = 250;
 const int N_TIME_STEPS = 100;
-const float DELTA_T = 0.5;
+const float DELTA_T = 0.1;
 
 
 struct pocell {
@@ -47,13 +47,26 @@ __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
 
+    float k = 1./5;
+    float3 ni = {sinf(Xi.theta)*cosf(Xi.phi), sinf(Xi.theta)*sinf(Xi.phi),
+        cosf(Xi.theta)};
+    float n_prodi = (ni.x*r.x + ni.y*r.y + ni.z*r.z)/dist;
+    dF.x -= k*(n_prodi*ni.x/dist - powf(n_prodi, 2)*r.x/powf(dist, 2));
+    dF.y -= k*(n_prodi*ni.y/dist - powf(n_prodi, 2)*r.y/powf(dist, 2));
+    dF.z -= k*(n_prodi*ni.z/dist - powf(n_prodi, 2)*r.z/powf(dist, 2));
+
+    float3 nj = {sinf(Xj.theta)*cosf(Xj.phi), sinf(Xj.theta)*sinf(Xj.phi),
+        cosf(Xj.theta)};
+    float n_prodj = - (nj.x*r.x + nj.y*r.y + nj.z*r.z)/dist;
+    dF.x += k*(n_prodj*nj.x/dist + powf(n_prodj, 2)*r.x/powf(dist, 2));
+    dF.y += k*(n_prodj*nj.y/dist + powf(n_prodj, 2)*r.y/powf(dist, 2));
+    dF.z += k*(n_prodj*nj.z/dist + powf(n_prodj, 2)*r.z/powf(dist, 2));
+
     // n1 . n2 = sin(t1)*sin(t2)*cos(p1 - p2) + cos(t1)*cos(t2)
-    float r_phi = atanf(r.y/r.x);
+    float r_phi = atan2(r.y, r.x);
     float r_theta = acosf(r.z/dist);
-    float prod = sinf(Xi.theta)*sinf(r_theta)*cosf(Xi.phi - r_phi) +
-        cosf(Xi.theta)*cosf(r_theta);
-    dF.phi = prod*(sinf(Xi.theta)*sinf(r_theta)*sinf(Xi.phi - r_phi));
-    dF.theta = - prod*(cosf(Xi.theta)*sinf(r_theta)*cosf(Xi.phi - r_phi) -
+    dF.phi = k*n_prodi*(sinf(Xi.theta)*sinf(r_theta)*sinf(Xi.phi - r_phi));
+    dF.theta = - k*n_prodi*(cosf(Xi.theta)*sinf(r_theta)*cosf(Xi.phi - r_phi) -
         sinf(Xi.theta)*cosf(r_theta));
 
     assert(dF.x == dF.x);  // For NaN f != f.
@@ -92,11 +105,21 @@ void PocellOutput::write_polarity(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    // uniform_sphere(N_CELLS, 0.733333, X);
-    uniform_circle(N_CELLS, 0.733333/2, X);
+    uniform_sphere(N_CELLS, 0.733333, X);
+    // uniform_circle(N_CELLS, 0.733333/2, X);
     for (int i = 0; i < N_CELLS; i++) {
-        X[i].phi = rand()/(RAND_MAX + 1.)*M_PI;
-        X[i].theta = rand()/(RAND_MAX + 1.)*2*M_PI;
+        // X[i].phi = rand()/(RAND_MAX + 1.)*M_PI;
+        // X[i].theta = rand()/(RAND_MAX + 1.)*2*M_PI;
+
+        // X[i].x = 0.733333*cosf((i - 0.5)*M_PI/3);
+        // X[i].y = 0.733333*sinf((i - 0.5)*M_PI/3);
+        // X[i].z = 0;
+        // X[i].phi = (i - 0.5)*M_PI/3;
+        // X[i].theta = M_PI/2;
+
+        float dist = sqrtf(X[i].x*X[i].x + X[i].y*X[i].y + X[i].z*X[i].z);
+        X[i].phi = atan2(X[i].y, X[i].x) + rand()/(RAND_MAX + 1.)*0.5;
+        X[i].theta = acosf(X[i].z/dist) + rand()/(RAND_MAX + 1.)*0.5;
     }
 
     // Integrate cell positions
