@@ -52,9 +52,8 @@ __device__ float4 count_neighbours(float4 Xi, float4 Xj, int i, int j) {
     if (i == j) return dF;
 
     float4 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z, Xi.w - Xj.w};
-    float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
+    float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     dF.w = dist < R_MAX ? 1 : 0;
-    if (i == 0) cell_type[j] = dF.w;
     return dF;
 }
 
