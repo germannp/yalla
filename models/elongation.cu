@@ -27,9 +27,9 @@ __device__ curandState rand_states[(int)(N_MAX*CONNS_P_CELL)];
 
 __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
     float4 dF = {0.0f, 0.0f, 0.0f, 0.0f};
-    float4 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z, Xi.w - Xj.w};
-    float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
     if (i != j) {
+        float4 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z, Xi.w - Xj.w};
+        float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
         float F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
         dF.x = r.x*F/dist*(Xi.x > 0);
         dF.y = r.y*F/dist;
