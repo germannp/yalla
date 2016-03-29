@@ -3,6 +3,7 @@
 #include <cmath>
 #include <curand_kernel.h>
 
+#include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/solvers.cuh"
 #include "../lib/vtk.cuh"

@@ -3,8 +3,6 @@
 #include <thrust/sort.h>
 #include <thrust/execution_policy.h>
 
-#include "dtypes.cuh"
-
 
 /* Solution<Pt, N_MAX, Solver> X; combines a method Solver with a point type Pt.
    The current solution can be accessed like Pt X[N_MAX] and the subsequent

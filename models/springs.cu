@@ -4,6 +4,7 @@
 #include <sstream>
 #include <cmath>
 
+#include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/solvers.cuh"
 #include "../lib/vtk.cuh"
