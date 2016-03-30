@@ -23,9 +23,11 @@ public:
     void print_done();
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X);
-    void write_type(int n_cells, int type[]);
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_field(int n_cells, const char* data_name, Solution<Pt, N_MAX, Solver>& X);
+    template<typename Pt, int N_MAX, template<typename, int> class Solver>
+    void write_polarity(int n_cells, Solution<Pt, N_MAX, Solver>& X);
+    void write_type(int n_cells, int type[]);
     void write_connections(int n_connections, int connections[][2]);
 protected:
     int mN_TIME_STEPS;
@@ -33,8 +35,8 @@ protected:
     int mTimeStep = -1;
     std::string mBASE_NAME;
     std::string mCurrentFile;
-    bool mWrite = 0;
-    bool mPDataStarted = 0;
+    bool mWrite;
+    bool mPDataStarted;
     bool mDone = 0;
     time_t mStart;
 };
@@ -114,23 +116,6 @@ void VtkOutput::write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
         file << "1 " << i << "\n";
 }
 
-void VtkOutput::write_type(int n_cells, int type[]) {
-    if (!mWrite) return;
-
-    std::ofstream file(mCurrentFile, std::ios_base::app);
-    assert(file.is_open());
-
-    if (!mPDataStarted) {
-        file << "\nPOINT_DATA " << n_cells << "\n";
-        mPDataStarted = 1;
-    }
-    file << "SCALARS cell_type int\n";
-    file << "LOOKUP_TABLE default\n";
-    for (int i = 0; i < n_cells; i++)
-        file << type[i] << "\n";
-    mPDataStarted = 1;
-}
-
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 void VtkOutput::write_field(int n_cells, const char* data_name, Solution<Pt, N_MAX, Solver>& X) {
     if (!mWrite) return;
@@ -148,6 +133,45 @@ void VtkOutput::write_field(int n_cells, const char* data_name, Solution<Pt, N_M
     file << "LOOKUP_TABLE default\n";
     for (int i = 0; i < n_cells; i++)
         file << X[i].w << "\n";
+}
+
+template<typename Pt, int N_MAX, template<typename, int> class Solver>
+void VtkOutput::write_polarity(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
+    if (!mWrite) return;
+
+    assert(n_cells <= N_MAX);
+
+    std::ofstream file(mCurrentFile, std::ios_base::app);
+    assert(file.is_open());
+
+    if (!mPDataStarted) {
+        file << "\nPOINT_DATA " << n_cells << "\n";
+        mPDataStarted = 1;
+    }
+    file << "NORMALS polarity float\n";
+    float3 n;
+    for (int i = 0; i < n_cells; i++) {
+        n.x = sinf(X[i].theta)*cosf(X[i].phi);
+        n.y = sinf(X[i].theta)*sinf(X[i].phi);
+        n.z = cosf(X[i].theta);
+        file << n.x << " " << n.y << " " << n.z << "\n";
+    }
+}
+
+void VtkOutput::write_type(int n_cells, int type[]) {
+    if (!mWrite) return;
+
+    std::ofstream file(mCurrentFile, std::ios_base::app);
+    assert(file.is_open());
+
+    if (!mPDataStarted) {
+        file << "\nPOINT_DATA " << n_cells << "\n";
+        mPDataStarted = 1;
+    }
+    file << "SCALARS cell_type int\n";
+    file << "LOOKUP_TABLE default\n";
+    for (int i = 0; i < n_cells; i++)
+        file << type[i] << "\n";
 }
 
 void VtkOutput::write_connections(int n_connections, int connections[][2]) {
