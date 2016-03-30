@@ -14,8 +14,7 @@
     const char *result = all_tests(); \
     if (result != 0) { \
         printf("%s\n", result); \
-    } \
-    else { \
+    } else { \
         printf("ALL TESTS PASSED\n"); \
     } \
     printf("Tests run: %d\n", tests_run); \
@@ -23,3 +22,15 @@
 }
 
 int tests_run = 0;
+
+
+template<typename Pt, int N_MAX, template<typename, int> class Solver>
+float3 center_of_mass(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
+    float3 com = {0, 0, 0};
+    for (int i = 0; i < n_cells; i++) {
+        com.x += X[i].x/n_cells;
+        com.y += X[i].y/n_cells;
+        com.z += X[i].z/n_cells;
+    }
+    return com;
+}

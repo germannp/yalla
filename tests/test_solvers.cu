@@ -1,7 +1,7 @@
-#include "minunit.cuh"
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/solvers.cuh"
+#include "minunit.cuh"
 
 
 const int N_MAX = 1000;
@@ -25,17 +25,6 @@ __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
 }
 
 __device__ __managed__ nhoodint<float3> p_spring = spring;
-
-template<typename Pt, int N_MAX, template<typename, int> class Solver>
-float3 center_of_mass(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
-    float3 com = {0, 0, 0};
-    for (int i = 0; i < n_cells; i++) {
-        com.x += X[i].x/n_cells;
-        com.y += X[i].y/n_cells;
-        com.z += X[i].z/n_cells;
-    }
-    return com;
-}
 
 const char* test_n2n_tetrahedron() {
     uniform_sphere(4, 1, n2n);

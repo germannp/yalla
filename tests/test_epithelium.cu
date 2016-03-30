@@ -1,7 +1,8 @@
-#include "minunit.cuh"
 #include "../lib/dtypes.cuh"
 #include "../lib/solvers.cuh"
 #include "../lib/epithelium.cuh"
+#include "minunit.cuh"
+
 
 __device__ __managed__ Solution<pocell, 4, N2nSolver> X;
 
@@ -27,7 +28,6 @@ __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
 
 __device__ __managed__ nhoodint<pocell> potential = epithelium;
 
-
 const char* test_line_of_four() {
     for (int i = 0; i < 4; i++) {
         X[i].x = 0.733333*cosf((i - 0.5)*M_PI/3);
@@ -36,6 +36,7 @@ const char* test_line_of_four() {
         X[i].phi = (i - 0.5)*M_PI/3;
         X[i].theta = M_PI/2;
     }
+    float3 com_i = center_of_mass(4, X);
     for (int i = 0; i < 250; i++) {
         X.step(1, potential, 4);
     }
@@ -44,8 +45,13 @@ const char* test_line_of_four() {
             + cosf(X[0].theta)*cosf(X[i].theta);
         mu_assert("ERROR: Polarity not aligned", mu_isclose(prod, 1));
     }
+    float3 com_f = center_of_mass(4, X);
+    mu_assert("ERROR: Momentum in line", mu_isclose(com_i.x, com_f.x));
+    mu_assert("ERROR: Momentum in line", mu_isclose(com_i.y, com_f.y));
+    mu_assert("ERROR: Momentum in line", mu_isclose(com_i.z, com_f.z));
     return NULL;
 }
+
 
 const char* all_tests() {
     mu_run_test(test_line_of_four);
