@@ -175,7 +175,7 @@ int main(int argc, char const *argv[]) {
         sim_output.write_positions(X, n_cells);
         sim_output.write_connections(connections, n_cells*CONNS_P_CELL);
         sim_output.write_type(cell_type, n_cells);
-        sim_output.write_field("w", X, n_cells);
+        sim_output.write_field(X, n_cells, "Wnt");
         if (time_step == N_TIME_STEPS) return 0;
 
         // X.step(DELTA_T, p_potential, n_cells);

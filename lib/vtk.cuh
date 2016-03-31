@@ -24,7 +24,8 @@ public:
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_positions(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX);
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
-    void write_field(const char* data_name, Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX);
+    void write_field(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX,
+        const char* data_name = "w", float Pt::*field = &float4::w);
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX);
     void write_type(int type[], int n_cells);
@@ -117,7 +118,8 @@ void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
 }
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void VtkOutput::write_field(const char* data_name, Solution<Pt, N_MAX, Solver>& X, int n_cells) {
+void VtkOutput::write_field(Solution<Pt, N_MAX, Solver>& X, int n_cells,
+        const char* data_name, float Pt::*field) {
     if (!mWrite) return;
 
     assert(n_cells <= N_MAX);
@@ -132,7 +134,7 @@ void VtkOutput::write_field(const char* data_name, Solution<Pt, N_MAX, Solver>& 
     file << "SCALARS " << data_name << " float\n";
     file << "LOOKUP_TABLE default\n";
     for (int i = 0; i < n_cells; i++)
-        file << X[i].w << "\n";
+        file << X[i].*field << "\n";
 }
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>

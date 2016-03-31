@@ -51,7 +51,7 @@ int main(int argc, char const *argv[]) {
     VtkOutput output("gradient");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         output.write_positions(X);
-        output.write_field("w", X);
+        output.write_field(X);
         if (time_step == N_TIME_STEPS) return 0;
 
         X.step(DELTA_T, local);
