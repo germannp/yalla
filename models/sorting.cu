@@ -37,7 +37,7 @@ __device__ __managed__ nhoodint<float3> p_sorting = cubic_sorting;
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_sphere(N_CELLS, R_MIN, X);
+    uniform_sphere(R_MIN, X);
     int cell_type[N_CELLS];
     for (int i = 0; i < N_CELLS; i++) {
         cell_type[i] = (i < N_CELLS/2) ? 0 : 1;

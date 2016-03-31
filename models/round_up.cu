@@ -63,8 +63,8 @@ void squeeze_to_floor(const float3* __restrict__ X, float3* dX) {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_circle(N_CELLS, 0.733333, X);
-    // uniform_sphere(N_CELLS, 0.733333, X);
+    uniform_circle(0.733333, X);
+    // uniform_sphere(0.733333, X);
 
     // Integrate cell positions
     VtkOutput output("round_up");

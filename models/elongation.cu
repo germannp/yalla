@@ -139,7 +139,7 @@ void proliferate(float rate, float mean_distance) {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_sphere(n_cells, 0.733333, X);
+    uniform_sphere(0.733333, X, n_cells);
     for (int i = 0; i < n_cells; i++) {
         X[i].x = fabs(X[i].x);
         X[i].y = X[i].y/1.5;

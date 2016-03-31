@@ -45,7 +45,7 @@ __device__ __managed__ nhoodint<pocell> potential = epithelium;
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_sphere(N_CELLS, 0.733333, X);
+    uniform_sphere(0.733333, X);
     for (int i = 0; i < N_CELLS; i++) {
         float dist = sqrtf(X[i].x*X[i].x + X[i].y*X[i].y + X[i].z*X[i].z);
         X[i].phi = atan2(X[i].y, X[i].x) + rand()/(RAND_MAX + 1.)*0.5;

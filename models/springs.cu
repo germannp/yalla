@@ -39,7 +39,7 @@ __device__ __managed__ nhoodint<float3> p_spring = spring;
 
 int main(int argc, const char* argv[]) {
     // Prepare initial state
-    uniform_sphere(N_CELLS, L_0, X);
+    uniform_sphere(L_0, X);
 
     // Integrate positions
     VtkOutput output("springs");

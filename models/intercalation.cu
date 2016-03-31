@@ -82,7 +82,7 @@ __global__ void update_connections() {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_sphere(N_CELLS, R_MIN, X);
+    uniform_sphere(R_MIN, X);
     setup_rand_states<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>();
     cudaDeviceSynchronize();
     int i = 0;

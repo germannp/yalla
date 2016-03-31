@@ -27,7 +27,7 @@ __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
 __device__ __managed__ nhoodint<float3> p_spring = spring;
 
 const char* test_n2n_tetrahedron() {
-    uniform_sphere(4, 1, n2n);
+    uniform_sphere(1, n2n, 4);
     float3 com_i = center_of_mass(4, n2n);
     for (int i = 0; i < 500; i++) {
         n2n.step(0.1, p_spring, 4);
@@ -46,7 +46,7 @@ const char* test_n2n_tetrahedron() {
 }
 
 const char* test_latt_tetrahedron() {
-    uniform_sphere(4, 1, latt);
+    uniform_sphere(1, latt, 4);
     float3 com_i = center_of_mass(4, latt);
     for (int i = 0; i < 500; i++) {
         latt.step(0.1, p_spring, 4);
@@ -82,7 +82,7 @@ __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
 __device__ __managed__ nhoodint<float3> p_cubic = clipped_cubic;
 
 const char* test_compare_methods() {
-    uniform_sphere(N_MAX, 0.733333, n2n);
+    uniform_sphere(0.733333, n2n);
     for (int i = 0; i < N_MAX; i++) {
         latt[i].x = n2n[i].x;
         latt[i].y = n2n[i].y;

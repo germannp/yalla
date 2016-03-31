@@ -7,7 +7,8 @@ class Solution;
 
 // Distribute first n_cells in X[] uniformly random in circle
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void uniform_circle(int n_cells, float mean_distance, Solution<Pt, N_MAX, Solver>& X) {
+void uniform_circle(float mean_distance, Solution<Pt, N_MAX, Solver>& X,
+        int n_cells = N_MAX) {
     assert(n_cells <= N_MAX);
     float r_max = pow(n_cells/0.9069, 1./2)*mean_distance/2;  // Circle packing
     for (int i = 0; i < n_cells; i++) {
@@ -21,7 +22,8 @@ void uniform_circle(int n_cells, float mean_distance, Solution<Pt, N_MAX, Solver
 
 // Distribute first n_cells in X[] uniformly random in sphere
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void uniform_sphere(int n_cells, float mean_distance, Solution<Pt, N_MAX, Solver>& X) {
+void uniform_sphere(float mean_distance, Solution<Pt, N_MAX, Solver>& X,
+        int n_cells = N_MAX) {
     assert(n_cells <= N_MAX);
     float r_max = pow(n_cells/0.64, 1./3)*mean_distance/2;  // Sphere packing
     for (int i = 0; i < n_cells; i++) {

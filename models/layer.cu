@@ -40,7 +40,7 @@ __device__ __managed__ nhoodint<float3> potential = clipped_cubic;
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_circle(N_CELLS, 0.733333/1.5, X);
+    uniform_circle(0.733333/1.5, X);
     for (int i = 0; i < N_CELLS; i++) {
         X[i].x = sin(X[i].y);
     }
