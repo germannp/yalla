@@ -36,7 +36,7 @@ const char* test_line_of_four() {
         X[i].phi = (i - 0.5)*M_PI/3;
         X[i].theta = M_PI/2;
     }
-    float3 com_i = center_of_mass(4, X);
+    float3 com_i = center_of_mass(X);
     for (int i = 0; i < 500; i++) {
         X.step(0.5, potential);
     }
@@ -54,7 +54,7 @@ const char* test_line_of_four() {
     mu_assert("ERROR: Cells not on line", mu_isclose(r_12.y, r_23.y));
     mu_assert("ERROR: Cells not on line", mu_isclose(r_01.z, r_12.z));
     mu_assert("ERROR: Cells not on line", mu_isclose(r_12.z, r_23.z));
-    float3 com_f = center_of_mass(4, X);
+    float3 com_f = center_of_mass(X);
     mu_assert("ERROR: Momentum in line", mu_isclose(com_i.x, com_f.x));
     mu_assert("ERROR: Momentum in line", mu_isclose(com_i.y, com_f.y));
     mu_assert("ERROR: Momentum in line", mu_isclose(com_i.z, com_f.z));

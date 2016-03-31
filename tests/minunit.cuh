@@ -1,6 +1,7 @@
 // Minimalistic testing framework ripped off "Learn C the Hard Way", that took
 // it from http://www.jera.com/techinfo/jtns/jtn002.html with a dash of NumPy :-)
 #include <stdio.h>
+#include <assert.h>
 
 
 #define mu_isclose(a, b) fabs(a - b) <= 1e-6 + 1e-3*fabs(b)
@@ -25,7 +26,8 @@ int tests_run = 0;
 
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-float3 center_of_mass(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
+float3 center_of_mass(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX) {
+    assert(n_cells <= N_MAX);
     float3 com = {0, 0, 0};
     for (int i = 0; i < n_cells; i++) {
         com.x += X[i].x/n_cells;
