@@ -1,7 +1,7 @@
 // Simulate cell sorting with Leonard-Jones potential
+#include <curand_kernel.h>
 #include <assert.h>
 #include <cmath>
-#include <curand_kernel.h>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"

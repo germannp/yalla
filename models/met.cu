@@ -1,8 +1,8 @@
 // Simulate a mesenchyme-to-epithelium transition
+#include <stdio.h>
 #include <assert.h>
 #include <cmath>
 #include <iostream>
-#include <stdio.h>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"

@@ -1,12 +1,13 @@
 // Write Vtk legacy files, see http://www.vtk.org/wp-content/uploads/
 // 2015/04/file-formats.pdf
+#include <time.h>
+#include <sys/stat.h>
 #include <cassert>
+#include <string>
 #include <fstream>
 #include <sstream>
 #include <iostream>
 #include <iomanip>
-#include <time.h>
-#include <sys/stat.h>
 
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
@@ -14,10 +15,10 @@ class Solution;
 
 
 class VtkOutput {
-public:
+ public:
     VtkOutput(std::string base_name, int N_TIME_STEPS, int SKIP_STEPS);
-    VtkOutput(std::string base_name, int N_TIME_STEPS) : VtkOutput(base_name, N_TIME_STEPS, 1) {};
-    VtkOutput(std::string base_name) : VtkOutput(base_name, 0, 1) {};
+    VtkOutput(std::string base_name, int N_TIME_STEPS) : VtkOutput(base_name, N_TIME_STEPS, 1) {}
+    explicit VtkOutput(std::string base_name) : VtkOutput(base_name, 0, 1) {}
     ~VtkOutput(void);
     void print_progress();
     void print_done();
@@ -30,7 +31,8 @@ public:
     void write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX);
     void write_type(int type[], int n_cells);
     void write_connections(int connections[][2], int n_connections);
-protected:
+
+ protected:
     int mN_TIME_STEPS;
     int mSKIP_STEPS;
     int mTimeStep = -1;
@@ -61,7 +63,8 @@ void VtkOutput::print_progress() {
         std::cout << "Integrating " << mBASE_NAME << ", ";
         if (mN_TIME_STEPS > 0) {
             std::cout << std::setw(3)
-                << (int)(100.0*(mTimeStep + 1)/mN_TIME_STEPS) << "% done\r";
+                << static_cast<int>(100.0*(mTimeStep + 1)/mN_TIME_STEPS)
+                << "% done\r";
         } else {
             std::cout << mTimeStep + 1 << " steps done\r";
         }

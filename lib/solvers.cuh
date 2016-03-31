@@ -18,19 +18,19 @@ void none(const Pt* __restrict__ X, Pt* dX) {}
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution: public Solver<Pt, N_MAX> {
-public:
+ public:
     __device__ __host__
-    Pt& operator[](int idx) { return Solver<Pt, N_MAX>::X[idx]; };
+    Pt& operator[](int idx) { return Solver<Pt, N_MAX>::X[idx]; }
     __device__ __host__
-    const Pt& operator[](int idx) const { return Solver<Pt, N_MAX>::X[idx]; };
+    const Pt& operator[](int idx) const { return Solver<Pt, N_MAX>::X[idx]; }
     void step(float delta_t, nhoodint<Pt> loc, int n_cells = N_MAX) {
         assert(n_cells <= N_MAX);
         return Solver<Pt, N_MAX>::step(delta_t, loc, none, n_cells);
-    };
+    }
     void step(float delta_t, nhoodint<Pt> loc, globints<Pt> glob, int n_cells = N_MAX) {
         assert(n_cells <= N_MAX);
         return Solver<Pt, N_MAX>::step(delta_t, loc, glob, n_cells);
-    };
+    }
 };
 
 
@@ -54,7 +54,7 @@ template<typename Pt> __global__ void heun_step(int n_cells, float delta_t,
 const uint TILE_SIZE = 32;
 
 template<typename Pt, int N_MAX>class N2nSolver {
-protected:
+ protected:
     void step(float delta_t, nhoodint<Pt> local, globints<Pt> global, int n_cells);
     Pt X[N_MAX], dX[N_MAX], X1[N_MAX], dX1[N_MAX];
 };
@@ -117,11 +117,11 @@ const int LATTICE_SIZE = 50;
 const int N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
 template<typename Pt, int N_MAX>class LatticeSolver {
-public:
+ public:
     void build_lattice(int n_cells, float cubesize);
     int cube_id[N_MAX], cell_id[N_MAX];
     int cube_start[N_CUBES], cube_end[N_CUBES];
-protected:
+ protected:
     Pt X[N_MAX], dX[N_MAX], X1[N_MAX], dX1[N_MAX];
     void build_lattice(int n_cells, const Pt* __restrict__ X, float cube_size = CUBE_SIZE);
     void step(float delta_t, nhoodint<Pt> local, globints<Pt> global, int n_cells);
@@ -136,7 +136,7 @@ __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ X,
     if (i >= n_cells) return;
 
     Pt Xi = X[i];
-    int id = (int)(
+    int id = static_cast<int>(
         (floor(Xi.x/cube_size) + LATTICE_SIZE/2) +
         (floor(Xi.y/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE +
         (floor(Xi.z/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE*LATTICE_SIZE);

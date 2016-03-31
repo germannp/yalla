@@ -1,8 +1,7 @@
 // Simulate elongation of semisphere
-#include <stdio.h>
 #include <assert.h>
-#include <cmath>
 #include <curand_kernel.h>
+#include <cmath>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
@@ -22,8 +21,8 @@ __device__ __managed__ Solution<float4, N_MAX, LatticeSolver> X;
 __device__ __managed__ int cell_type[N_MAX];
 __device__ __managed__ int n_cells = 5000;
 
-__device__ __managed__ int connections[(int)(N_MAX*CONNS_P_CELL)][2];
-__device__ curandState rand_states[(int)(N_MAX*CONNS_P_CELL)];
+__device__ __managed__ int connections[static_cast<int>(N_MAX*CONNS_P_CELL)][2];
+__device__ curandState rand_states[static_cast<int>(N_MAX*CONNS_P_CELL)];
 
 
 __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
@@ -73,16 +72,16 @@ __global__ void update_connections(const int* __restrict__ cell_id,
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells*CONNS_P_CELL) return;
 
-    int j = (int)(curand_uniform(&rand_states[i])*n_cells);
+    int j = static_cast<int>(curand_uniform(&rand_states[i])*n_cells);
     int rand_cube = cube_id[j]
-        +  (int)(curand_uniform(&rand_states[i])*3) - 1
-        + ((int)(curand_uniform(&rand_states[i])*3) - 1)*LATTICE_SIZE
-        + ((int)(curand_uniform(&rand_states[i])*3) - 1)*LATTICE_SIZE*LATTICE_SIZE;
+        +  static_cast<int>(curand_uniform(&rand_states[i])*3) - 1
+        + (static_cast<int>(curand_uniform(&rand_states[i])*3) - 1)*LATTICE_SIZE
+        + (static_cast<int>(curand_uniform(&rand_states[i])*3) - 1)*LATTICE_SIZE*LATTICE_SIZE;
     int cells_in_cube = cube_end[rand_cube] - cube_start[rand_cube];
     if (cells_in_cube < 1) return;
 
     int k = cube_start[rand_cube]
-        + (int)(curand_uniform(&rand_states[i])*cells_in_cube);
+        + static_cast<int>(curand_uniform(&rand_states[i])*cells_in_cube);
     float4 r = {X[cell_id[j]].x - X[cell_id[k]].x, X[cell_id[j]].y - X[cell_id[k]].y,
         X[cell_id[j]].z - X[cell_id[k]].z, X[cell_id[j]].w - X[cell_id[k]].w};
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
@@ -123,7 +122,7 @@ void proliferate(float rate, float mean_distance) {
     assert(rate*n_cells <= N_MAX);
     int i; float phi, theta;
     for (int j = 1; j < rate*n_cells; j++) {
-        i = (int)(rand()/(RAND_MAX + 1.)*n_cells);
+        i = static_cast<int>(rand()/(RAND_MAX + 1.)*n_cells);
         phi = rand()/(RAND_MAX + 1.)*M_PI;
         theta = rand()/(RAND_MAX + 1.)*2*M_PI;
         X[n_cells].x = X[i].x + mean_distance/2*sinf(theta)*cosf(phi);
