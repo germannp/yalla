@@ -1,4 +1,4 @@
-// Simulating a layer.
+// Simulate gradient formation
 #include <assert.h>
 #include <cmath>
 #include <iostream>

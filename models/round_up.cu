@@ -1,4 +1,4 @@
-// Simulating rounding up.
+// Simulate rounding up
 #include <assert.h>
 #include <cmath>
 

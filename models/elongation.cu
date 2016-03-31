@@ -1,4 +1,4 @@
-// Simulating a layer.
+// Simulate elongation of semisphere
 #include <stdio.h>
 #include <assert.h>
 #include <cmath>

@@ -1,4 +1,4 @@
-// Integrate N-body problem with springs between all bodies.
+// Integrate N-body problem with springs between all bodies
 #include <assert.h>
 #include <iostream>
 #include <sstream>

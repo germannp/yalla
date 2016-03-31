@@ -1,4 +1,4 @@
-// Simulating a polarized layer
+// Simulate a mesenchyme-to-epithelium transition
 #include <assert.h>
 #include <cmath>
 #include <iostream>

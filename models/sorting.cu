@@ -1,4 +1,4 @@
-// Simulating cell sorting with limited interactions.
+// Simulate cell sorting with limited interactions
 #include <assert.h>
 #include <cmath>
 

@@ -1,4 +1,4 @@
-// Simulating a layer.
+// Simulate a layer
 #include <assert.h>
 #include <cmath>
 #include <iostream>

@@ -1,4 +1,4 @@
-// Simulating cell sorting with Leonard-Jones potential.
+// Simulate cell sorting with Leonard-Jones potential
 #include <assert.h>
 #include <cmath>
 #include <curand_kernel.h>
