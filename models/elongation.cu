@@ -172,10 +172,10 @@ int main(int argc, char const *argv[]) {
     // Simulate diffusion & intercalation
     VtkOutput sim_output("elongation");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        sim_output.write_positions(n_cells, X);
-        sim_output.write_connections(n_cells*CONNS_P_CELL, connections);
-        sim_output.write_type(n_cells, cell_type);
-        sim_output.write_field(n_cells, "w", X);
+        sim_output.write_positions(X, n_cells);
+        sim_output.write_connections(connections, n_cells*CONNS_P_CELL);
+        sim_output.write_type(cell_type, n_cells);
+        sim_output.write_field("w", X, n_cells);
         if (time_step == N_TIME_STEPS) return 0;
 
         // X.step(DELTA_T, p_potential, n_cells);

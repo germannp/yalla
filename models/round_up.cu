@@ -69,7 +69,7 @@ int main(int argc, char const *argv[]) {
     // Integrate cell positions
     VtkOutput output("round_up");
     for (time_step = 0; time_step*DELTA_T <= 1; time_step++) {
-        output.write_positions(N_CELLS, X);
+        output.write_positions(X);
         if (time_step*DELTA_T == 1) return 0;
 
         X.step(DELTA_T, potential, squeeze_to_floor);

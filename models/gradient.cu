@@ -50,8 +50,8 @@ int main(int argc, char const *argv[]) {
     // Integrate cell positions
     VtkOutput output("gradient");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(N_CELLS, X);
-        output.write_field(N_CELLS, "w", X);
+        output.write_positions(X);
+        output.write_field("w", X);
         if (time_step == N_TIME_STEPS) return 0;
 
         X.step(DELTA_T, local);

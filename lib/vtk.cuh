@@ -22,13 +22,13 @@ public:
     void print_progress();
     void print_done();
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
-    void write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X);
+    void write_positions(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX);
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
-    void write_field(int n_cells, const char* data_name, Solution<Pt, N_MAX, Solver>& X);
+    void write_field(const char* data_name, Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX);
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
-    void write_polarity(int n_cells, Solution<Pt, N_MAX, Solver>& X);
-    void write_type(int n_cells, int type[]);
-    void write_connections(int n_connections, int connections[][2]);
+    void write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX);
+    void write_type(int type[], int n_cells);
+    void write_connections(int connections[][2], int n_connections);
 protected:
     int mN_TIME_STEPS;
     int mSKIP_STEPS;
@@ -90,7 +90,7 @@ void VtkOutput::print_done() {
 }
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void VtkOutput::write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
+void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
     assert(n_cells <= N_MAX);
     print_progress();
 
@@ -117,7 +117,7 @@ void VtkOutput::write_positions(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
 }
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void VtkOutput::write_field(int n_cells, const char* data_name, Solution<Pt, N_MAX, Solver>& X) {
+void VtkOutput::write_field(const char* data_name, Solution<Pt, N_MAX, Solver>& X, int n_cells) {
     if (!mWrite) return;
 
     assert(n_cells <= N_MAX);
@@ -136,7 +136,7 @@ void VtkOutput::write_field(int n_cells, const char* data_name, Solution<Pt, N_M
 }
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void VtkOutput::write_polarity(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
+void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
     if (!mWrite) return;
 
     assert(n_cells <= N_MAX);
@@ -158,7 +158,7 @@ void VtkOutput::write_polarity(int n_cells, Solution<Pt, N_MAX, Solver>& X) {
     }
 }
 
-void VtkOutput::write_type(int n_cells, int type[]) {
+void VtkOutput::write_type(int type[], int n_cells) {
     if (!mWrite) return;
 
     std::ofstream file(mCurrentFile, std::ios_base::app);
@@ -174,7 +174,7 @@ void VtkOutput::write_type(int n_cells, int type[]) {
         file << type[i] << "\n";
 }
 
-void VtkOutput::write_connections(int n_connections, int connections[][2]) {
+void VtkOutput::write_connections(int connections[][2], int n_connections) {
     if (!mWrite) return;
 
     std::ofstream file(mCurrentFile, std::ios_base::app);

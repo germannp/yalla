@@ -55,8 +55,8 @@ int main(int argc, char const *argv[]) {
     // Integrate cell positions
     VtkOutput output("epithelium");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(N_CELLS, X);
-        output.write_polarity(N_CELLS, X);
+        output.write_positions(X);
+        output.write_polarity(X);
         if (time_step == N_TIME_STEPS) return 0;
 
         X.step(DELTA_T, potential);

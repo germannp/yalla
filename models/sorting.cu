@@ -46,8 +46,8 @@ int main(int argc, char const *argv[]) {
     // Integrate cell positions
     VtkOutput output("sorting");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(N_CELLS, X);
-        output.write_type(N_CELLS, cell_type);
+        output.write_positions(X);
+        output.write_type(cell_type, N_CELLS);
         if (time_step == N_TIME_STEPS) return 0;
 
         X.step(DELTA_T, p_sorting);

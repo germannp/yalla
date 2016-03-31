@@ -101,8 +101,8 @@ int main(int argc, char const *argv[]) {
     // Integrate cell positions
     VtkOutput output("intercalation");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(N_CELLS, X);
-        output.write_connections(N_CONNECTIONS, connections);
+        output.write_positions(X);
+        output.write_connections(connections, N_CONNECTIONS);
         if (time_step == N_TIME_STEPS) return 0;
 
         X.step(DELTA_T, potential, intercalation);
