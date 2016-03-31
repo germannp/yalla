@@ -38,7 +38,7 @@ const char* test_line_of_four() {
     }
     float3 com_i = center_of_mass(4, X);
     for (int i = 0; i < 500; i++) {
-        X.step(0.5, potential, 4);
+        X.step(0.5, potential);
     }
     for (int i = 1; i < 4; i++) {
         float prod = sinf(X[0].theta)*sinf(X[i].theta)*cosf(X[0].phi - X[i].phi)
@@ -48,9 +48,6 @@ const char* test_line_of_four() {
     float3 r_01 = {X[1].x - X[0].x, X[1].y - X[0].y, X[1].z - X[0].z};
     float3 r_12 = {X[2].x - X[1].x, X[2].y - X[1].y, X[2].z - X[1].z};
     float3 r_23 = {X[3].x - X[2].x, X[3].y - X[2].y, X[3].z - X[2].z};
-    printf("%f %f\n", r_01.x, r_12.x);
-    printf("%f %f\n", r_01.y, r_12.y);
-    printf("%f %f\n", r_01.z, r_12.z);
     mu_assert("ERROR: Cells not on line", mu_isclose(r_01.x, r_12.x));
     mu_assert("ERROR: Cells not on line", mu_isclose(r_12.x, r_23.x));
     mu_assert("ERROR: Cells not on line", mu_isclose(r_01.y, r_12.y));
