@@ -20,7 +20,7 @@ __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
     dF.x = r.x*(L_0 - dist)/dist;
     dF.y = r.y*(L_0 - dist)/dist;
     dF.z = r.z*(L_0 - dist)/dist;
-    assert(dF.x == dF.x); // For NaN f != f.
+    assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
 
@@ -75,7 +75,7 @@ __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
-    assert(dF.x == dF.x); // For NaN f != f.
+    assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
 
