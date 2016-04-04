@@ -29,7 +29,8 @@ class VtkOutput {
         const char* data_name = "w", float Pt::*field = &float4::w);
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX);
-    void write_type(int type[], int n_cells);
+    template<typename TYPES>
+    void write_type(TYPES type[], int n_cells);
     void write_connections(int connections[][2], int n_connections);
 
  protected:
@@ -156,14 +157,18 @@ void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
     file << "NORMALS polarity float\n";
     float3 n;
     for (int i = 0; i < n_cells; i++) {
-        n.x = sinf(X[i].theta)*cosf(X[i].phi);
-        n.y = sinf(X[i].theta)*sinf(X[i].phi);
-        n.z = cosf(X[i].theta);
+        n = {0.0f, 0.0f, 0.0f};
+        if ((X[i].phi != 0) && (X[i].theta != 0)) {
+            n.x = sinf(X[i].theta)*cosf(X[i].phi);
+            n.y = sinf(X[i].theta)*sinf(X[i].phi);
+            n.z = cosf(X[i].theta);
+        }
         file << n.x << " " << n.y << " " << n.z << "\n";
     }
 }
 
-void VtkOutput::write_type(int type[], int n_cells) {
+template<typename TYPES>
+void VtkOutput::write_type(TYPES type[], int n_cells) {
     if (!mWrite) return;
 
     std::ofstream file(mCurrentFile, std::ios_base::app);
