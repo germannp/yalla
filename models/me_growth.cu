@@ -12,6 +12,8 @@
 
 const float R_MAX = 1;
 const float R_MIN = 0.6;
+const float RATE = 0.006;
+const float MEAN_DIST = 0.733333;
 const int N_MAX = 5000;
 const int N_TIME_STEPS = 500;
 const float DELTA_T = 0.2;
@@ -84,7 +86,7 @@ void proliferate(float rate, float mean_distance) {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_sphere(0.733333, X, n_cells);
+    uniform_sphere(MEAN_DIST, X, n_cells);
     for (int i = 0; i < n_cells; i++) {
         X[i].phi = 0;  // Will count neighbours into phi
         cell_type[i] = MESENCHYME;
@@ -118,6 +120,6 @@ int main(int argc, char const *argv[]) {
         if (time_step == N_TIME_STEPS) return 0;
 
         X.step(DELTA_T, p_potential, n_cells);
-        proliferate(0.006, 0.733333);
+        proliferate(RATE, MEAN_DIST);
     }
 }
