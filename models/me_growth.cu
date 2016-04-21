@@ -17,11 +17,12 @@ const float MEAN_DIST = 0.733333;
 const int N_MAX = 5000;
 const int N_TIME_STEPS = 500;
 const float DELTA_T = 0.2;
-enum CELL_TYPES {MESENCHYME, EPITHELIUM, STRECHED_EPITHELIUM};
+enum CELL_TYPES {MESENCHYME, EPITHELIUM, STRECHED_EPI};
 
 __device__ __managed__ Solution<pocell, N_MAX, LatticeSolver> X;
 __device__ __managed__ CELL_TYPES cell_type[N_MAX];
 __device__ __managed__ int n_cells = 200;
+__device__ curandState rand_states[N_MAX];
 
 
 __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
@@ -42,7 +43,7 @@ __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
 
     dF = dF + polarity_force(Xi, Xj)*0.2;
 
-    cell_type[i] = dist < 0.75 ? EPITHELIUM : STRECHED_EPITHELIUM;
+    if (dist < MEAN_DIST) cell_type[i] = EPITHELIUM;
 
     assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
@@ -64,23 +65,35 @@ __device__ pocell count_neighbours(pocell Xi, pocell Xj, int i, int j) {
 __device__ __managed__ nhoodint<pocell> p_count = count_neighbours;
 
 
-void proliferate(float rate, float mean_distance) {
+__global__ void setup_rand_states() {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < N_MAX) curand_init(1337, i, 0, &rand_states[i]);
+}
+
+__global__ void proliferate(float rate, float mean_distance) {
     assert(rate*n_cells <= N_MAX);
-    int i; float phi, theta;
-    for (int j = 1; j < rate*n_cells; j++) {
-        i = static_cast<int>(rand()/(RAND_MAX + 1.)*n_cells);
-        if (cell_type[i] != EPITHELIUM) {
-            phi = rand()/(RAND_MAX + 1.)*M_PI;
-            theta = rand()/(RAND_MAX + 1.)*2*M_PI;
-            X[n_cells].x = X[i].x + mean_distance/2*sinf(theta)*cosf(phi);
-            X[n_cells].y = X[i].y + mean_distance/2*sinf(theta)*sinf(phi);
-            X[n_cells].z = X[i].z + mean_distance/2*cosf(theta);
-            X[n_cells].phi = X[i].phi;
-            X[n_cells].theta = X[i].theta;
-            cell_type[n_cells] = cell_type[i];
-            n_cells++;
-        }
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i >= n_cells) return;
+
+    if (cell_type[i] == EPITHELIUM) {
+        cell_type[i] = STRECHED_EPI;
+        return;
     }
+
+    if (cell_type[i] == MESENCHYME) {
+        float r = curand_uniform(&rand_states[i]);
+        if (r > rate) return;
+    }
+
+    int n = atomicAdd(&n_cells, 1);
+    float phi = curand_uniform(&rand_states[i])*M_PI;
+    float theta = curand_uniform(&rand_states[i])*2*M_PI;
+    X[n].x = X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
+    X[n].y = X[i].y + mean_distance/4*sinf(theta)*sinf(phi);
+    X[n].z = X[i].z + mean_distance/4*cosf(theta);
+    X[n].phi = X[i].phi;
+    X[n].theta = X[i].theta;
+    cell_type[n] = cell_type[i] == MESENCHYME ? MESENCHYME : STRECHED_EPI;
 }
 
 
@@ -91,9 +104,11 @@ int main(int argc, char const *argv[]) {
         X[i].phi = 0;  // Will count neighbours into phi
         cell_type[i] = MESENCHYME;
     }
+    setup_rand_states<<<(N_MAX + 128 - 1)/128, 128>>>();
+    cudaDeviceSynchronize();
 
     // Relax
-    for (int time_step = 0; time_step <= 200; time_step++) {
+    for (int time_step = 0; time_step <= 500; time_step++) {
         X.step(DELTA_T, p_potential, n_cells);
     }
 
@@ -101,7 +116,7 @@ int main(int argc, char const *argv[]) {
     X.step(1, p_count, n_cells);
     for (int i = 0; i < n_cells; i++) {
         if (X[i].phi < 12) {
-            cell_type[i] = EPITHELIUM;
+            cell_type[i] = STRECHED_EPI;
             float dist = sqrtf(X[i].x*X[i].x + X[i].y*X[i].y + X[i].z*X[i].z);
             X[i].phi = atan2(X[i].y, X[i].x);
             X[i].theta = acosf(X[i].z/dist);
@@ -120,6 +135,7 @@ int main(int argc, char const *argv[]) {
         if (time_step == N_TIME_STEPS) return 0;
 
         X.step(DELTA_T, p_potential, n_cells);
-        proliferate(RATE, MEAN_DIST);
+        proliferate<<<(n_cells + 128 - 1)/128, 128>>>(RATE, MEAN_DIST);
+        cudaDeviceSynchronize();
     }
 }
