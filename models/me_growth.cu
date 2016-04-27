@@ -35,6 +35,8 @@ __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
     if (dist > R_MAX) return dF;
 
     float F = 2*(R_MIN - dist)*(R_MAX - dist) + powf(R_MAX - dist, 2);
+    if (cell_type[i] != cell_type[j])
+        F += 5*(MEAN_DIST - dist)*(dist < MEAN_DIST);  // Harden core
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
@@ -76,7 +78,7 @@ __global__ void proliferate(float rate, float mean_distance) {
             break;
         }
         case EPITHELIUM: {
-            if (n_neighbrs[i] > 5*2) return;  // 2nd order solver
+            if (n_neighbrs[i] > 4*2) return;  // 2nd order solver
         }
     }
 
@@ -112,7 +114,7 @@ int main(int argc, char const *argv[]) {
 
     // Find epithelium
     for (int i = 0; i < n_cells; i++) {
-        if (n_neighbrs[i] < 12*2) {  // 2nd order solver
+        if (n_neighbrs[i] < 11*2) {  // 2nd order solver
             cell_type[i] = EPITHELIUM;
             float dist = sqrtf(X[i].x*X[i].x + X[i].y*X[i].y + X[i].z*X[i].z);
             X[i].phi = atan2(X[i].y, X[i].x);
