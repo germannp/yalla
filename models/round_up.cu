@@ -31,7 +31,6 @@ __device__ float3 clipped_polynomial(float3 Xi, float3 Xj, int i, int j) {
         + strength*powf(R_MAX - dist, n);
     // float F = strength*((0.8 - dist)*(dist < 0.8) - (0.9 - dist)*(dist > 0.9)/2 - 0.05);
     // float F = strength*((0.7 - dist)*(dist < 0.7)*2 + (0.8 - dist)*(dist > 0.8)/2);
-    // (0.7 - x)*(x < 0.7)*2 + (0.8 - x)*(x > 0.8)/2
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
