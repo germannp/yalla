@@ -128,7 +128,7 @@ int main(int argc, char const *argv[]) {
     }
 
     // Simulate growth
-    VtkOutput sim_output("me_growth");
+    VtkOutput sim_output("passive_growth");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         sim_output.write_positions(X, n_cells);
         sim_output.write_type(cell_type, n_cells);
