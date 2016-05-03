@@ -11,9 +11,8 @@
 
 
 const float R_MAX = 1;
-const float R_MIN = 0.6;
 const float RATE = 0.006;
-const float MEAN_DIST = 0.733333;
+const float MEAN_DIST = 0.75;
 const int N_MAX = 5000;
 const int N_TIME_STEPS = 500;
 const float DELTA_T = 0.2;
@@ -34,9 +33,12 @@ __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if (dist > R_MAX) return dF;
 
-    float F = 2*(R_MIN - dist)*(R_MAX - dist) + powf(R_MAX - dist, 2);
-    if (cell_type[i] != cell_type[j])
-        F += 5*(MEAN_DIST - dist)*(dist < MEAN_DIST);  // Harden core
+    float F;
+    if (cell_type[i] == cell_type[j]) {
+        F = fmaxf(0.7 - dist, 0)*2 - fmaxf(dist - 0.8, 0)/2;
+    } else {
+        F = fmaxf(0.8 - dist, 0)*2 - fmaxf(dist - 0.9, 0)/2;
+    }
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
@@ -47,8 +49,8 @@ __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
         return dF;
     }
     if (cell_type[j] == MESENCHYME) return dF;
-    n_neighbrs[i] += 1;  // Count only EPITHELIUM neighbours for EPITHELIUM
 
+    n_neighbrs[i] += 1;  // Count only EPITHELIUM neighbours for EPITHELIUM
     dF = dF + polarity_force(Xi, Xj)*0.2;
     return dF;
 }
