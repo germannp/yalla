@@ -44,13 +44,9 @@ __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
     dF.z = r.z*F/dist;
     assert(dF.x == dF.x);  // For NaN f != f.
 
-    if (cell_type[i] == MESENCHYME) {
-        n_neighbrs[i] += 1;
-        return dF;
-    }
-    if (cell_type[j] == MESENCHYME) return dF;
+    if (cell_type[i] == cell_type[j]) n_neighbrs[i] += 1;
+    if (cell_type[i] == MESENCHYME || cell_type[j] == MESENCHYME) return dF;
 
-    n_neighbrs[i] += 1;  // Count only EPITHELIUM neighbours for EPITHELIUM
     dF = dF + polarity_force(Xi, Xj)*0.2;
     return dF;
 }
@@ -75,6 +71,7 @@ __global__ void proliferate(float rate, float mean_distance) {
 
     switch (cell_type[i]) {
         case MESENCHYME: {
+            // if (n_neighbrs[i] < 11*2) return;
             float r = curand_uniform(&rand_states[i]);
             if (r > rate) return;
             break;
