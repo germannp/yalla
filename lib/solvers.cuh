@@ -1,5 +1,6 @@
 // Solvers for N-body problem
 #include <assert.h>
+#include <thrust/fill.h>
 #include <thrust/sort.h>
 #include <thrust/execution_policy.h>
 
@@ -146,14 +147,6 @@ __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ X,
     cell_id[i] = i;
 }
 
-__global__ void reset_cube_start_and_end(int* cube_start, int* cube_end) {
-    int i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= N_CUBES) return;
-
-    cube_start[i] = -1;
-    cube_end[i] = -2;
-}
-
 __global__ void compute_cube_start_and_end(int n_cells, const int* __restrict__ cube_id,
         int* cube_start, int* cube_end) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
@@ -172,9 +165,9 @@ void LatticeSolver<Pt, N_MAX>::build_lattice(int n_cells, const Pt* __restrict__
     assert(n_cells <= N_MAX);
     compute_cube_ids<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, X, cube_id, cell_id, cube_size);
     cudaDeviceSynchronize();
+    thrust::fill(thrust::device, cube_start, cube_start + N_CUBES, -1);
+    thrust::fill(thrust::device, cube_end, cube_end + N_CUBES, -2);
     thrust::sort_by_key(thrust::device, cube_id, cube_id + n_cells, cell_id);
-    reset_cube_start_and_end<<<(N_CUBES + 32 - 1)/32, 32>>>(cube_start, cube_end);
-    cudaDeviceSynchronize();
     compute_cube_start_and_end<<<(n_cells + 32 - 1)/32, 32>>>(n_cells,
         cube_id, cube_start, cube_end);
     cudaDeviceSynchronize();
