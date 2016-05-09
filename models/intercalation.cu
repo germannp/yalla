@@ -43,7 +43,7 @@ __global__ void setup_rand_states() {
     if (i < N_CELLS) curand_init(1337, i, 0, &rand_states[i]);
 }
 
-__global__ void intercalate(const __restrict__ float3* X, float3* dX) {
+__global__ void intercalate(const float3* __restrict__ X, float3* dX) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= N_CONNECTIONS) return;
 
