@@ -26,7 +26,7 @@ class VtkOutput {
     void write_positions(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX);
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_field(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX,
-        const char* data_name = "w", float Pt::*field = &float4::w);
+        const char* data_name = "w", float Pt::*field = &Pt::w);
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX);
     template<typename TYPES>
