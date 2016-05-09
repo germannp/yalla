@@ -16,9 +16,10 @@ const float R_CONN = 1.5;
 const float CONNS_P_CELL = 1;
 const int N_TIME_STEPS = 500;
 const float DELTA_T = 0.2;
+enum CELL_TYPES {MESENCHYME, STRECHED_EPI, EPITHELIUM};
 
 __device__ __managed__ Solution<float4, N_MAX, LatticeSolver> X;
-__device__ __managed__ int cell_type[N_MAX];
+__device__ __managed__ CELL_TYPES cell_type[N_MAX];
 __device__ __managed__ int n_cells = 5000;
 
 __device__ __managed__ int connections[static_cast<int>(N_MAX*CONNS_P_CELL)][2];
@@ -38,7 +39,7 @@ __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
         dF.w = - r.w*D;
     } else {
         assert(Xi.w >= 0);
-        dF.w = cell_type[i] - 0.01*Xi.w;
+        dF.w = (cell_type[i] > MESENCHYME) - 0.01*Xi.w;
     }
     assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
@@ -85,7 +86,8 @@ __global__ void update_connections(const int* __restrict__ cell_id,
     float4 r = {X[cell_id[j]].x - X[cell_id[k]].x, X[cell_id[j]].y - X[cell_id[k]].y,
         X[cell_id[j]].z - X[cell_id[k]].z, X[cell_id[j]].w - X[cell_id[k]].w};
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if ((j != k) && (cell_type[cell_id[j]] != 1) && (cell_type[cell_id[k]] != 1)
+    if ((j != k) && (cell_type[cell_id[j]] == MESENCHYME)
+            && (cell_type[cell_id[k]] == MESENCHYME)
             && (dist < R_CONN) && (fabs(r.w/(X[cell_id[j]].w + X[cell_id[k]].w)) > 0.2)) {
             // && (fabs(r.x/dist) < 0.2) && (j != k) && (dist < 2)) {
         connections[i][0] = cell_id[j];
@@ -143,7 +145,7 @@ int main(int argc, char const *argv[]) {
         X[i].x = fabs(X[i].x);
         X[i].y = X[i].y/1.5;
         X[i].w = 0;
-        cell_type[i] = 0;
+        cell_type[i] = MESENCHYME;
     }
     for (int i = 0; i < N_MAX*CONNS_P_CELL; i++) {
         connections[i][0] = 0;
@@ -164,7 +166,7 @@ int main(int argc, char const *argv[]) {
     X.step(1, p_count, n_cells);
     // X.z_order(n_cells, 2.);
     for (int i = 0; i < n_cells; i++) {
-        cell_type[i] = X[i].w < 12 ? 1*(X[i].x > 0) : 0;
+        cell_type[i] = X[i].w < 12 && X[i].x > 0 ? EPITHELIUM : MESENCHYME;
         X[i].w = 0;
     }
 
