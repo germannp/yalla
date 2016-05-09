@@ -47,7 +47,7 @@ __device__ float step(float x) {
     return x*x*(3 - 2*x);
 }
 
-__global__ void squeeze_kernel(const __restrict__ float3* X, float3* dX) {
+__global__ void squeeze_kernel(const float3* __restrict__ X, float3* dX) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= N_CELLS) return;
 
