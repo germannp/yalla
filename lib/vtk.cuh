@@ -158,7 +158,7 @@ void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
     float3 n;
     for (int i = 0; i < n_cells; i++) {
         n = {0.0f, 0.0f, 0.0f};
-        if ((X[i].phi != 0) && (X[i].theta != 0)) {
+        if ((X[i].phi != 0) and (X[i].theta != 0)) {
             n.x = sinf(X[i].theta)*cosf(X[i].phi);
             n.y = sinf(X[i].theta)*sinf(X[i].phi);
             n.z = cosf(X[i].theta);

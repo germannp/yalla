@@ -86,10 +86,10 @@ __global__ void update_connections(const int* __restrict__ cell_id,
     float4 r = {X[cell_id[j]].x - X[cell_id[k]].x, X[cell_id[j]].y - X[cell_id[k]].y,
         X[cell_id[j]].z - X[cell_id[k]].z, X[cell_id[j]].w - X[cell_id[k]].w};
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if ((j != k) && (cell_type[cell_id[j]] == MESENCHYME)
-            && (cell_type[cell_id[k]] == MESENCHYME)
-            && (dist < R_CONN) && (fabs(r.w/(X[cell_id[j]].w + X[cell_id[k]].w)) > 0.2)) {
-            // && (fabs(r.x/dist) < 0.2) && (j != k) && (dist < 2)) {
+    if ((j != k) and (cell_type[cell_id[j]] == MESENCHYME)
+            and (cell_type[cell_id[k]] == MESENCHYME)
+            and (dist < R_CONN) and (fabs(r.w/(X[cell_id[j]].w + X[cell_id[k]].w)) > 0.2)) {
+            // and (fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
         connections[i][0] = cell_id[j];
         connections[i][1] = cell_id[k];
     }
@@ -166,7 +166,7 @@ int main(int argc, char const *argv[]) {
     X.step(1, p_count, n_cells);
     // X.z_order(n_cells, 2.);
     for (int i = 0; i < n_cells; i++) {
-        cell_type[i] = X[i].w < 12 && X[i].x > 0 ? EPITHELIUM : MESENCHYME;
+        cell_type[i] = X[i].w < 12 and X[i].x > 0 ? EPITHELIUM : MESENCHYME;
         X[i].w = 0;
     }
 

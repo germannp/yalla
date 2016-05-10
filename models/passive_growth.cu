@@ -43,7 +43,7 @@ __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
     dF.z = r.z*F/dist;
     assert(dF.x == dF.x);  // For NaN f != f.
 
-    if (cell_type[i] == MESENCHYME || cell_type[j] == MESENCHYME) return dF;
+    if (cell_type[i] == MESENCHYME or cell_type[j] == MESENCHYME) return dF;
 
     if (dist < MEAN_DIST) cell_type[i] = EPITHELIUM;
 

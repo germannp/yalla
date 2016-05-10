@@ -73,7 +73,7 @@ __global__ void update_connections() {
     int k = (int)(curand_uniform(&rand_states[i])*N_CELLS);
     float3 r = {X[j].x - X[k].x, X[j].y - X[k].y, X[j].z - X[k].z};
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if ((fabs(r.x/dist) < 0.2) && (j != k) && (dist < 2)) {
+    if ((fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
         connections[i][0] = j;
         connections[i][1] = k;
     }
@@ -91,7 +91,7 @@ int main(int argc, char const *argv[]) {
         int k = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
         float3 r = {X[j].x - X[k].x, X[j].y - X[k].y, X[j].z - X[k].z};
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-        if ((fabs(r.x/dist) < 0.2) && (j != k) && (dist < 2)) {
+        if ((fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
             connections[i][0] = j;
             connections[i][1] = k;
             i++;

@@ -53,7 +53,7 @@ __global__ void squeeze_kernel(const float3* __restrict__ X, float3* dX) {
 
     float time = time_step*DELTA_T;
     dX[i].z += 10*step(-2 - X[i].z);  // Floor
-    if ((time >= 0.1) && (time <= 0.5)) {
+    if ((time >= 0.1) and (time <= 0.5)) {
         dX[i].z -= 10*step(X[i].z - (2 - (time - 0.1)/0.3));
     }
 }

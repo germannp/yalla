@@ -78,7 +78,7 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
         __syncthreads();
         for (int i = 0; i < TILE_SIZE; i++) {
             int other_cell_idx = tile_start + i;
-            if ((cell_idx < n_cells) && (other_cell_idx < n_cells)) {
+            if ((cell_idx < n_cells) and (other_cell_idx < n_cells)) {
                 Pt Fij = local(Xi, shX[i], cell_idx, other_cell_idx);
                 dFi = dFi + Fij;
             }
