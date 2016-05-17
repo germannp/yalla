@@ -19,7 +19,7 @@ template<typename Pt> __device__ Pt polarity_force(Pt Xi, Pt Xj) {
     float r_theta = acosf(r.z/dist);
     dF.phi = prodi*(sinf(Xi.theta)*sinf(r_theta)*sinf(Xi.phi - r_phi));
     dF.theta = - prodi*(cosf(Xi.theta)*sinf(r_theta)*cosf(Xi.phi - r_phi) -
-    sinf(Xi.theta)*cosf(r_theta));
+        sinf(Xi.theta)*cosf(r_theta));
 
     // Contribution from (n_j . r_ji/r)^2/2
     float3 nj = {sinf(Xj.theta)*cosf(Xj.phi), sinf(Xj.theta)*sinf(Xj.phi),
