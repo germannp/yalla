@@ -80,7 +80,7 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
             int other_cell_idx = tile_start + i;
             if ((cell_idx < n_cells) and (other_cell_idx < n_cells)) {
                 Pt Fij = local(Xi, shX[i], cell_idx, other_cell_idx);
-                dFi = dFi + Fij;
+                dFi += Fij;
             }
         }
     }
@@ -208,7 +208,7 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* 
         for (int k = cube_start[cube]; k <= cube_end[cube]; k++) {
             Pt Xj = X[cell_id[k]];
             Fij = local(Xi, Xj, cell_id[i], cell_id[k]);
-            F = F + Fij;
+            F += Fij;
         }
     }
     dX[cell_id[i]] = F;
