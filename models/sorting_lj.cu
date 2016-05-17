@@ -1,7 +1,6 @@
 // Simulate cell sorting with Leonard-Jones potential
 #include <curand_kernel.h>
 #include <assert.h>
-#include <cmath>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
@@ -25,7 +24,7 @@ __device__ float3 lj_sorting(float3 Xi, float3 Xj, int i, int j) {
     if (i == j) return dF;
 
     int strength = (1 + 2*(j < N_CELLS/2))*(1 + 2*(i < N_CELLS/2));
-    float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    float3 r = Xi - Xj;
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     dist = fmaxf(dist, MIN_DIST);
     float r_rel = R_MIN/dist;

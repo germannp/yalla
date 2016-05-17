@@ -1,8 +1,5 @@
 // Simulate a mesenchyme-to-epithelium transition
-#include <stdio.h>
 #include <assert.h>
-#include <cmath>
-#include <iostream>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
@@ -25,7 +22,7 @@ __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
     pocell dF = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
-    float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    pocell r = Xi - Xj;
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if (dist > R_MAX) return dF;
 

@@ -1,7 +1,6 @@
 // Simulate intercalating cells
 #include <assert.h>
 #include <curand_kernel.h>
-#include <cmath>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
@@ -25,8 +24,10 @@ __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
-    float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
-    float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
+    float3 r = Xi - Xj;
+    float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    if (dist > R_MAX) return dF;
+
     float F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
@@ -49,7 +50,7 @@ __global__ void intercalate(const float3* __restrict__ X, float3* dX) {
 
     float3 Xi = X[connections[i][0]];
     float3 Xj = X[connections[i][1]];
-    float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    float3 r = Xi - Xj;
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
 
     atomicAdd(&dX[connections[i][0]].x, -r.x/dist/5);
@@ -71,7 +72,7 @@ __global__ void update_connections() {
 
     int j = (int)(curand_uniform(&rand_states[i])*N_CELLS);
     int k = (int)(curand_uniform(&rand_states[i])*N_CELLS);
-    float3 r = {X[j].x - X[k].x, X[j].y - X[k].y, X[j].z - X[k].z};
+    float3 r = X[j] - X[k];
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if ((fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
         connections[i][0] = j;
@@ -89,7 +90,7 @@ int main(int argc, char const *argv[]) {
     while (i < N_CONNECTIONS) {
         int j = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
         int k = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
-        float3 r = {X[j].x - X[k].x, X[j].y - X[k].y, X[j].z - X[k].z};
+        float3 r = X[j] - X[k];
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
         if ((fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
             connections[i][0] = j;

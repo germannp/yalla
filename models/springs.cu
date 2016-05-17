@@ -1,8 +1,5 @@
 // Integrate N-body problem with springs between all bodies
 #include <assert.h>
-#include <iostream>
-#include <sstream>
-#include <cmath>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
@@ -22,10 +19,7 @@ __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
-    float3 r;
-    r.x = Xi.x - Xj.x;
-    r.y = Xi.y - Xj.y;
-    r.z = Xi.z - Xj.z;
+    float3 r = Xi - Xj;
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     dF.x = r.x*(L_0 - dist)/dist;
     dF.y = r.y*(L_0 - dist)/dist;

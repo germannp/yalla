@@ -1,7 +1,5 @@
 // Simulate gradient formation
 #include <assert.h>
-#include <cmath>
-#include <iostream>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
@@ -22,13 +20,15 @@ __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
     float4 dF = {0.0f, 0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
-    float4 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z, Xi.w - Xj.w};
-    float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
+    float4 r = Xi - Xj;
+    float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    if  (dist > R_MAX) return dF;
+
     int n = 2;
+    float D = 10;
     float strength = 100;
     float F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1)
         + strength*powf(R_MAX - dist, n);
-    float D = dist < 1 ? 10 : 0;
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;

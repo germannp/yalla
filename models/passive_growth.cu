@@ -1,7 +1,6 @@
 // Simulate growing mesenchyme envelopped by epithelium
 #include <assert.h>
 #include <curand_kernel.h>
-#include <cmath>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"

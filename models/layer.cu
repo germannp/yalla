@@ -1,7 +1,5 @@
 // Simulate a layer
 #include <assert.h>
-#include <cmath>
-#include <iostream>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
@@ -22,8 +20,10 @@ __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
-    float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
-    float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
+    float3 r = Xi - Xj;
+    float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    if (dist > R_MAX) return dF;
+
     int n = 2;
     float strength = 100;
     float F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1)
