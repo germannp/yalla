@@ -35,6 +35,23 @@ const char* test_float4() {
 }
 
 
+MAKE_DTYPE(myfloat3, x, y, z)
+
+const char* test_make_pt() {
+    myfloat3 x = {1, 2, 3}, y = {5, 4, 3};
+
+    mu_assert("+= myfloat3 myfloat3, x component", (x += y).x == 1 + 5);
+    mu_assert("+= myfloat3 myfloat3, y component", (x += y).y == 2 + 4 + 4);
+    mu_assert("+= myfloat3 myfloat3, z component", (x += y).z == 3 + 3 + 3 + 3);
+
+    mu_assert("*= myfloat3 float, x component", (y *= 2).x == 5*2);
+    mu_assert("*= myfloat3 float, y component", (y *= 2).y == 4*2*2);
+    mu_assert("*= myfloat3 float, z component", (y *= 2).z == 3*2*2*2);
+
+    return NULL;
+}
+
+
 const char* test_generalization() {
     float3 x = {1, 2, 3}, y = {4, 3, 2};
 
@@ -73,6 +90,7 @@ const char* test_generalization() {
 const char* all_tests() {
     mu_run_test(test_float3);
     mu_run_test(test_float4);
+    mu_run_test(test_make_pt);
     mu_run_test(test_generalization);
     return NULL;
 }
