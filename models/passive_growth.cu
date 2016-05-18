@@ -45,8 +45,7 @@ __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
     if (cell_type[i] == MESENCHYME or cell_type[j] == MESENCHYME) return dF;
 
     if (dist < MEAN_DIST) cell_type[i] = EPITHELIUM;
-
-    dF = dF + polarity_force(Xi, Xj)*0.2;
+    dF += polarity_force(Xi, Xj)*0.2;
     return dF;
 }
 

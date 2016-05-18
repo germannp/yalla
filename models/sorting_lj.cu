@@ -31,9 +31,7 @@ __device__ float3 lj_sorting(float3 Xi, float3 Xj, int i, int j) {
     float F = powf(r_rel, 13);
     F -= powf(r_rel, 7);
     F += curand_normal(&rand_states[i])*10/sqrtf(N_CELLS);
-    dF.x = strength*r.x*F/dist;
-    dF.y = strength*r.y*F/dist;
-    dF.z = strength*r.z*F/dist;
+    dF = strength*r*F/dist;
     assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
