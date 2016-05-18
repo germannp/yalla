@@ -15,11 +15,9 @@ __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
-    float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    float3 r = Xi - Xj;
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    dF.x = r.x*(L_0 - dist)/dist;
-    dF.y = r.y*(L_0 - dist)/dist;
-    dF.z = r.z*(L_0 - dist)/dist;
+    dF = r*(L_0 - dist)/dist;
     assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
@@ -32,16 +30,18 @@ const char* test_n2n_tetrahedron() {
     for (int i = 0; i < 500; i++) {
         n2n.step(0.1, p_spring, 4);
     }
+
     for (int i = 1; i < 4; i++) {
-        float3 r = {n2n[0].x - n2n[i].x, n2n[0].y - n2n[i].y,
-            n2n[0].z - n2n[i].z};
+        float3 r = n2n[0] - n2n[i];
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
         mu_assert("Spring not relaxed in n2n tetrahedron", mu_isclose(dist, 1));
     }
+
     float3 com_f = center_of_mass(n2n, 4);
     mu_assert("Momentum in n2n tetrahedron", mu_isclose(com_i.x, com_f.x));
     mu_assert("Momentum in n2n tetrahedron", mu_isclose(com_i.y, com_f.y));
     mu_assert("Momentum in n2n tetrahedron", mu_isclose(com_i.z, com_f.z));
+
     return NULL;
 }
 
@@ -51,16 +51,19 @@ const char* test_latt_tetrahedron() {
     for (int i = 0; i < 500; i++) {
         latt.step(0.1, p_spring, 4);
     }
+
     for (int i = 1; i < 4; i++) {
         float3 r = {latt[0].x - latt[i].x, latt[0].y - latt[i].y,
             latt[0].z - latt[i].z};
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
         mu_assert("Spring not relaxed in lattice tetrahedron", mu_isclose(dist, 1));
     }
+
     float3 com_f = center_of_mass(latt, 4);
     mu_assert("Momentum in lattice tetrahedron", mu_isclose(com_i.x, com_f.x));
     mu_assert("Momentum in lattice tetrahedron", mu_isclose(com_i.y, com_f.y));
     mu_assert("Momentum in lattice tetrahedron", mu_isclose(com_i.z, com_f.z));
+
     return NULL;
 }
 
@@ -69,12 +72,10 @@ __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     float3 dF = {0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
-    float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    float3 r = Xi - Xj;
     float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), 1);
     float F = 2*(0.6 - dist)*(1 - dist) + (1 - dist)*(1 - dist);
-    dF.x = r.x*F/dist;
-    dF.y = r.y*F/dist;
-    dF.z = r.z*F/dist;
+    dF = r*F/dist;
     assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
@@ -90,11 +91,13 @@ const char* test_compare_methods() {
     }
     n2n.step(0.5, p_cubic);
     latt.step(0.5, p_cubic);
+
     for (int i = 0; i < N_MAX; i++) {
         mu_assert("Methods disagree", mu_isclose(latt[i].x, n2n[i].x));
         mu_assert("Methods disagree", mu_isclose(latt[i].y, n2n[i].y));
         mu_assert("Methods disagree", mu_isclose(latt[i].z, n2n[i].z));
     }
+
     return NULL;
 }
 
@@ -109,16 +112,19 @@ const char* test_lattice_spacing() {
             }
         }
     }
+
     latt.build_lattice(1000, 1);
     for (int i = 0; i < 1000; i++) {
         int expected_cube = pow(LATTICE_SIZE, 3)/2 + pow(LATTICE_SIZE, 2)/2 + LATTICE_SIZE/2
             + i%10 + (i%100/10)*LATTICE_SIZE + (i/100)*LATTICE_SIZE*LATTICE_SIZE;
         mu_assert("Single lattice", latt.cube_id[i] == expected_cube);
     }
+
     latt.build_lattice(1000, 2);
     for (int i = 0; i < 1000 - 8; i++) {
         mu_assert("Double lattice", latt.cube_id[i] == latt.cube_id[i - i%8]);
     }
+
     return NULL;
 }
 
