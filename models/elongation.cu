@@ -1,12 +1,12 @@
 // Simulate elongation of semisphere
 #include <assert.h>
 #include <curand_kernel.h>
-#include <cmath>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/solvers.cuh"
 #include "../lib/vtk.cuh"
+#include "../lib/epithelium.cuh"
 
 
 const float R_MAX = 1;
@@ -18,47 +18,58 @@ const int N_TIME_STEPS = 500;
 const float DELTA_T = 0.2;
 enum CELL_TYPES {MESENCHYME, STRECHED_EPI, EPITHELIUM};
 
-__device__ __managed__ Solution<float4, N_MAX, LatticeSolver> X;
 __device__ __managed__ CELL_TYPES cell_type[N_MAX];
 __device__ __managed__ int n_cells = 5000;
-
 __device__ __managed__ int connections[static_cast<int>(N_MAX*CONNS_P_CELL)][2];
 __device__ curandState rand_states[static_cast<int>(N_MAX*CONNS_P_CELL)];
 
 
-__device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
-    float4 dF = {0.0f, 0.0f, 0.0f, 0.0f};
-    if (i != j) {
-        float4 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z, Xi.w - Xj.w};
-        float dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), R_MAX);
-        float F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
-        dF.x = r.x*F/dist*(Xi.x > 0);
-        dF.y = r.y*F/dist;
-        dF.z = r.z*F/dist;
-        float D = dist < R_MAX ? 0.1 : 0;
-        dF.w = - r.w*D;
-    } else {
+MAKE_DTYPE(lbcell, x, y, z, w, phi, theta)
+
+__device__ __managed__ Solution<lbcell, N_MAX, LatticeSolver> X;
+
+
+__device__ lbcell cubic_w_diffusion(lbcell Xi, lbcell Xj, int i, int j) {
+    lbcell dF = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    if (i == j) {
         assert(Xi.w >= 0);
         dF.w = (cell_type[i] > MESENCHYME) - 0.01*Xi.w;
+        return dF;
     }
+
+    lbcell r = Xi - Xj;
+    float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    if (dist > R_MAX) return dF;
+
+    float F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
+    dF.x = r.x*F/dist*(Xi.x > 0);
+    dF.y = r.y*F/dist;
+    dF.z = r.z*F/dist;
+    float D = dist < R_MAX ? 0.1 : 0;
+    dF.w = - r.w*D;
     assert(dF.x == dF.x);  // For NaN f != f.
+
+    if (cell_type[i] == MESENCHYME or cell_type[j] == MESENCHYME) return dF;
+
+    if (dist < 0.733333) cell_type[i] = EPITHELIUM;
+    dF += polarity_force(Xi, Xj)*0.2;
     return dF;
 }
 
-__device__ __managed__ nhoodint<float4> p_potential = cubic_w_diffusion;
+__device__ __managed__ nhoodint<lbcell> p_potential = cubic_w_diffusion;
 
 
-__device__ float4 count_neighbours(float4 Xi, float4 Xj, int i, int j) {
-    float4 dF = {0.0f, 0.0f, 0.0f, 0.0f};
+__device__ lbcell count_neighbours(lbcell Xi, lbcell Xj, int i, int j) {
+    lbcell dF = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
-    float4 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z, Xi.w - Xj.w};
+    lbcell r = Xi - Xj;
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     dF.w = dist < R_MAX ? 1 : 0;
     return dF;
 }
 
-__device__ __managed__ nhoodint<float4> p_count = count_neighbours;
+__device__ __managed__ nhoodint<lbcell> p_count = count_neighbours;
 
 
 __global__ void setup_rand_states() {
@@ -83,8 +94,7 @@ __global__ void update_connections(const int* __restrict__ cell_id,
 
     int k = cube_start[rand_cube]
         + static_cast<int>(curand_uniform(&rand_states[i])*cells_in_cube);
-    float4 r = {X[cell_id[j]].x - X[cell_id[k]].x, X[cell_id[j]].y - X[cell_id[k]].y,
-        X[cell_id[j]].z - X[cell_id[k]].z, X[cell_id[j]].w - X[cell_id[k]].w};
+    lbcell r = X[cell_id[j]] - X[cell_id[k]];
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if ((j != k) and (cell_type[cell_id[j]] == MESENCHYME)
             and (cell_type[cell_id[k]] == MESENCHYME)
@@ -95,14 +105,14 @@ __global__ void update_connections(const int* __restrict__ cell_id,
     }
 }
 
-__global__ void intercalate(const __restrict__ float4* X, float4* dX) {
+__global__ void intercalate(const lbcell* __restrict__ X, lbcell* dX) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells*CONNS_P_CELL) return;
 
     if (connections[i][0] == connections[i][1]) return;
 
-    float4 Xi = X[connections[i][0]];
-    float4 Xj = X[connections[i][1]];
+    lbcell Xi = X[connections[i][0]];
+    lbcell Xj = X[connections[i][1]];
     float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
 
@@ -114,27 +124,38 @@ __global__ void intercalate(const __restrict__ float4* X, float4* dX) {
     atomicAdd(&dX[connections[i][1]].z, r.z/dist/2);
 }
 
-void intercalation(const float4* __restrict__ X, float4* dX) {
+void intercalation(const lbcell* __restrict__ X, lbcell* dX) {
     intercalate<<<(n_cells*CONNS_P_CELL + 32 - 1)/32, 32>>>(X, dX);
     cudaDeviceSynchronize();
 }
 
 
-void proliferate(float rate, float mean_distance) {
+__global__ void proliferate(float rate, float mean_distance) {
     assert(rate*n_cells <= N_MAX);
-    int i; float phi, theta;
-    for (int j = 1; j < rate*n_cells; j++) {
-        i = static_cast<int>(rand()/(RAND_MAX + 1.)*n_cells);
-        phi = rand()/(RAND_MAX + 1.)*M_PI;
-        theta = rand()/(RAND_MAX + 1.)*2*M_PI;
-        X[n_cells].x = X[i].x + mean_distance/2*sinf(theta)*cosf(phi);
-        X[n_cells].y = X[i].y + mean_distance/2*sinf(theta)*sinf(phi);
-        X[n_cells].z = X[i].z + mean_distance/2*cosf(theta);
-        X[n_cells].w = X[i].w/2;
-        X[i].w = X[i].w/2;
-        cell_type[n_cells] = cell_type[i];
-        n_cells++;
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i >= n_cells) return;
+
+    if (cell_type[i] == EPITHELIUM) {
+        cell_type[i] = STRECHED_EPI;
+        return;
     }
+
+    if (cell_type[i] == MESENCHYME) {
+        float r = curand_uniform(&rand_states[i]);
+        if (r > rate) return;
+    }
+
+    int n = atomicAdd(&n_cells, 1);
+    float phi = curand_uniform(&rand_states[i])*M_PI;
+    float theta = curand_uniform(&rand_states[i])*2*M_PI;
+    X[n].x = X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
+    X[n].y = X[i].y + mean_distance/4*sinf(theta)*sinf(phi);
+    X[n].z = X[i].z + mean_distance/4*cosf(theta);
+    X[n].w = X[i].w/2;
+    X[i].w = X[i].w/2;
+    X[n].phi = X[i].phi;
+    X[n].theta = X[i].theta;
+    cell_type[n] = cell_type[i] == MESENCHYME ? MESENCHYME : STRECHED_EPI;
 }
 
 
@@ -166,7 +187,15 @@ int main(int argc, char const *argv[]) {
     X.step(1, p_count, n_cells);
     // X.z_order(n_cells, 2.);
     for (int i = 0; i < n_cells; i++) {
-        cell_type[i] = X[i].w < 12 and X[i].x > 0 ? EPITHELIUM : MESENCHYME;
+        if (X[i].w < 12 and X[i].x > 0) {
+            cell_type[i] = STRECHED_EPI;
+            float dist = sqrtf(X[i].x*X[i].x + X[i].y*X[i].y + X[i].z*X[i].z);
+            X[i].phi = atan2(X[i].y, X[i].x);
+            X[i].theta = acosf(X[i].z/dist);
+        } else {
+            X[i].phi = 0;
+            X[i].theta = 0;
+        }
         X[i].w = 0;
     }
 
@@ -176,12 +205,14 @@ int main(int argc, char const *argv[]) {
         sim_output.write_positions(X, n_cells);
         sim_output.write_connections(connections, n_cells*CONNS_P_CELL);
         sim_output.write_type(cell_type, n_cells);
+        // sim_output.write_polarity(X, n_cells);
         sim_output.write_field(X, n_cells, "Wnt");
         if (time_step == N_TIME_STEPS) return 0;
 
         // X.step(DELTA_T, p_potential, n_cells);
         X.step(DELTA_T, p_potential, intercalation, n_cells);
-        proliferate(0.005, 0.733333);
+        proliferate<<<(n_cells + 128 - 1)/128, 128>>>(0.005, 0.733333);
+        cudaDeviceSynchronize();
         X.build_lattice(n_cells, R_CONN);
         update_connections<<<(n_cells*CONNS_P_CELL + 32 - 1)/32, 32>>>(X.cell_id,
             X.cube_id, X.cube_start, X.cube_end);
