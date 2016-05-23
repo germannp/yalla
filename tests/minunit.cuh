@@ -13,7 +13,7 @@
 
 #define MU_RUN_SUITE(name) \
     int main(int argc, char **argv) { \
-        const char *result = all_tests(); \
+        const char *result = name(); \
         if (result != 0) { \
             printf("ERROR: %s\n", result); \
         } else { \
