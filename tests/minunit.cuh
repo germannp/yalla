@@ -4,14 +4,14 @@
 #include <assert.h>
 
 
-#define mu_isclose(a, b) fabs(a - b) <= 1e-6 + 1e-3*fabs(b)
+#define MU_ISCLOSE(a, b) fabs(a - b) <= 1e-6 + 1e-3*fabs(b)
 
-#define mu_assert(message, test) do { if (!(test)) return message; } while (0)
+#define MU_ASSERT(message, test) do { if (!(test)) return message; } while (0)
 
-#define mu_run_test(test) do { const char *message = test(); tests_run++; \
+#define MU_RUN_TEST(test) do { const char *message = test(); tests_run++; \
     if (message) return message; } while (0)
 
-#define mu_run_suite(name) \
+#define MU_RUN_SUITE(name) \
     int main(int argc, char **argv) { \
         const char *result = all_tests(); \
         if (result != 0) { \

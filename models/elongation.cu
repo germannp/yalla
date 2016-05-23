@@ -24,7 +24,7 @@ __device__ __managed__ int connections[static_cast<int>(N_MAX*CONNS_P_CELL)][2];
 __device__ curandState rand_states[static_cast<int>(N_MAX*CONNS_P_CELL)];
 
 
-MAKE_DTYPE(lbcell, x, y, z, w, phi, theta)
+MAKE_DTYPE(lbcell, x, y, z, w, phi, theta);
 
 __device__ __managed__ Solution<lbcell, N_MAX, LatticeSolver> X;
 

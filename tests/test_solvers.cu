@@ -34,13 +34,13 @@ const char* test_n2n_tetrahedron() {
     for (int i = 1; i < 4; i++) {
         float3 r = n2n[0] - n2n[i];
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-        mu_assert("Spring not relaxed in n2n tetrahedron", mu_isclose(dist, 1));
+        MU_ASSERT("Spring not relaxed in n2n tetrahedron", MU_ISCLOSE(dist, 1));
     }
 
     float3 com_f = center_of_mass(n2n, 4);
-    mu_assert("Momentum in n2n tetrahedron", mu_isclose(com_i.x, com_f.x));
-    mu_assert("Momentum in n2n tetrahedron", mu_isclose(com_i.y, com_f.y));
-    mu_assert("Momentum in n2n tetrahedron", mu_isclose(com_i.z, com_f.z));
+    MU_ASSERT("Momentum in n2n tetrahedron", MU_ISCLOSE(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in n2n tetrahedron", MU_ISCLOSE(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in n2n tetrahedron", MU_ISCLOSE(com_i.z, com_f.z));
 
     return NULL;
 }
@@ -56,13 +56,13 @@ const char* test_latt_tetrahedron() {
         float3 r = {latt[0].x - latt[i].x, latt[0].y - latt[i].y,
             latt[0].z - latt[i].z};
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-        mu_assert("Spring not relaxed in lattice tetrahedron", mu_isclose(dist, 1));
+        MU_ASSERT("Spring not relaxed in lattice tetrahedron", MU_ISCLOSE(dist, 1));
     }
 
     float3 com_f = center_of_mass(latt, 4);
-    mu_assert("Momentum in lattice tetrahedron", mu_isclose(com_i.x, com_f.x));
-    mu_assert("Momentum in lattice tetrahedron", mu_isclose(com_i.y, com_f.y));
-    mu_assert("Momentum in lattice tetrahedron", mu_isclose(com_i.z, com_f.z));
+    MU_ASSERT("Momentum in lattice tetrahedron", MU_ISCLOSE(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in lattice tetrahedron", MU_ISCLOSE(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in lattice tetrahedron", MU_ISCLOSE(com_i.z, com_f.z));
 
     return NULL;
 }
@@ -93,9 +93,9 @@ const char* test_compare_methods() {
     latt.step(0.5, p_cubic);
 
     for (int i = 0; i < N_MAX; i++) {
-        mu_assert("Methods disagree", mu_isclose(latt[i].x, n2n[i].x));
-        mu_assert("Methods disagree", mu_isclose(latt[i].y, n2n[i].y));
-        mu_assert("Methods disagree", mu_isclose(latt[i].z, n2n[i].z));
+        MU_ASSERT("Methods disagree", MU_ISCLOSE(latt[i].x, n2n[i].x));
+        MU_ASSERT("Methods disagree", MU_ISCLOSE(latt[i].y, n2n[i].y));
+        MU_ASSERT("Methods disagree", MU_ISCLOSE(latt[i].z, n2n[i].z));
     }
 
     return NULL;
@@ -117,12 +117,12 @@ const char* test_lattice_spacing() {
     for (int i = 0; i < 1000; i++) {
         int expected_cube = pow(LATTICE_SIZE, 3)/2 + pow(LATTICE_SIZE, 2)/2 + LATTICE_SIZE/2
             + i%10 + (i%100/10)*LATTICE_SIZE + (i/100)*LATTICE_SIZE*LATTICE_SIZE;
-        mu_assert("Single lattice", latt.cube_id[i] == expected_cube);
+        MU_ASSERT("Single lattice", latt.cube_id[i] == expected_cube);
     }
 
     latt.build_lattice(1000, 2);
     for (int i = 0; i < 1000 - 8; i++) {
-        mu_assert("Double lattice", latt.cube_id[i] == latt.cube_id[i - i%8]);
+        MU_ASSERT("Double lattice", latt.cube_id[i] == latt.cube_id[i - i%8]);
     }
 
     return NULL;
@@ -130,11 +130,11 @@ const char* test_lattice_spacing() {
 
 
 const char* all_tests() {
-    mu_run_test(test_n2n_tetrahedron);
-    mu_run_test(test_latt_tetrahedron);
-    mu_run_test(test_compare_methods);
-    mu_run_test(test_lattice_spacing);
+    MU_RUN_TEST(test_n2n_tetrahedron);
+    MU_RUN_TEST(test_latt_tetrahedron);
+    MU_RUN_TEST(test_compare_methods);
+    MU_RUN_TEST(test_lattice_spacing);
     return NULL;
 }
 
-mu_run_suite(all_tests)
+MU_RUN_SUITE(all_tests);

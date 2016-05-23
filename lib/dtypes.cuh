@@ -41,7 +41,7 @@ struct Pt { \
         MAP(COMP_WISE_MULTIPLY, __VA_ARGS__) \
         return a; \
     } \
-};
+}
 
 // ... where MAP(MACRO, ...) maps MACRO onto __VA_ARGS__, inspired by
 // http://stackoverflow.com/questions/11761703/
@@ -62,7 +62,7 @@ struct Pt { \
     _MAP3, _MAP2, _MAP1, _MAP0)(MACRO, __VA_ARGS__)
 
 // Polarized cell
-MAKE_DTYPE(pocell, x, y, z, phi, theta)
+MAKE_DTYPE(pocell, x, y, z, phi, theta);
 
 
 // Generalize += and *= to +, -=, -, *, /= and /
