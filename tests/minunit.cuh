@@ -11,9 +11,9 @@
 #define MU_RUN_TEST(test) do { const char *message = test(); tests_run++; \
     if (message) return message; } while (0)
 
-#define MU_RUN_SUITE(name) \
+#define MU_RUN_SUITE(suite) \
     int main(int argc, char **argv) { \
-        const char *result = name(); \
+        const char *result = suite(); \
         if (result != 0) { \
             printf("ERROR: %s\n", result); \
         } else { \
