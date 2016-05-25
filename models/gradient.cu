@@ -37,7 +37,7 @@ __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ nhoodint<float4> local = cubic_w_diffusion;
+__device__ __managed__ nhoodint<float4> d_local_interactions = cubic_w_diffusion;
 
 
 int main(int argc, char const *argv[]) {
@@ -54,6 +54,6 @@ int main(int argc, char const *argv[]) {
         output.write_field(X);
         if (time_step == N_TIME_STEPS) return 0;
 
-        X.step(DELTA_T, local);
+        X.step(DELTA_T, d_local_interactions);
     }
 }

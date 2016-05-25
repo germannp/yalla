@@ -56,7 +56,7 @@ __device__ lbcell cubic_w_diffusion(lbcell Xi, lbcell Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ nhoodint<lbcell> p_potential = cubic_w_diffusion;
+__device__ __managed__ nhoodint<lbcell> d_potential = cubic_w_diffusion;
 
 
 __device__ lbcell count_neighbours(lbcell Xi, lbcell Xj, int i, int j) {
@@ -69,7 +69,7 @@ __device__ lbcell count_neighbours(lbcell Xi, lbcell Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ nhoodint<lbcell> p_count = count_neighbours;
+__device__ __managed__ nhoodint<lbcell> d_count = count_neighbours;
 
 
 __global__ void setup_rand_states() {
@@ -178,13 +178,13 @@ int main(int argc, char const *argv[]) {
     // Relax
     VtkOutput relax_output("relaxation");
     for (int time_step = 0; time_step <= 200; time_step++) {
-        X.step(DELTA_T, p_potential, n_cells);
+        X.step(DELTA_T, d_potential, n_cells);
         relax_output.print_progress();
     }
     relax_output.print_done();
 
     // Find epithelium
-    X.step(1, p_count, n_cells);
+    X.step(1, d_count, n_cells);
     // X.z_order(n_cells, 2.);
     for (int i = 0; i < n_cells; i++) {
         if (X[i].w < 12 and X[i].x > 0) {
@@ -209,8 +209,8 @@ int main(int argc, char const *argv[]) {
         sim_output.write_field(X, n_cells, "Wnt");
         if (time_step == N_TIME_STEPS) return 0;
 
-        // X.step(DELTA_T, p_potential, n_cells);
-        X.step(DELTA_T, p_potential, intercalation, n_cells);
+        // X.step(DELTA_T, d_potential, n_cells);
+        X.step(DELTA_T, d_potential, intercalation, n_cells);
         proliferate<<<(n_cells + 128 - 1)/128, 128>>>(0.005, 0.733333);
         cudaDeviceSynchronize();
         X.build_lattice(n_cells, R_CONN);

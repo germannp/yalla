@@ -49,7 +49,7 @@ __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ nhoodint<pocell> p_potential = cubic_w_polarity;
+__device__ __managed__ nhoodint<pocell> d_potential = cubic_w_polarity;
 
 
 __device__ pocell count_neighbours(pocell Xi, pocell Xj, int i, int j) {
@@ -62,7 +62,7 @@ __device__ pocell count_neighbours(pocell Xi, pocell Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ nhoodint<pocell> p_count = count_neighbours;
+__device__ __managed__ nhoodint<pocell> d_count = count_neighbours;
 
 
 __global__ void setup_rand_states() {
@@ -109,11 +109,11 @@ int main(int argc, char const *argv[]) {
 
     // Relax
     for (int time_step = 0; time_step <= 500; time_step++) {
-        X.step(DELTA_T, p_potential, n_cells);
+        X.step(DELTA_T, d_potential, n_cells);
     }
 
     // Find epithelium
-    X.step(1, p_count, n_cells);
+    X.step(1, d_count, n_cells);
     for (int i = 0; i < n_cells; i++) {
         if (X[i].phi < 12) {
             cell_type[i] = STRECHED_EPI;
@@ -134,7 +134,7 @@ int main(int argc, char const *argv[]) {
         sim_output.write_polarity(X, n_cells);
         if (time_step == N_TIME_STEPS) return 0;
 
-        X.step(DELTA_T, p_potential, n_cells);
+        X.step(DELTA_T, d_potential, n_cells);
         proliferate<<<(n_cells + 128 - 1)/128, 128>>>(RATE, MEAN_DIST);
         cudaDeviceSynchronize();
     }

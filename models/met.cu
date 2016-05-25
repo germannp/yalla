@@ -36,7 +36,7 @@ __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ nhoodint<pocell> potential = epithelium;
+__device__ __managed__ nhoodint<pocell> d_potential = epithelium;
 
 
 int main(int argc, char const *argv[]) {
@@ -55,6 +55,6 @@ int main(int argc, char const *argv[]) {
         output.write_polarity(X);
         if (time_step == N_TIME_STEPS) return 0;
 
-        X.step(DELTA_T, potential);
+        X.step(DELTA_T, d_potential);
     }
 }

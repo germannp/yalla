@@ -26,7 +26,7 @@ __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ nhoodint<float3> dev_spring = spring;  // Copy to device
+__device__ __managed__ nhoodint<float3> d_spring = spring;  // Copy to device
 
 
 int main(int argc, const char* argv[]) {
@@ -39,6 +39,6 @@ int main(int argc, const char* argv[]) {
         output.write_positions(X);
         if (time_step == N_TIME_STEPS) return 0;
 
-        X.step(DELTA_T, dev_spring);
+        X.step(DELTA_T, d_spring);
     }
 }

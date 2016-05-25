@@ -34,7 +34,7 @@ __device__ float3 clipped_polynomial(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ nhoodint<float3> potential = clipped_polynomial;
+__device__ __managed__ nhoodint<float3> d_potential = clipped_polynomial;
 
 
 // Smooth transition from step(x < 0) = 0 to step(x > 0) = 1 over dx
@@ -72,6 +72,6 @@ int main(int argc, char const *argv[]) {
         output.write_positions(X);
         if (time_step*DELTA_T == 1) return 0;
 
-        X.step(DELTA_T, potential, squeeze_to_floor);
+        X.step(DELTA_T, d_potential, squeeze_to_floor);
     }
 }

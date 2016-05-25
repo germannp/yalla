@@ -34,7 +34,7 @@ __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ nhoodint<float3> potential = clipped_cubic;
+__device__ __managed__ nhoodint<float3> d_potential = clipped_cubic;
 
 
 __global__ void setup_rand_states() {
@@ -104,7 +104,7 @@ int main(int argc, char const *argv[]) {
         output.write_connections(connections, N_CONNECTIONS);
         if (time_step == N_TIME_STEPS) return 0;
 
-        X.step(DELTA_T, potential, intercalation);
+        X.step(DELTA_T, d_potential, intercalation);
         update_connections<<<(N_CONNECTIONS + 32 - 1)/32, 32>>>();
         cudaDeviceSynchronize();
     }

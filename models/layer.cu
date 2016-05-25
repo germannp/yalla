@@ -33,7 +33,7 @@ __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ nhoodint<float3> potential = clipped_cubic;
+__device__ __managed__ nhoodint<float3> d_potential = clipped_cubic;
 
 
 int main(int argc, char const *argv[]) {
@@ -49,6 +49,6 @@ int main(int argc, char const *argv[]) {
         output.write_positions(X);
         if (time_step == N_TIME_STEPS) return 0;
 
-        X.step(DELTA_T, potential);
+        X.step(DELTA_T, d_potential);
     }
 }

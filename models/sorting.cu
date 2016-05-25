@@ -31,7 +31,7 @@ __device__ float3 cubic_sorting(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ nhoodint<float3> p_sorting = cubic_sorting;
+__device__ __managed__ nhoodint<float3> d_sorting = cubic_sorting;
 
 
 int main(int argc, char const *argv[]) {
@@ -49,6 +49,6 @@ int main(int argc, char const *argv[]) {
         output.write_type(cell_type, N_CELLS);
         if (time_step == N_TIME_STEPS) return 0;
 
-        X.step(DELTA_T, p_sorting);
+        X.step(DELTA_T, d_sorting);
     }
 }
