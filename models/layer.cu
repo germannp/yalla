@@ -17,7 +17,7 @@ __device__ __managed__ Solution<float3, N_CELLS, LatticeSolver> X;
 
 
 __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
-    float3 dF = {0.0f, 0.0f, 0.0f};
+    auto dF = float3{0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
     float3 r = Xi - Xj;
@@ -33,7 +33,7 @@ __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ nhoodint<float3> d_potential = clipped_cubic;
+__device__ __managed__ auto d_potential = clipped_cubic;
 
 
 int main(int argc, char const *argv[]) {

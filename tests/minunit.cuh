@@ -8,12 +8,12 @@
 
 #define MU_ASSERT(message, test) do { if (!(test)) return message; } while (0)
 
-#define MU_RUN_TEST(test) do { const char *message = test(); tests_run++; \
+#define MU_RUN_TEST(test) do { auto *message = test(); tests_run++; \
     if (message) return message; } while (0)
 
 #define MU_RUN_SUITE(suite) \
     int main(int argc, char **argv) { \
-        const char *result = suite(); \
+        auto *result = suite(); \
         if (result != 0) { \
             printf("ERROR: %s\n", result); \
         } else { \
@@ -23,14 +23,14 @@
         return result != 0; \
     }
 
-int tests_run = 0;
+auto tests_run = 0;
 
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 float3 center_of_mass(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX) {
     assert(n_cells <= N_MAX);
-    float3 com = {0, 0, 0};
-    for (int i = 0; i < n_cells; i++) {
+    auto com = float3{0, 0, 0};
+    for (auto i = 0; i < n_cells; i++) {
         com.x += X[i].x/n_cells;
         com.y += X[i].y/n_cells;
         com.z += X[i].z/n_cells;

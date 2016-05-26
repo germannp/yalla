@@ -9,26 +9,26 @@
 #include "../lib/epithelium.cuh"
 
 
-const float R_MAX = 1;
-const float RATE = 0.006;
-const float MEAN_DIST = 0.75;
-const int N_MAX = 5000;
-const int N_TIME_STEPS = 500;
-const float DELTA_T = 0.2;
+const auto R_MAX = 1;
+const auto RATE = 0.006;
+const auto MEAN_DIST = 0.75;
+const auto N_MAX = 5000;
+const auto N_TIME_STEPS = 500;
+const auto DELTA_T = 0.2;
 enum CELL_TYPES {MESENCHYME, EPITHELIUM, STRECHED_EPI};
 
 __device__ __managed__ Solution<pocell, N_MAX, LatticeSolver> X;
 __device__ __managed__ CELL_TYPES cell_type[N_MAX];
-__device__ __managed__ int n_cells = 200;
+__device__ __managed__ auto n_cells = 200u;
 __device__ curandState rand_states[N_MAX];
 
 
 __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
-    pocell dF = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    auto dF = pocell{0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
-    float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
-    float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    auto r = float3{Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if (dist > R_MAX) return dF;
 
     float F;
@@ -49,30 +49,30 @@ __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ nhoodint<pocell> d_potential = cubic_w_polarity;
+__device__ __managed__ auto d_potential = cubic_w_polarity;
 
 
 __device__ pocell count_neighbours(pocell Xi, pocell Xj, int i, int j) {
-    pocell dF = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    auto dF = pocell{0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
-    float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
-    float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    auto r = float3{Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     dF.phi = dist < R_MAX ? 1 : 0;
     return dF;
 }
 
-__device__ __managed__ nhoodint<pocell> d_count = count_neighbours;
+__device__ __managed__ auto d_count = count_neighbours;
 
 
 __global__ void setup_rand_states() {
-    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < N_MAX) curand_init(1337, i, 0, &rand_states[i]);
 }
 
 __global__ void proliferate(float rate, float mean_distance) {
     assert(rate*n_cells <= N_MAX);
-    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
     if (cell_type[i] == EPITHELIUM) {
@@ -81,13 +81,13 @@ __global__ void proliferate(float rate, float mean_distance) {
     }
 
     if (cell_type[i] == MESENCHYME) {
-        float r = curand_uniform(&rand_states[i]);
+        auto r = curand_uniform(&rand_states[i]);
         if (r > rate) return;
     }
 
-    int n = atomicAdd(&n_cells, 1);
-    float phi = curand_uniform(&rand_states[i])*M_PI;
-    float theta = curand_uniform(&rand_states[i])*2*M_PI;
+    auto n = atomicAdd(&n_cells, 1);
+    auto phi = curand_uniform(&rand_states[i])*M_PI;
+    auto theta = curand_uniform(&rand_states[i])*2*M_PI;
     X[n].x = X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
     X[n].y = X[i].y + mean_distance/4*sinf(theta)*sinf(phi);
     X[n].z = X[i].z + mean_distance/4*cosf(theta);
@@ -100,7 +100,7 @@ __global__ void proliferate(float rate, float mean_distance) {
 int main(int argc, char const *argv[]) {
     // Prepare initial state
     uniform_sphere(MEAN_DIST, X, n_cells);
-    for (int i = 0; i < n_cells; i++) {
+    for (auto i = 0; i < n_cells; i++) {
         X[i].phi = 0;  // Will count neighbours into phi
         cell_type[i] = MESENCHYME;
     }
@@ -108,16 +108,16 @@ int main(int argc, char const *argv[]) {
     cudaDeviceSynchronize();
 
     // Relax
-    for (int time_step = 0; time_step <= 500; time_step++) {
+    for (auto time_step = 0; time_step <= 500; time_step++) {
         X.step(DELTA_T, d_potential, n_cells);
     }
 
     // Find epithelium
     X.step(1, d_count, n_cells);
-    for (int i = 0; i < n_cells; i++) {
+    for (auto i = 0; i < n_cells; i++) {
         if (X[i].phi < 12) {
             cell_type[i] = STRECHED_EPI;
-            float dist = sqrtf(X[i].x*X[i].x + X[i].y*X[i].y + X[i].z*X[i].z);
+            auto dist = sqrtf(X[i].x*X[i].x + X[i].y*X[i].y + X[i].z*X[i].z);
             X[i].phi = atan2(X[i].y, X[i].x);
             X[i].theta = acosf(X[i].z/dist);
         } else {
@@ -128,7 +128,7 @@ int main(int argc, char const *argv[]) {
 
     // Simulate growth
     VtkOutput sim_output("passive_growth");
-    for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
+    for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         sim_output.write_positions(X, n_cells);
         sim_output.write_type(cell_type, n_cells);
         sim_output.write_polarity(X, n_cells);

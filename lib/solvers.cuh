@@ -38,21 +38,21 @@ class Solution: public Solver<Pt, N_MAX> {
 // Integration templates
 template<typename Pt> __global__ void euler_step(int n_cells, float delta_t,
         const Pt* __restrict__ X0, Pt* X, const Pt* __restrict__ dX) {
-    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < n_cells) X[i] = X0[i] + dX[i]*delta_t;
 }
 
 template<typename Pt> __global__ void heun_step(int n_cells, float delta_t,
         const Pt* __restrict__ X0, Pt* X, const Pt* __restrict__ dX,
         const Pt* __restrict__ dX1) {
-    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < n_cells) X[i] = X0[i] + (dX[i] + dX1[i])*0.5*delta_t;
 }
 
 
 /* Parallelization with interactions among all pairs, after
    http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html. */
-const uint TILE_SIZE = 32;
+const auto TILE_SIZE = 32;
 
 template<typename Pt, int N_MAX>class N2nSolver {
  protected:
@@ -64,22 +64,22 @@ template<typename Pt, int N_MAX>class N2nSolver {
 template<typename Pt>
 __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
         nhoodint<Pt> d_local) {
-    int cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
+    auto cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
 
     __shared__ Pt shX[TILE_SIZE];
-    Pt Xi = X[cell_idx];
-    Pt dFi = Xi*0;
+    auto Xi = X[cell_idx];
+    auto dFi = Xi*0;
 
-    for (int tile_start = 0; tile_start < n_cells; tile_start += TILE_SIZE) {
-        int other_cell_idx = tile_start + threadIdx.x;
+    for (auto tile_start = 0; tile_start < n_cells; tile_start += TILE_SIZE) {
+        auto other_cell_idx = tile_start + threadIdx.x;
         if (other_cell_idx < n_cells) {
             shX[threadIdx.x] = X[other_cell_idx];
         }
         __syncthreads();
-        for (int i = 0; i < TILE_SIZE; i++) {
-            int other_cell_idx = tile_start + i;
+        for (auto i = 0; i < TILE_SIZE; i++) {
+            auto other_cell_idx = tile_start + i;
             if ((cell_idx < n_cells) and (other_cell_idx < n_cells)) {
-                Pt Fij = d_local(Xi, shX[i], cell_idx, other_cell_idx);
+                auto Fij = d_local(Xi, shX[i], cell_idx, other_cell_idx);
                 dFi += Fij;
             }
         }
@@ -113,9 +113,9 @@ void N2nSolver<Pt, N_MAX>::step(float delta_t, nhoodint<Pt> d_local, globints<Pt
 
 /* Sorting based lattice with limited interaction, after
    http://docs.nvidia.com/cuda/samples/5_Simulations/particles/doc/particles.pdf */
-const float CUBE_SIZE = 1;
-const int LATTICE_SIZE = 50;
-const int N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
+const auto CUBE_SIZE = 1.f;
+const auto LATTICE_SIZE = 50u;
+const auto N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
 template<typename Pt, int N_MAX>class LatticeSolver {
  public:
@@ -133,11 +133,11 @@ template<typename Pt, int N_MAX>class LatticeSolver {
 template<typename Pt>
 __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ X,
         int* cube_id, int* cell_id, float cube_size) {
-    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
     Pt Xi = X[i];
-    int id = static_cast<int>(
+    auto id = static_cast<int>(
         (floor(Xi.x/cube_size) + LATTICE_SIZE/2) +
         (floor(Xi.y/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE +
         (floor(Xi.z/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE*LATTICE_SIZE);
@@ -149,13 +149,13 @@ __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ X,
 
 __global__ void compute_cube_start_and_end(int n_cells, const int* __restrict__ cube_id,
         int* cube_start, int* cube_end) {
-    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
-    int cube = cube_id[i];
-    int prev = i > 0 ? cube_id[i - 1] : -1;
+    auto cube = cube_id[i];
+    auto prev = i > 0 ? cube_id[i - 1] : -1;
     if (cube != prev) cube_start[cube] = i;
-    int next = i < n_cells ? cube_id[i + 1] : cube_id[i] + 1;
+    auto next = i < n_cells ? cube_id[i + 1] : cube_id[i] + 1;
     if (cube != next) cube_end[cube] = i;
 }
 
@@ -185,27 +185,27 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* 
         const int* __restrict__ cell_id, const int* __restrict__ cube_id,
         const int* __restrict__ cube_start, const int* __restrict__ cube_end,
         nhoodint<Pt> d_local) {
-    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
     int interacting_cubes[27];
     interacting_cubes[0] = cube_id[i] - 1;
     interacting_cubes[1] = cube_id[i];
     interacting_cubes[2] = cube_id[i] + 1;
-    for (int j = 0; j < 3; j++) {
+    for (auto j = 0; j < 3; j++) {
         interacting_cubes[j + 3] = interacting_cubes[j % 3] - LATTICE_SIZE;
         interacting_cubes[j + 6] = interacting_cubes[j % 3] + LATTICE_SIZE;
     }
-    for (int j = 0; j < 9; j++) {
+    for (auto j = 0; j < 9; j++) {
         interacting_cubes[j +  9] = interacting_cubes[j % 9] - LATTICE_SIZE*LATTICE_SIZE;
         interacting_cubes[j + 18] = interacting_cubes[j % 9] + LATTICE_SIZE*LATTICE_SIZE;
     }
 
     Pt Xi = X[cell_id[i]];
     Pt Fij, F = Xi*0;
-    for (int j = 0; j < 27; j++) {
-        int cube = interacting_cubes[j];
-        for (int k = cube_start[cube]; k <= cube_end[cube]; k++) {
+    for (auto j = 0; j < 27; j++) {
+        auto cube = interacting_cubes[j];
+        for (auto k = cube_start[cube]; k <= cube_end[cube]; k++) {
             Pt Xj = X[cell_id[k]];
             Fij = d_local(Xi, Xj, cell_id[i], cell_id[k]);
             F += Fij;

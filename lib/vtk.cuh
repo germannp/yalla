@@ -79,9 +79,9 @@ void VtkOutput::print_progress() {
 }
 
 void VtkOutput::print_done() {
-    time_t end = time(NULL), duration;
+    auto end = time(NULL);
 
-    duration = end - mStart;
+    auto duration = end - mStart;
     std::cout << "Integrating " << mBASE_NAME << ", ";
     if (duration < 60)
     std::cout << duration << " seconds";
@@ -113,11 +113,11 @@ void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
     file << "DATASET POLYDATA\n";
 
     file << "\nPOINTS " << n_cells << " float\n";
-    for (int i = 0; i < n_cells; i++)
+    for (auto i = 0; i < n_cells; i++)
         file << X[i].x << " " << X[i].y << " " << X[i].z << "\n";
 
     file << "\nVERTICES " << n_cells << " " << 2*n_cells << "\n";
-    for (int i = 0; i < n_cells; i++)
+    for (auto i = 0; i < n_cells; i++)
         file << "1 " << i << "\n";
 }
 
@@ -137,7 +137,7 @@ void VtkOutput::write_field(Solution<Pt, N_MAX, Solver>& X, int n_cells,
     }
     file << "SCALARS " << data_name << " float\n";
     file << "LOOKUP_TABLE default\n";
-    for (int i = 0; i < n_cells; i++)
+    for (auto i = 0; i < n_cells; i++)
         file << X[i].*field << "\n";
 }
 
@@ -155,9 +155,8 @@ void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
         mPDataStarted = 1;
     }
     file << "NORMALS polarity float\n";
-    float3 n;
-    for (int i = 0; i < n_cells; i++) {
-        n = {0.0f, 0.0f, 0.0f};
+    for (auto i = 0; i < n_cells; i++) {
+        auto n = float3{0.0f, 0.0f, 0.0f};
         if ((X[i].phi != 0) and (X[i].theta != 0)) {
             n.x = sinf(X[i].theta)*cosf(X[i].phi);
             n.y = sinf(X[i].theta)*sinf(X[i].phi);
@@ -180,7 +179,7 @@ void VtkOutput::write_type(TYPES type[], int n_cells) {
     }
     file << "SCALARS cell_type int\n";
     file << "LOOKUP_TABLE default\n";
-    for (int i = 0; i < n_cells; i++)
+    for (auto i = 0; i < n_cells; i++)
         file << type[i] << "\n";
 }
 
@@ -191,6 +190,6 @@ void VtkOutput::write_connections(int connections[][2], int n_connections) {
     assert(file.is_open());
 
     file << "\nLINES " << n_connections << " " << 3*n_connections << "\n";
-    for (int i = 0; i < n_connections; i++)
+    for (auto i = 0; i < n_connections; i++)
         file << "2 " << connections[i][0] << " " << connections[i][1] << "\n";
 }

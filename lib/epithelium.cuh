@@ -3,28 +3,28 @@
 
 
 template<typename Pt> __device__ Pt polarity_force(Pt Xi, Pt Xj) {
-    Pt dF = Xi*0;
-    float3 r = {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
-    float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    auto dF = Xi*0;
+    auto r = float3{Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
 
-    float3 ni = {sinf(Xi.theta)*cosf(Xi.phi), sinf(Xi.theta)*sinf(Xi.phi),
+    auto ni = float3{sinf(Xi.theta)*cosf(Xi.phi), sinf(Xi.theta)*sinf(Xi.phi),
         cosf(Xi.theta)};
-    float prodi = ni.x*r.x + ni.y*r.y + ni.z*r.z;
+    auto prodi = ni.x*r.x + ni.y*r.y + ni.z*r.z;
     dF.x = - (prodi/powf(dist, 2)*ni.x - powf(prodi, 2)/powf(dist, 4)*r.x);
     dF.y = - (prodi/powf(dist, 2)*ni.y - powf(prodi, 2)/powf(dist, 4)*r.y);
     dF.z = - (prodi/powf(dist, 2)*ni.z - powf(prodi, 2)/powf(dist, 4)*r.z);
 
     // n1 . n2 = sin(t1)*sin(t2)*cos(p1 - p2) + cos(t1)*cos(t2)
-    float r_phi = atan2(r.y, r.x);
-    float r_theta = acosf(r.z/dist);
+    auto r_phi = atan2(r.y, r.x);
+    auto r_theta = acosf(r.z/dist);
     dF.phi = prodi*(sinf(Xi.theta)*sinf(r_theta)*sinf(Xi.phi - r_phi));
     dF.theta = - prodi*(cosf(Xi.theta)*sinf(r_theta)*cosf(Xi.phi - r_phi) -
         sinf(Xi.theta)*cosf(r_theta));
 
     // Contribution from (n_j . r_ji/r)^2/2
-    float3 nj = {sinf(Xj.theta)*cosf(Xj.phi), sinf(Xj.theta)*sinf(Xj.phi),
+    auto nj = float3{sinf(Xj.theta)*cosf(Xj.phi), sinf(Xj.theta)*sinf(Xj.phi),
         cosf(Xj.theta)};
-    float prodj = - (nj.x*r.x + nj.y*r.y + nj.z*r.z);
+    auto prodj = - (nj.x*r.x + nj.y*r.y + nj.z*r.z);
     dF.x += prodj/powf(dist, 2)*nj.x + powf(prodj, 2)/powf(dist, 4)*r.x;
     dF.y += prodj/powf(dist, 2)*nj.y + powf(prodj, 2)/powf(dist, 4)*r.y;
     dF.z += prodj/powf(dist, 2)*nj.z + powf(prodj, 2)/powf(dist, 4)*r.z;

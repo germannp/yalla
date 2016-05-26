@@ -68,7 +68,7 @@ MAKE_DTYPE(pocell, x, y, z, phi, theta);
 // Generalize += and *= to +, -=, -, *, /= and /
 template<typename Pt>
 __device__ __host__ Pt operator+(const Pt& a, const Pt& b) {
-    Pt sum = a;
+    auto sum = a;
     sum += b;
     return sum;
 }
@@ -81,21 +81,21 @@ __device__ __host__ Pt operator-=(Pt& a, const Pt& b) {
 
 template<typename Pt>
 __device__ __host__ Pt operator-(const Pt& a, const Pt& b) {
-    Pt diff = a;
+    auto diff = a;
     diff -= b;
     return diff;
 }
 
 template<typename Pt>
 __device__ __host__ Pt operator*(const Pt& a, const float b) {
-    Pt prod = a;
+    auto prod = a;
     prod *= b;
     return prod;
 }
 
 template<typename Pt>
 __device__ __host__ Pt operator*(const float b, const Pt& a) {
-    Pt prod = a;
+    auto prod = a;
     prod *= b;
     return prod;
 }
@@ -108,7 +108,7 @@ __device__ __host__ Pt operator/=(Pt& a, const float b) {
 
 template<typename Pt>
 __device__ __host__ Pt operator/(const Pt& a, const float b) {
-    Pt quot = a;
+    auto quot = a;
     quot /= b;
     return quot;
 }

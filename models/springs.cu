@@ -7,26 +7,26 @@
 #include "../lib/vtk.cuh"
 
 
-const float L_0 = 0.5;  // Relaxed spring length
-const float DELTA_T = 0.001;
-const uint N_CELLS = 800;
-const uint N_TIME_STEPS = 100;
+const auto L_0 = 0.5f;  // Relaxed spring length
+const auto N_CELLS = 800u;
+const auto N_TIME_STEPS = 100u;
+const auto DELTA_T = 0.001f;
 
 __device__ __managed__ Solution<float3, N_CELLS, N2nSolver> X;
 
 
 __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
-    float3 dF = {0.0f, 0.0f, 0.0f};
+    auto dF = float3{0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
-    float3 r = Xi - Xj;
-    float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    auto r = Xi - Xj;
+    auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     dF = r*(L_0 - dist)/dist;
     assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
 
-__device__ __managed__ nhoodint<float3> d_spring = spring;  // Copy to device
+__device__ __managed__ auto d_spring = spring;  // Copy to device
 
 
 int main(int argc, const char* argv[]) {
