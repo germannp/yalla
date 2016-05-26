@@ -29,9 +29,10 @@ class VtkOutput {
         const char* data_name = "w", float Pt::*field = &Pt::w);
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX);
-    template<typename TYPES>
-    void write_type(TYPES type[], int n_cells);
-    void write_connections(int connections[][2], int n_connections);
+    template<typename TYPES, int N_MAX>
+    void write_type(TYPES (&type)[N_MAX], int n_cells = N_MAX);
+    template<int N_CONNS_MAX>
+    void write_connections(int (&connections)[N_CONNS_MAX][2], int n_connections = N_CONNS_MAX);
 
  protected:
     int mN_TIME_STEPS;
@@ -165,9 +166,8 @@ void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
         file << n.x << " " << n.y << " " << n.z << "\n";
     }
 }
-
-template<typename TYPES>
-void VtkOutput::write_type(TYPES type[], int n_cells) {
+template<typename TYPES, int N_MAX>
+void VtkOutput::write_type(TYPES (&type)[N_MAX], int n_cells) {
     if (!mWrite) return;
 
     std::ofstream file(mCurrentFile, std::ios_base::app);
@@ -183,7 +183,8 @@ void VtkOutput::write_type(TYPES type[], int n_cells) {
         file << type[i] << "\n";
 }
 
-void VtkOutput::write_connections(int connections[][2], int n_connections) {
+template<int N_CONNS_MAX>
+void VtkOutput::write_connections(int (&connections)[N_CONNS_MAX][2], int n_connections) {
     if (!mWrite) return;
 
     std::ofstream file(mCurrentFile, std::ios_base::app);

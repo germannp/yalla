@@ -58,7 +58,7 @@ int main(int argc, char const *argv[]) {
     VtkOutput output("sorting-lj", N_TIME_STEPS, SKIP_STEPS);
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         output.write_positions(X);
-        output.write_type(cell_type, N_CELLS);
+        output.write_type(cell_type);
         if (time_step == N_TIME_STEPS) return 0;
 
         X.step(DELTA_T, d_sorting);

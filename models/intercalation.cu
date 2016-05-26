@@ -101,7 +101,7 @@ int main(int argc, char const *argv[]) {
     VtkOutput output("intercalation");
     for (int time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         output.write_positions(X);
-        output.write_connections(connections, N_CONNECTIONS);
+        output.write_connections(connections);
         if (time_step == N_TIME_STEPS) return 0;
 
         X.step(DELTA_T, d_potential, intercalation);
