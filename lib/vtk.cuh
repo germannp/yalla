@@ -42,7 +42,7 @@ class VtkOutput {
     std::string mCurrentFile;
     bool mWrite;
     bool mPDataStarted;
-    bool mDone = 0;
+    bool mDone = false;
     time_t mStart;
 };
 
@@ -71,10 +71,10 @@ void VtkOutput::print_progress() {
             std::cout << mTimeStep + 1 << " steps done\r";
         }
         std::cout.flush();
-        mWrite = 1;
-        mPDataStarted = 0;
+        mWrite = true;
+        mPDataStarted = false;
     } else {
-        mWrite = 0;
+        mWrite = false;
     }
     mTimeStep += 1;
 }
@@ -92,7 +92,7 @@ void VtkOutput::print_done() {
     std::cout << duration/60/60 << "h " << duration % 60*60 << "m";
     std::cout << " taken." << std::endl;
 
-    mDone = 1;
+    mDone = true;
 }
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
@@ -134,7 +134,7 @@ void VtkOutput::write_field(Solution<Pt, N_MAX, Solver>& X, int n_cells,
 
     if (!mPDataStarted) {
         file << "\nPOINT_DATA " << n_cells << "\n";
-        mPDataStarted = 1;
+        mPDataStarted = true;
     }
     file << "SCALARS " << data_name << " float\n";
     file << "LOOKUP_TABLE default\n";
@@ -153,7 +153,7 @@ void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
 
     if (!mPDataStarted) {
         file << "\nPOINT_DATA " << n_cells << "\n";
-        mPDataStarted = 1;
+        mPDataStarted = true;
     }
     file << "NORMALS polarity float\n";
     for (auto i = 0; i < n_cells; i++) {
@@ -175,7 +175,7 @@ void VtkOutput::write_type(TYPES (&type)[N_MAX], int n_cells) {
 
     if (!mPDataStarted) {
         file << "\nPOINT_DATA " << n_cells << "\n";
-        mPDataStarted = 1;
+        mPDataStarted = true;
     }
     file << "SCALARS cell_type int\n";
     file << "LOOKUP_TABLE default\n";
