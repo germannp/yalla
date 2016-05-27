@@ -21,7 +21,7 @@ __device__ curandState rand_states[N_CONNECTIONS];
 
 
 __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
-    auto dF = float3{0.0f, 0.0f, 0.0f};
+    float3 dF {0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
     float3 r = Xi - Xj;

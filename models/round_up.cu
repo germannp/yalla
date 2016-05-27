@@ -17,7 +17,7 @@ __device__ __managed__ auto time_step = 0;
 
 
 __device__ float3 clipped_polynomial(float3 Xi, float3 Xj, int i, int j) {
-    auto dF = float3{0.0f, 0.0f, 0.0f};
+    float3 dF {0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
     auto r = Xi - Xj;

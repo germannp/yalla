@@ -4,7 +4,8 @@
 
 
 const char* test_float3() {
-    auto x = float3{1, 2, 3}, y = float3{5, 4, 3};
+    float3 x {1, 2, 3};
+    float3 y {5, 4, 3};
 
     MU_ASSERT("+= float3 float3, x component", (x += y).x == 1 + 5);
     MU_ASSERT("+= float3 float3, y component", (x += y).y == 2 + 4 + 4);
@@ -19,7 +20,8 @@ const char* test_float3() {
 
 
 const char* test_float4() {
-    auto x = float4{1, 2, 3, 4}, y = float4{5, 4, 3, 2};
+    float4 x {1, 2, 3, 4};
+    float4 y {5, 4, 3, 2};
 
     MU_ASSERT("+= float4 float4, x component", (x += y).x == 1 + 5);
     MU_ASSERT("+= float4 float4, y component", (x += y).y == 2 + 4 + 4);
@@ -38,7 +40,8 @@ const char* test_float4() {
 MAKE_DTYPE(myfloat3, x, y, z);
 
 const char* test_make_pt() {
-    auto x = myfloat3{1, 2, 3}, y = myfloat3{5, 4, 3};
+    myfloat3 x {1, 2, 3};
+    myfloat3 y {5, 4, 3};
 
     MU_ASSERT("+= myfloat3 myfloat3, x component", (x += y).x == 1 + 5);
     MU_ASSERT("+= myfloat3 myfloat3, y component", (x += y).y == 2 + 4 + 4);
@@ -53,7 +56,8 @@ const char* test_make_pt() {
 
 
 const char* test_generalization() {
-    auto x = float3{1, 2, 3}, y = float3{4, 3, 2};
+    float3 x {1, 2, 3};
+    float3 y {4, 3, 2};
 
     MU_ASSERT("+ float3 float3, x component", (x + y).x == 5);
     MU_ASSERT("+ float3 float3, y component", (x + y).y == 5);

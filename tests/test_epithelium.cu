@@ -8,7 +8,7 @@ __device__ __managed__ Solution<pocell, 4, N2nSolver> X;
 
 
 __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
-    auto dF = pocell{0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    pocell dF {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
     auto r = float3{Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};

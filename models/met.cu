@@ -19,7 +19,7 @@ __device__ __managed__ Solution<pocell, N_CELLS, LatticeSolver> X;
 
 // Cubic potential plus k*(n_i . r_ij/r)^2/2 for all r_ij <= R_MAX
 __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
-    auto dF = pocell{0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    pocell dF {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
     auto r = Xi - Xj;

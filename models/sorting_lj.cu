@@ -20,7 +20,7 @@ __device__ curandState rand_states[N_CELLS];
 
 
 __device__ float3 lj_sorting(float3 Xi, float3 Xj, int i, int j) {
-    auto dF = float3{0.0f, 0.0f, 0.0f};
+    float3 dF {0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
     auto strength = (1 + 2*(j < N_CELLS/2))*(1 + 2*(i < N_CELLS/2));
