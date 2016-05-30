@@ -5,7 +5,6 @@
 #include <cassert>
 #include <string>
 #include <fstream>
-#include <sstream>
 #include <iostream>
 #include <iomanip>
 
@@ -99,12 +98,10 @@ template<typename Pt, int N_MAX, template<typename, int> class Solver>
 void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
     assert(n_cells <= N_MAX);
     print_progress();
-
     if (!mWrite) return;
 
-    std::stringstream file_name;
-    file_name << "output/" << mBASE_NAME << "_" << mTimeStep/mSKIP_STEPS << ".vtk";
-    mCurrentFile = file_name.str();
+    mCurrentFile = "output/" + mBASE_NAME + "_" + std::to_string(mTimeStep/mSKIP_STEPS)
+        + ".vtk";
     std::ofstream file(mCurrentFile);
     assert(file.is_open());
 
