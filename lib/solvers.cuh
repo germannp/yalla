@@ -68,7 +68,7 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
 
     __shared__ Pt shX[TILE_SIZE];
     auto Xi = X[cell_idx];
-    auto dFi = Xi*0;
+    auto Fi = Xi*0;
 
     for (auto tile_start = 0; tile_start < n_cells; tile_start += TILE_SIZE) {
         auto other_cell_idx = tile_start + threadIdx.x;
@@ -79,14 +79,13 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
         for (auto i = 0; i < TILE_SIZE; i++) {
             auto other_cell_idx = tile_start + i;
             if ((cell_idx < n_cells) and (other_cell_idx < n_cells)) {
-                auto Fij = d_local(Xi, shX[i], cell_idx, other_cell_idx);
-                dFi += Fij;
+                Fi += d_local(Xi, shX[i], cell_idx, other_cell_idx);
             }
         }
     }
 
     if (cell_idx < n_cells) {
-        dX[cell_idx] = dFi;
+        dX[cell_idx] = Fi;
     }
 }
 
@@ -136,11 +135,10 @@ __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ X,
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
-    Pt Xi = X[i];
     auto id = static_cast<int>(
-        (floor(Xi.x/cube_size) + LATTICE_SIZE/2) +
-        (floor(Xi.y/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE +
-        (floor(Xi.z/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE*LATTICE_SIZE);
+        (floor(X[i].x/cube_size) + LATTICE_SIZE/2) +
+        (floor(X[i].y/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE +
+        (floor(X[i].z/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE*LATTICE_SIZE);
     assert(id >= 0);
     assert(id <= N_CUBES);
     cube_id[i] = id;
@@ -201,14 +199,13 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* 
         interacting_cubes[j + 18] = interacting_cubes[j % 9] + LATTICE_SIZE*LATTICE_SIZE;
     }
 
-    Pt Xi = X[cell_id[i]];
-    Pt Fij, F = Xi*0;
+    auto Xi = X[cell_id[i]];
+    auto F = Xi*0;
     for (auto j = 0; j < 27; j++) {
         auto cube = interacting_cubes[j];
         for (auto k = cube_start[cube]; k <= cube_end[cube]; k++) {
-            Pt Xj = X[cell_id[k]];
-            Fij = d_local(Xi, Xj, cell_id[i], cell_id[k]);
-            F += Fij;
+            auto Xj = X[cell_id[k]];
+            F += d_local(Xi, Xj, cell_id[i], cell_id[k]);
         }
     }
     dX[cell_id[i]] = F;
