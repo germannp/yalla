@@ -30,7 +30,7 @@ __device__ __managed__ Solution<lbcell, N_MAX, LatticeSolver> X;
 
 
 __device__ lbcell cubic_w_diffusion(lbcell Xi, lbcell Xj, int i, int j) {
-    libcell dF {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    lbcell dF {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     if (i == j) {
         assert(Xi.w >= 0);
         dF.w = (cell_type[i] > MESENCHYME) - 0.01*Xi.w;
@@ -60,7 +60,7 @@ __device__ __managed__ auto d_potential = cubic_w_diffusion;
 
 
 __device__ lbcell count_neighbours(lbcell Xi, lbcell Xj, int i, int j) {
-    libcell dF {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    lbcell dF {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     if (i == j) return dF;
 
     auto r = Xi - Xj;
