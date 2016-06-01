@@ -3,11 +3,11 @@
 
 
 template<typename Pt> __device__ Pt polarity_force(Pt Xi, Pt Xj) {
-    auto dF = Xi*0;
-    auto r = float3{Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    Pt dF {0};
+    float3 r {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
 
-    auto ni = float3{sinf(Xi.theta)*cosf(Xi.phi), sinf(Xi.theta)*sinf(Xi.phi),
+    float3 ni {sinf(Xi.theta)*cosf(Xi.phi), sinf(Xi.theta)*sinf(Xi.phi),
         cosf(Xi.theta)};
     auto prodi = ni.x*r.x + ni.y*r.y + ni.z*r.z;
     dF.x = - (prodi/powf(dist, 2)*ni.x - powf(prodi, 2)/powf(dist, 4)*r.x);
@@ -22,7 +22,7 @@ template<typename Pt> __device__ Pt polarity_force(Pt Xi, Pt Xj) {
         sinf(Xi.theta)*cosf(r_theta));
 
     // Contribution from (n_j . r_ji/r)^2/2
-    auto nj = float3{sinf(Xj.theta)*cosf(Xj.phi), sinf(Xj.theta)*sinf(Xj.phi),
+    float3 nj {sinf(Xj.theta)*cosf(Xj.phi), sinf(Xj.theta)*sinf(Xj.phi),
         cosf(Xj.theta)};
     auto prodj = - (nj.x*r.x + nj.y*r.y + nj.z*r.z);
     dF.x += prodj/powf(dist, 2)*nj.x + powf(prodj, 2)/powf(dist, 4)*r.x;

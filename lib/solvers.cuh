@@ -68,7 +68,7 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
 
     __shared__ Pt shX[TILE_SIZE];
     auto Xi = X[cell_idx];
-    auto Fi = Xi*0;
+    Pt Fi {0};
 
     for (auto tile_start = 0; tile_start < n_cells; tile_start += TILE_SIZE) {
         auto other_cell_idx = tile_start + threadIdx.x;
@@ -200,7 +200,7 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* 
     }
 
     auto Xi = X[cell_id[i]];
-    auto F = Xi*0;
+    Pt F {0};
     for (auto j = 0; j < 27; j++) {
         auto cube = interacting_cubes[j];
         for (auto k = cube_start[cube]; k <= cube_end[cube]; k++) {
