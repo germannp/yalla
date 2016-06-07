@@ -15,7 +15,7 @@ const auto MEAN_DIST = 0.75;
 const auto N_MAX = 5000;
 const auto N_TIME_STEPS = 500;
 const auto DELTA_T = 0.2;
-enum CELL_TYPES {MESENCHYME, EPITHELIUM, STRECHED_EPI};
+enum CELL_TYPES {MESENCHYME, EPITHELIUM, STRETCHED_EPI};
 
 __device__ __managed__ Solution<pocell, N_MAX, LatticeSolver> X;
 __device__ __managed__ CELL_TYPES cell_type[N_MAX];
@@ -76,7 +76,7 @@ __global__ void proliferate(float rate, float mean_distance) {
     if (i >= n_cells) return;
 
     if (cell_type[i] == EPITHELIUM) {
-        cell_type[i] = STRECHED_EPI;
+        cell_type[i] = STRETCHED_EPI;
         return;
     }
 
@@ -93,7 +93,7 @@ __global__ void proliferate(float rate, float mean_distance) {
     X[n].z = X[i].z + mean_distance/4*cosf(theta);
     X[n].phi = X[i].phi;
     X[n].theta = X[i].theta;
-    cell_type[n] = cell_type[i] == MESENCHYME ? MESENCHYME : STRECHED_EPI;
+    cell_type[n] = cell_type[i] == MESENCHYME ? MESENCHYME : STRETCHED_EPI;
 }
 
 
@@ -116,7 +116,7 @@ int main(int argc, char const *argv[]) {
     X.step(1, d_count, n_cells);
     for (auto i = 0; i < n_cells; i++) {
         if (X[i].phi < 12) {
-            cell_type[i] = STRECHED_EPI;
+            cell_type[i] = STRETCHED_EPI;
             auto dist = sqrtf(X[i].x*X[i].x + X[i].y*X[i].y + X[i].z*X[i].z);
             X[i].phi = atan2(X[i].y, X[i].x);
             X[i].theta = acosf(X[i].z/dist);
