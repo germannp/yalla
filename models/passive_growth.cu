@@ -10,15 +10,17 @@
 
 
 const auto R_MAX = 1;
-const auto RATE = 0.006;
 const auto MEAN_DIST = 0.75;
+const auto RATE = 0.006*0;
 const auto N_MAX = 5000;
 const auto N_TIME_STEPS = 500;
 const auto DELTA_T = 0.2;
-enum CELL_TYPES {MESENCHYME, EPITHELIUM, STRETCHED_EPI};
+enum CELL_TYPES {MESENCHYME, EPITHELIUM};
 
 __device__ __managed__ Solution<pocell, N_MAX, LatticeSolver> X;
 __device__ __managed__ CELL_TYPES cell_type[N_MAX];
+__device__ __managed__ int n_mes_neighbrs[N_MAX];
+__device__ __managed__ int n_epi_neighbrs[N_MAX];
 __device__ __managed__ auto n_cells = 200u;
 __device__ curandState rand_states[N_MAX];
 
@@ -42,9 +44,11 @@ __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
     dF.z = r.z*F/dist;
     assert(dF.x == dF.x);  // For NaN f != f.
 
+    if (cell_type[j] == MESENCHYME) n_mes_neighbrs[i] += 1;
+    else n_epi_neighbrs[i] += 1;
+
     if (cell_type[i] == MESENCHYME or cell_type[j] == MESENCHYME) return dF;
 
-    if (dist < MEAN_DIST) cell_type[i] = EPITHELIUM;
     dF += polarity_force(Xi, Xj)*0.2;
     return dF;
 }
@@ -52,18 +56,11 @@ __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
 __device__ __managed__ auto d_potential = cubic_w_polarity;
 
 
-__device__ pocell count_neighbours(pocell Xi, pocell Xj, int i, int j) {
-    pocell dF {0};
-    if (i == j) return dF;
-
-    auto r = Xi - Xj;
-    auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    dF.phi = dist < R_MAX ? 1 : 0;
-    return dF;
+__global__ void reset_n_neighbrs() {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i < n_cells) n_mes_neighbrs[i] = 0;
+    if (i < n_cells) n_epi_neighbrs[i] = 0;
 }
-
-__device__ __managed__ auto d_count = count_neighbours;
-
 
 __global__ void setup_rand_states() {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
@@ -75,14 +72,14 @@ __global__ void proliferate(float rate, float mean_distance) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
-    if (cell_type[i] == EPITHELIUM) {
-        cell_type[i] = STRETCHED_EPI;
-        return;
-    }
-
-    if (cell_type[i] == MESENCHYME) {
-        auto r = curand_uniform(&rand_states[i]);
-        if (r > rate) return;
+    switch (cell_type[i]) {
+        case MESENCHYME: {
+            auto r = curand_uniform(&rand_states[i]);
+            if (r > rate) return;
+        }
+        case EPITHELIUM: {
+            if (n_epi_neighbrs[i] > n_mes_neighbrs[i]) return;
+        }
     }
 
     auto n = atomicAdd(&n_cells, 1);
@@ -93,30 +90,30 @@ __global__ void proliferate(float rate, float mean_distance) {
     X[n].z = X[i].z + mean_distance/4*cosf(theta);
     X[n].phi = X[i].phi;
     X[n].theta = X[i].theta;
-    cell_type[n] = cell_type[i] == MESENCHYME ? MESENCHYME : STRETCHED_EPI;
+    cell_type[n] = cell_type[i] == MESENCHYME ? MESENCHYME : EPITHELIUM;
+    n_mes_neighbrs[n] = 0;
+    n_epi_neighbrs[n] = 0;
 }
 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
     uniform_sphere(MEAN_DIST, X, n_cells);
-    for (auto i = 0; i < n_cells; i++) {
-        X[i].phi = 0;  // Will count neighbours into phi
-        cell_type[i] = MESENCHYME;
-    }
+    for (auto i = 0; i < n_cells; i++) cell_type[i] = MESENCHYME;
     setup_rand_states<<<(N_MAX + 128 - 1)/128, 128>>>();
     cudaDeviceSynchronize();
 
     // Relax
     for (auto time_step = 0; time_step <= 500; time_step++) {
+        reset_n_neighbrs<<<(n_cells + 128 - 1)/128, 128>>>();
+        cudaDeviceSynchronize();
         X.step(DELTA_T, d_potential, n_cells);
     }
 
     // Find epithelium
-    X.step(1, d_count, n_cells);
     for (auto i = 0; i < n_cells; i++) {
-        if (X[i].phi < 12) {
-            cell_type[i] = STRETCHED_EPI;
+        if (n_mes_neighbrs[i] < 12*2) {  // 2nd order solver
+            cell_type[i] = EPITHELIUM;
             auto dist = sqrtf(X[i].x*X[i].x + X[i].y*X[i].y + X[i].z*X[i].z);
             X[i].phi = atan2(X[i].y, X[i].x);
             X[i].theta = acosf(X[i].z/dist);
@@ -134,6 +131,8 @@ int main(int argc, char const *argv[]) {
         sim_output.write_polarity(X, n_cells);
         if (time_step == N_TIME_STEPS) return 0;
 
+        reset_n_neighbrs<<<(n_cells + 128 - 1)/128, 128>>>();
+        cudaDeviceSynchronize();
         X.step(DELTA_T, d_potential, n_cells);
         proliferate<<<(n_cells + 128 - 1)/128, 128>>>(RATE, MEAN_DIST);
         cudaDeviceSynchronize();
