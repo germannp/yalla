@@ -24,7 +24,7 @@ __device__ curandState rand_states[N_MAX];
 
 
 __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
-    pocell dF {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    pocell dF {0};
     if (i == j) return dF;
 
     auto r = float3{Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
@@ -53,7 +53,7 @@ __device__ __managed__ auto d_potential = cubic_w_polarity;
 
 
 __device__ pocell count_neighbours(pocell Xi, pocell Xj, int i, int j) {
-    pocell dF {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    pocell dF {0};
     if (i == j) return dF;
 
     auto r = float3{Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};

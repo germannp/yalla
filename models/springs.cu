@@ -16,7 +16,7 @@ __device__ __managed__ Solution<float3, N_CELLS, N2nSolver> X;
 
 
 __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
-    float3 dF {0.0f, 0.0f, 0.0f};
+    float3 dF {0};
     if (i == j) return dF;
 
     auto r = Xi - Xj;

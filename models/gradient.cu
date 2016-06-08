@@ -17,7 +17,7 @@ __device__ __managed__ Solution<float4, N_CELLS, N2nSolver> X;
 
 
 __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
-    float4 dF {0.0f, 0.0f, 0.0f, 0.0f};
+    float4 dF {0};
     if (i == j) return dF;
 
     auto r = Xi - Xj;
