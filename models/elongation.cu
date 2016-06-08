@@ -113,7 +113,7 @@ __global__ void intercalate(const lbcell* __restrict__ X, lbcell* dX) {
 
     auto Xi = X[connections[i][0]];
     auto Xj = X[connections[i][1]];
-    auto r = float3{Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    auto r = Xi - Xj;
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
 
     atomicAdd(&dX[connections[i][0]].x, -r.x/dist/2);

@@ -11,7 +11,7 @@ __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
     pocell dF {0};
     if (i == j) return dF;
 
-    auto r = float3{Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
+    auto r = Xi - Xj;
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if (dist > 1) return dF;
 
