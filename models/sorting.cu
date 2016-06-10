@@ -27,7 +27,6 @@ __device__ float3 cubic_sorting(float3 Xi, float3 Xj, int i, int j) {
     auto strength = (1 + 2*(j < N_CELLS/2))*(1 + 2*(i < N_CELLS/2));
     auto F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
     dF = strength*r*F/dist;
-    assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
 

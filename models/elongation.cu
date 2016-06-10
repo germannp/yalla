@@ -47,7 +47,6 @@ __device__ lbcell cubic_w_diffusion(lbcell Xi, lbcell Xj, int i, int j) {
     dF.z = r.z*F/dist;
     auto D = dist < R_MAX ? 0.1 : 0;
     dF.w = - r.w*D;
-    assert(dF.x == dF.x);  // For NaN f != f.
 
     if (cell_type[i] == MESENCHYME or cell_type[j] == MESENCHYME) return dF;
 

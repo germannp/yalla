@@ -30,7 +30,6 @@ __device__ float3 clipped_polynomial(float3 Xi, float3 Xj, int i, int j) {
         + strength*powf(R_MAX - dist, n);
     // auto F = strength*(fmaxf(0.7 - dist, 0)*2 - fmaxf(dist - 0.8, 0)/2);
     dF = r*F/dist;
-    assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
 

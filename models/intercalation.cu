@@ -30,7 +30,6 @@ __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
 
     float F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
     dF = r*F/dist;
-    assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
 

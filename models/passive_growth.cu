@@ -42,7 +42,6 @@ __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
-    assert(dF.x == dF.x);  // For NaN f != f.
 
     if (cell_type[j] == MESENCHYME) n_mes_neighbrs[i] += 1;
     else n_epi_neighbrs[i] += 1;

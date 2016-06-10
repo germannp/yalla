@@ -29,7 +29,6 @@ __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     auto F = strength*n*(R_MIN - dist)*powf(R_MAX - dist, n - 1)
         + strength*powf(R_MAX - dist, n);
     dF = r*F/dist;
-    assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
 

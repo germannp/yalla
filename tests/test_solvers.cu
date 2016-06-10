@@ -18,7 +18,6 @@ __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
     auto r = Xi - Xj;
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     dF = r*(L_0 - dist)/dist;
-    assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
 
@@ -76,7 +75,6 @@ __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     auto dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), 1);
     auto F = 2*(0.6 - dist)*(1 - dist) + (1 - dist)*(1 - dist);
     dF = r*F/dist;
-    assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
 

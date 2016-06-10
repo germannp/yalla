@@ -39,14 +39,20 @@ class Solution: public Solver<Pt, N_MAX> {
 template<typename Pt> __global__ void euler_step(int n_cells, float delta_t,
         const Pt* __restrict__ X0, Pt* X, const Pt* __restrict__ dX) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < n_cells) X[i] = X0[i] + dX[i]*delta_t;
+    if (i >= n_cells) return;
+
+    assert(dX[i].x == dX[i].x);  // For NaN f != f
+    X[i] = X0[i] + dX[i]*delta_t;
 }
 
 template<typename Pt> __global__ void heun_step(int n_cells, float delta_t,
         const Pt* __restrict__ X0, Pt* X, const Pt* __restrict__ dX,
         const Pt* __restrict__ dX1) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < n_cells) X[i] = X0[i] + (dX[i] + dX1[i])*0.5*delta_t;
+    if (i >= n_cells) return;
+
+    assert(dX1[i].x == dX1[i].x);
+    X[i] = X0[i] + (dX[i] + dX1[i])*0.5*delta_t;
 }
 
 

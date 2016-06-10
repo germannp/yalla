@@ -22,7 +22,6 @@ __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
     auto r = Xi - Xj;
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     dF = r*(L_0 - dist)/dist;
-    assert(dF.x == dF.x);  // For NaN f != f.
     return dF;
 }
 
