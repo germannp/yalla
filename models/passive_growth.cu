@@ -57,7 +57,7 @@ __device__ __managed__ auto d_potential = cubic_w_polarity;
 
 
 __global__ void reset_n_neighbrs() {
-    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < n_cells) n_mes_neighbrs[i] = 0;
     if (i < n_cells) n_epi_neighbrs[i] = 0;
 }

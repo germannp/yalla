@@ -38,12 +38,12 @@ __device__ __managed__ auto d_potential = clipped_cubic;
 
 
 __global__ void setup_rand_states() {
-    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i < N_CELLS) curand_init(1337, i, 0, &rand_states[i]);
 }
 
 __global__ void intercalate(const float3* __restrict__ X, float3* dX) {
-    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= N_CONNECTIONS) return;
 
     float3 Xi = X[connections[i][0]];
@@ -65,7 +65,7 @@ void intercalation(const float3* __restrict__ X, float3* dX) {
 }
 
 __global__ void update_connections() {
-    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= N_CONNECTIONS) return;
 
     int j = (int)(curand_uniform(&rand_states[i])*N_CELLS);
