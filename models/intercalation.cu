@@ -1,5 +1,4 @@
 // Simulate intercalating cells
-#include <assert.h>
 #include <curand_kernel.h>
 
 #include "../lib/dtypes.cuh"

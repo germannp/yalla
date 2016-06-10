@@ -1,6 +1,4 @@
 // Simulate a layer
-#include <assert.h>
-
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/solvers.cuh"
