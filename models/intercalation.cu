@@ -66,8 +66,8 @@ __global__ void update_connections() {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= N_CONNECTIONS) return;
 
-    int j = (int)(curand_uniform(&rand_states[i])*N_CELLS);
-    int k = (int)(curand_uniform(&rand_states[i])*N_CELLS);
+    int j = static_cast<int>(curand_uniform(&rand_states[i])*N_CELLS);
+    int k = static_cast<int>(curand_uniform(&rand_states[i])*N_CELLS);
     float3 r = X[j] - X[k];
     float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if ((fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
@@ -84,8 +84,8 @@ int main(int argc, char const *argv[]) {
     cudaDeviceSynchronize();
     int i = 0;
     while (i < N_CONNECTIONS) {
-        int j = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
-        int k = (int)(rand()/(RAND_MAX + 1.)*N_CELLS);
+        int j = static_cast<int>(rand()/(RAND_MAX + 1.)*N_CELLS);
+        int k = static_cast<int>(rand()/(RAND_MAX + 1.)*N_CELLS);
         float3 r = X[j] - X[k];
         float dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
         if ((fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
