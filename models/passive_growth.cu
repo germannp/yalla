@@ -11,7 +11,7 @@
 
 const auto R_MAX = 1;
 const auto MEAN_DIST = 0.75;
-const auto RATE = 0.006*0;
+const auto RATE = 0.006;
 const auto N_MAX = 5000;
 const auto N_TIME_STEPS = 500;
 const auto DELTA_T = 0.2;
@@ -133,7 +133,7 @@ int main(int argc, char const *argv[]) {
         reset_n_neighbrs<<<(n_cells + 128 - 1)/128, 128>>>();
         cudaDeviceSynchronize();
         X.step(DELTA_T, d_potential, n_cells);
-        proliferate<<<(n_cells + 128 - 1)/128, 128>>>(RATE, MEAN_DIST);
+        proliferate<<<(n_cells + 128 - 1)/128, 128>>>(RATE*(time_step > 100), MEAN_DIST);
         cudaDeviceSynchronize();
     }
 }
