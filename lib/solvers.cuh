@@ -5,18 +5,18 @@
 #include <thrust/execution_policy.h>
 
 
-/* Solution<Pt, N_MAX, Solver> X; combines a method Solver with a point type Pt.
-   The current solution can be accessed like Pt X[N_MAX] and the subsequent
-   solution calculated with X.step(delta_t, d_local, glob = none, n_cells = N_MAX). */
 template<typename Pt>
-using nhoodint = Pt (*)(Pt Xi, Pt Xj, int i, int j);
+using PairwiseInteraction = Pt (*)(Pt Xi, Pt Xj, int i, int j);
 
 template<typename Pt>
-using globints = void (*)(const Pt* __restrict__ X, Pt* dX);
+using GenericForces = void (*)(const Pt* __restrict__ X, Pt* dX);
 
 template<typename Pt>
 void none(const Pt* __restrict__ X, Pt* dX) {}
 
+/* Solution<Pt, N_MAX, Solver> X; combines a method Solver with a point type Pt.
+The current solution can be accessed like Pt X[N_MAX] and the subsequent
+solution calculated with X.step(delta_t, d_pwint, genforce = none, n_cells = N_MAX). */
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution: public Solver<Pt, N_MAX> {
  public:
@@ -24,13 +24,14 @@ class Solution: public Solver<Pt, N_MAX> {
     Pt& operator[](int idx) { return Solver<Pt, N_MAX>::X[idx]; }
     __device__ __host__
     const Pt& operator[](int idx) const { return Solver<Pt, N_MAX>::X[idx]; }
-    void step(float delta_t, nhoodint<Pt> d_local, int n_cells = N_MAX) {
+    void step(float delta_t, PairwiseInteraction<Pt> d_pwint, int n_cells = N_MAX) {
         assert(n_cells <= N_MAX);
-        return Solver<Pt, N_MAX>::step(delta_t, d_local, none, n_cells);
+        return Solver<Pt, N_MAX>::step(delta_t, d_pwint, none, n_cells);
     }
-    void step(float delta_t, nhoodint<Pt> d_local, globints<Pt> glob, int n_cells = N_MAX) {
+    void step(float delta_t, PairwiseInteraction<Pt> d_pwint, GenericForces<Pt> genforce,
+            int n_cells = N_MAX) {
         assert(n_cells <= N_MAX);
-        return Solver<Pt, N_MAX>::step(delta_t, d_local, glob, n_cells);
+        return Solver<Pt, N_MAX>::step(delta_t, d_pwint, genforce, n_cells);
     }
 };
 
@@ -62,14 +63,15 @@ const auto TILE_SIZE = 32;
 
 template<typename Pt, int N_MAX>class N2nSolver {
  protected:
-    void step(float delta_t, nhoodint<Pt> d_local, globints<Pt> global, int n_cells);
+    void step(float delta_t, PairwiseInteraction<Pt> d_pwint, GenericForces<Pt> genforce,
+        int n_cells);
     Pt X[N_MAX], dX[N_MAX], X1[N_MAX], dX1[N_MAX];
 };
 
 // Calculate dX one thread per cell, to TILE_SIZE other bodies at a time
 template<typename Pt>
 __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
-        nhoodint<Pt> d_local) {
+        PairwiseInteraction<Pt> d_pwint) {
     auto cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
 
     __shared__ Pt shX[TILE_SIZE];
@@ -85,7 +87,7 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
         for (auto i = 0; i < TILE_SIZE; i++) {
             auto other_cell_idx = tile_start + i;
             if ((cell_idx < n_cells) and (other_cell_idx < n_cells)) {
-                Fi += d_local(Xi, shX[i], cell_idx, other_cell_idx);
+                Fi += d_pwint(Xi, shX[i], cell_idx, other_cell_idx);
             }
         }
     }
@@ -96,21 +98,21 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
 }
 
 template<typename Pt, int N_MAX>
-void N2nSolver<Pt, N_MAX>::step(float delta_t, nhoodint<Pt> d_local, globints<Pt> global,
-        int n_cells) {
+void N2nSolver<Pt, N_MAX>::step(float delta_t, PairwiseInteraction<Pt> d_pwint,
+        GenericForces<Pt> genforce, int n_cells) {
     // 1st step
     calculate_n2n_dX<<<(n_cells + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n_cells,
-        X, dX, d_local);  // ceil int div.
+        X, dX, d_pwint);  // ceil int div.
     cudaDeviceSynchronize();
-    global(X, dX);
+    genforce(X, dX);
     euler_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X1, dX);
     cudaDeviceSynchronize();
 
     // 2nd step
     calculate_n2n_dX<<<(n_cells + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n_cells,
-        X1, dX1, d_local);
+        X1, dX1, d_pwint);
     cudaDeviceSynchronize();
-    global(X1, dX1);
+    genforce(X1, dX1);
     heun_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X, dX, dX1);
     cudaDeviceSynchronize();
 }
@@ -130,7 +132,8 @@ template<typename Pt, int N_MAX>class LatticeSolver {
  protected:
     Pt X[N_MAX], dX[N_MAX], X1[N_MAX], dX1[N_MAX];
     void build_lattice(int n_cells, const Pt* __restrict__ X, float cube_size = CUBE_SIZE);
-    void step(float delta_t, nhoodint<Pt> d_local, globints<Pt> global, int n_cells);
+    void step(float delta_t, PairwiseInteraction<Pt> d_pwint, GenericForces<Pt> genforce,
+        int n_cells);
 };
 
 
@@ -188,7 +191,7 @@ template<typename Pt>
 __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* dX,
         const int* __restrict__ cell_id, const int* __restrict__ cube_id,
         const int* __restrict__ cube_start, const int* __restrict__ cube_end,
-        nhoodint<Pt> d_local) {
+        PairwiseInteraction<Pt> d_pwint) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
@@ -211,32 +214,32 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ X, Pt* 
         auto cube = interacting_cubes[j];
         for (auto k = cube_start[cube]; k <= cube_end[cube]; k++) {
             auto Xj = X[cell_id[k]];
-            F += d_local(Xi, Xj, cell_id[i], cell_id[k]);
+            F += d_pwint(Xi, Xj, cell_id[i], cell_id[k]);
         }
     }
     dX[cell_id[i]] = F;
 }
 
 template<typename Pt, int N_MAX>
-void LatticeSolver<Pt, N_MAX>::step(float delta_t, nhoodint<Pt> d_local,
-        globints<Pt> global, int n_cells) {
+void LatticeSolver<Pt, N_MAX>::step(float delta_t, PairwiseInteraction<Pt> d_pwint,
+        GenericForces<Pt> genforce, int n_cells) {
     assert(LATTICE_SIZE % 2 == 0);  // Needed?
 
     // 1st step
     build_lattice(n_cells, X);
     calculate_lattice_dX<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, X, dX,
-        cell_id, cube_id, cube_start, cube_end, d_local);
+        cell_id, cube_id, cube_start, cube_end, d_pwint);
     cudaDeviceSynchronize();
-    global(X, dX);
+    genforce(X, dX);
     euler_step<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, delta_t, X, X1, dX);
     cudaDeviceSynchronize();
 
     // 2nd step
     build_lattice(n_cells, X1);
     calculate_lattice_dX<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, X1, dX1,
-        cell_id, cube_id, cube_start, cube_end, d_local);
+        cell_id, cube_id, cube_start, cube_end, d_pwint);
     cudaDeviceSynchronize();
-    global(X1, dX1);
+    genforce(X1, dX1);
     heun_step<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, delta_t, X, X, dX, dX1);
     cudaDeviceSynchronize();
 }
