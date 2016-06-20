@@ -100,6 +100,37 @@ const char* test_compare_methods() {
 }
 
 
+__device__ float3 no_interaction(float3 Xi, float3 Xj, int i, int j) {
+    float3 dF {0};
+    return dF;
+}
+
+__device__ __managed__ auto d_no_interaction = no_interaction;
+
+void push(const float3* __restrict__ X, float3* dX) {
+    dX[0] = float3{1, 0, 0};
+    cudaDeviceSynchronize();
+}
+
+const char* test_generic_forces() {
+    n2n[0] = float3{0, 0, 0};
+    n2n.step(1, d_no_interaction, push);
+
+    MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n[0].x, 1));
+    MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n[0].y, 0));
+    MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n[0].z, 0));
+
+    latt[0] = float3{0, 0, 0};
+    latt.step(1, d_no_interaction, push);
+
+    MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt[0].x, 1));
+    MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt[0].y, 0));
+    MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt[0].z, 0));
+
+    return NULL;
+}
+
+
 const char* test_lattice_spacing() {
     for (auto i = 0; i < 10; i++) {
         for (auto j = 0; j < 10; j++) {
@@ -131,6 +162,7 @@ const char* all_tests() {
     MU_RUN_TEST(test_n2n_tetrahedron);
     MU_RUN_TEST(test_latt_tetrahedron);
     MU_RUN_TEST(test_compare_methods);
+    MU_RUN_TEST(test_generic_forces);
     MU_RUN_TEST(test_lattice_spacing);
     return NULL;
 }
