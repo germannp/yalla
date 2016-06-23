@@ -12,6 +12,9 @@
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution;
 
+template<int N_LINKS>
+class Protrusions;
+
 
 class VtkOutput {
  public:
@@ -30,8 +33,8 @@ class VtkOutput {
     void write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX);
     template<typename TYPES, int N_MAX>
     void write_type(TYPES (&type)[N_MAX], int n_cells = N_MAX);
-    template<int N_CONNS_MAX>
-    void write_connections(int (&connections)[N_CONNS_MAX][2], int n_connections = N_CONNS_MAX);
+    template<int N_LINKS_MAX>
+    void write_protrusions(Protrusions<N_LINKS_MAX>& prots, int n_links = N_LINKS_MAX);
 
  protected:
     int mN_TIME_STEPS;
@@ -163,6 +166,7 @@ void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
         file << n.x << " " << n.y << " " << n.z << "\n";
     }
 }
+
 template<typename TYPES, int N_MAX>
 void VtkOutput::write_type(TYPES (&type)[N_MAX], int n_cells) {
     if (!mWrite) return;
@@ -180,14 +184,14 @@ void VtkOutput::write_type(TYPES (&type)[N_MAX], int n_cells) {
         file << type[i] << "\n";
 }
 
-template<int N_CONNS_MAX>
-void VtkOutput::write_connections(int (&connections)[N_CONNS_MAX][2], int n_connections) {
+template<int N_LINKS_MAX>
+void VtkOutput::write_protrusions(Protrusions<N_LINKS_MAX>& prots, int n_links) {
     if (!mWrite) return;
 
     std::ofstream file(mCurrentFile, std::ios_base::app);
     assert(file.is_open());
 
-    file << "\nLINES " << n_connections << " " << 3*n_connections << "\n";
-    for (auto i = 0; i < n_connections; i++)
-        file << "2 " << connections[i][0] << " " << connections[i][1] << "\n";
+    file << "\nLINES " << n_links << " " << 3*n_links << "\n";
+    for (auto i = 0; i < n_links; i++)
+        file << "2 " << prots.links[i][0] << " " << prots.links[i][1] << "\n";
 }
