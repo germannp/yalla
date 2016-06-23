@@ -1,5 +1,6 @@
 // Solvers for N-body problem
 #include <assert.h>
+#include <functional>
 #include <thrust/fill.h>
 #include <thrust/sort.h>
 #include <thrust/execution_policy.h>
@@ -7,9 +8,10 @@
 
 template<typename Pt>
 using PairwiseInteraction = Pt (*)(Pt Xi, Pt Xj, int i, int j);
+// using PairwiseInteraction = nvstd::function<Pt (Pt Xi, Pt Xj, int i, int j)>;
 
 template<typename Pt>
-using GenericForces = void (*)(const Pt* __restrict__ X, Pt* dX);
+using GenericForces = std::function<void (const Pt* __restrict__ X, Pt* dX)>;
 
 template<typename Pt>
 void none(const Pt* __restrict__ X, Pt* dX) {}
@@ -26,7 +28,7 @@ class Solution: public Solver<Pt, N_MAX> {
     const Pt& operator[](int idx) const { return Solver<Pt, N_MAX>::X[idx]; }
     void step(float delta_t, PairwiseInteraction<Pt> d_pwint, int n_cells = N_MAX) {
         assert(n_cells <= N_MAX);
-        return Solver<Pt, N_MAX>::step(delta_t, d_pwint, none, n_cells);
+        return Solver<Pt, N_MAX>::step(delta_t, d_pwint, none<Pt>, n_cells);
     }
     void step(float delta_t, PairwiseInteraction<Pt> d_pwint, GenericForces<Pt> genforce,
             int n_cells = N_MAX) {
