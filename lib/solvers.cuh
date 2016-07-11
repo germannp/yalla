@@ -16,9 +16,9 @@ using GenericForces = std::function<void (const Pt* __restrict__ X, Pt* dX)>;
 template<typename Pt>
 void none(const Pt* __restrict__ X, Pt* dX) {}
 
-/* Solution<Pt, N_MAX, Solver> X; combines a method Solver with a point type Pt.
-The current solution can be accessed like Pt X[N_MAX] and the subsequent
-solution calculated with X.step(delta_t, d_pwint, genforce = none, n_cells = N_MAX). */
+// Solution<Pt, N_MAX, Solver> X; combines a method Solver with a point type Pt.
+// The current solution can be accessed like Pt X[N_MAX] and the subsequent
+// solution calculated with X.step(delta_t, d_pwint, genforce = none, n_cells = N_MAX).
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution: public Solver<Pt, N_MAX> {
  public:
@@ -59,8 +59,8 @@ template<typename Pt> __global__ void heun_step(int n_cells, float delta_t,
 }
 
 
-/* Parallelization with interactions among all pairs, after
-   http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html. */
+// Parallelization with interactions among all pairs, after
+// http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html.
 const auto TILE_SIZE = 32;
 
 template<typename Pt, int N_MAX>class N2nSolver {
@@ -120,8 +120,8 @@ void N2nSolver<Pt, N_MAX>::step(float delta_t, PairwiseInteraction<Pt> d_pwint,
 }
 
 
-/* Sorting based lattice with limited interaction, after
-   http://docs.nvidia.com/cuda/samples/5_Simulations/particles/doc/particles.pdf */
+// Sorting based lattice with limited interaction, after
+// http://docs.nvidia.com/cuda/samples/5_Simulations/particles/doc/particles.pdf
 const auto CUBE_SIZE = 1.f;
 const auto LATTICE_SIZE = 50u;
 const auto N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
