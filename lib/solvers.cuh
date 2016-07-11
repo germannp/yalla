@@ -49,13 +49,12 @@ template<typename Pt> __global__ void euler_step(int n_cells, float delta_t,
 }
 
 template<typename Pt> __global__ void heun_step(int n_cells, float delta_t,
-        const Pt* __restrict__ X0, Pt* X, const Pt* __restrict__ dX,
-        const Pt* __restrict__ dX1) {
+        Pt* X, const Pt* __restrict__ dX, const Pt* __restrict__ dX1) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
     assert(dX1[i].x == dX1[i].x);
-    X[i] = X0[i] + (dX[i] + dX1[i])*0.5*delta_t;
+    X[i] += (dX[i] + dX1[i])*0.5*delta_t;
 }
 
 
@@ -115,7 +114,7 @@ void N2nSolver<Pt, N_MAX>::step(float delta_t, PairwiseInteraction<Pt> d_pwint,
         X1, dX1, d_pwint);
     cudaDeviceSynchronize();
     genforce(X1, dX1);
-    heun_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, X, dX, dX1);
+    heun_step<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, delta_t, X, dX, dX1);
     cudaDeviceSynchronize();
 }
 
@@ -242,6 +241,6 @@ void LatticeSolver<Pt, N_MAX>::step(float delta_t, PairwiseInteraction<Pt> d_pwi
         cell_id, cube_id, cube_start, cube_end, d_pwint);
     cudaDeviceSynchronize();
     genforce(X1, dX1);
-    heun_step<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, delta_t, X, X, dX, dX1);
+    heun_step<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, delta_t, X, dX, dX1);
     cudaDeviceSynchronize();
 }
