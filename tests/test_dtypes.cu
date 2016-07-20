@@ -1,5 +1,4 @@
 #include "../lib/dtypes.cuh"
-#include "../lib/solvers.cuh"
 #include "minunit.cuh"
 
 

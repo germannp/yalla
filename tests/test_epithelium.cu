@@ -4,7 +4,7 @@
 #include "minunit.cuh"
 
 
-__device__ __managed__ Solution<pocell, 4, N2nSolver> X;
+Solution<pocell, 4, N2nSolver> bolls;
 
 
 __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
@@ -24,30 +24,36 @@ __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ auto d_potential = epithelium;
+__device__ auto d_epithelium = &epithelium;
+auto h_epithelium = get_device_object(d_epithelium, 0);
 
 const char* test_line_of_four() {
     for (auto i = 0; i < 4; i++) {
-        X[i].x = 0.733333*cosf((i - 0.5)*M_PI/3);
-        X[i].y = 0.733333*sinf((i - 0.5)*M_PI/3);
-        X[i].z = 0;
-        X[i].phi = (i - 0.5)*M_PI/3;
-        X[i].theta = M_PI/2;
+        bolls.h_X[i].x = 0.733333*cosf((i - 0.5)*M_PI/3);
+        bolls.h_X[i].y = 0.733333*sinf((i - 0.5)*M_PI/3);
+        bolls.h_X[i].z = 0;
+        bolls.h_X[i].phi = (i - 0.5)*M_PI/3;
+        bolls.h_X[i].theta = M_PI/2;
     }
-    auto com_i = center_of_mass(X);
+    bolls.memcpyHostToDevice();
+    auto com_i = center_of_mass(bolls);
     for (auto i = 0; i < 500; i++) {
-        X.step(0.5, d_potential);
+        bolls.step(0.5, h_epithelium);
     }
 
+    bolls.memcpyDeviceToHost();
     for (auto i = 1; i < 4; i++) {
-        auto prod = sinf(X[0].theta)*sinf(X[i].theta)*cosf(X[0].phi - X[i].phi)
-            + cosf(X[0].theta)*cosf(X[i].theta);
+        auto prod = sinf(bolls.h_X[0].theta)*sinf(bolls.h_X[i].theta)*cosf(bolls.h_X[0].phi - bolls.h_X[i].phi)
+            + cosf(bolls.h_X[0].theta)*cosf(bolls.h_X[i].theta);
         MU_ASSERT("Polarity not aligned", MU_ISCLOSE(prod, 1));
     }
 
-    auto r_01 = float3{X[1].x - X[0].x, X[1].y - X[0].y, X[1].z - X[0].z};
-    auto r_12 = float3{X[2].x - X[1].x, X[2].y - X[1].y, X[2].z - X[1].z};
-    auto r_23 = float3{X[3].x - X[2].x, X[3].y - X[2].y, X[3].z - X[2].z};
+    float3 r_01 {bolls.h_X[1].x - bolls.h_X[0].x,
+        bolls.h_X[1].y - bolls.h_X[0].y, bolls.h_X[1].z - bolls.h_X[0].z};
+    float3 r_12 {bolls.h_X[2].x - bolls.h_X[1].x,
+        bolls.h_X[2].y - bolls.h_X[1].y, bolls.h_X[2].z - bolls.h_X[1].z};
+    float3 r_23 {bolls.h_X[3].x - bolls.h_X[2].x,
+        bolls.h_X[3].y - bolls.h_X[2].y, bolls.h_X[3].z - bolls.h_X[2].z};
     MU_ASSERT("Cells not on line", MU_ISCLOSE(r_01.x, r_12.x));
     MU_ASSERT("Cells not on line", MU_ISCLOSE(r_12.x, r_23.x));
     MU_ASSERT("Cells not on line", MU_ISCLOSE(r_01.y, r_12.y));
@@ -55,7 +61,7 @@ const char* test_line_of_four() {
     MU_ASSERT("Cells not on line", MU_ISCLOSE(r_01.z, r_12.z));
     MU_ASSERT("Cells not on line", MU_ISCLOSE(r_12.z, r_23.z));
 
-    auto com_f = center_of_mass(X);
+    auto com_f = center_of_mass(bolls);
     MU_ASSERT("Momentum in line", MU_ISCLOSE(com_i.x, com_f.x));
     MU_ASSERT("Momentum in line", MU_ISCLOSE(com_i.y, com_f.y));
     MU_ASSERT("Momentum in line", MU_ISCLOSE(com_i.z, com_f.z));

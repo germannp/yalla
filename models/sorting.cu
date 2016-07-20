@@ -1,4 +1,4 @@
-// Simulate cell sorting with limited interactions
+// Simulate cell sorting
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/solvers.cuh"
@@ -11,9 +11,10 @@ const auto N_CELLS = 100u;
 const auto N_TIME_STEPS = 300u;
 const auto DELTA_T = 0.05;
 
-__device__ __managed__ Solution<float3, N_CELLS, LatticeSolver> X;
+Solution<float3, N_CELLS, LatticeSolver> bolls;
 
 
+// Sorting by forces strength
 __device__ float3 cubic_sorting(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
     if (i == j) return dF;
@@ -28,12 +29,13 @@ __device__ float3 cubic_sorting(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ auto d_sorting = cubic_sorting;
+__device__ auto d_cubic_sorting = &cubic_sorting;
+auto h_cubic_sorting = get_device_object(d_cubic_sorting, 0);
 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_sphere(R_MIN, X);
+    uniform_sphere(R_MIN, bolls);
     int cell_type[N_CELLS];
     for (auto i = 0; i < N_CELLS; i++) {
         cell_type[i] = (i < N_CELLS/2) ? 0 : 1;
@@ -42,10 +44,11 @@ int main(int argc, char const *argv[]) {
     // Integrate cell positions
     VtkOutput output("sorting");
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(X);
+        bolls.memcpyDeviceToHost();
+        bolls.step(DELTA_T, h_cubic_sorting);
+        output.write_positions(bolls);
         output.write_type(cell_type);
-        if (time_step == N_TIME_STEPS) return 0;
-
-        X.step(DELTA_T, d_sorting);
     }
+
+    return 0;
 }

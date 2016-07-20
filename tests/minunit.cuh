@@ -27,13 +27,15 @@ auto tests_run = 0;
 
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-float3 center_of_mass(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX) {
-    assert(n_cells <= N_MAX);
-    auto com = float3{0, 0, 0};
+class Solution;
+
+template<typename Pt, int N_MAX, template<typename, int> class Solver>
+float3 center_of_mass(Solution<Pt, N_MAX, Solver>& bolls, int n_cells = N_MAX) {
+    float3 com {0};
     for (auto i = 0; i < n_cells; i++) {
-        com.x += X[i].x/n_cells;
-        com.y += X[i].y/n_cells;
-        com.z += X[i].z/n_cells;
+        com.x += bolls.h_X[i].x/n_cells;
+        com.y += bolls.h_X[i].y/n_cells;
+        com.z += bolls.h_X[i].z/n_cells;
     }
     return com;
 }

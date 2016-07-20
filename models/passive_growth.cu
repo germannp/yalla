@@ -17,11 +17,11 @@ const auto N_TIME_STEPS = 500;
 const auto DELTA_T = 0.2;
 enum CELL_TYPES {MESENCHYME, EPITHELIUM};
 
-__device__ __managed__ Solution<pocell, N_MAX, LatticeSolver> X;
+Solution<pocell, N_MAX, LatticeSolver> bolls;
 __device__ __managed__ CELL_TYPES cell_type[N_MAX];
 __device__ __managed__ int n_mes_neighbrs[N_MAX];
 __device__ __managed__ int n_epi_neighbrs[N_MAX];
-__device__ __managed__ auto n_cells = 200u;
+__device__ auto d_n_cells = 200u;
 __device__ curandState rand_states[N_MAX];
 
 
@@ -52,13 +52,14 @@ __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ auto d_potential = cubic_w_polarity;
+__device__ auto d_cubic_w_polarity = &cubic_w_polarity;
+auto h_cubic_w_polarity = get_device_object(d_cubic_w_polarity, 0);
 
 
-__global__ void reset_n_neighbrs() {
+__global__ void reset_n_neighbrs() {  // TODO: Use thrust?
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < n_cells) n_mes_neighbrs[i] = 0;
-    if (i < n_cells) n_epi_neighbrs[i] = 0;
+    if (i < d_n_cells) n_mes_neighbrs[i] = 0;
+    if (i < d_n_cells) n_epi_neighbrs[i] = 0;
 }
 
 __global__ void setup_rand_states() {
@@ -66,10 +67,10 @@ __global__ void setup_rand_states() {
     if (i < N_MAX) curand_init(1337, i, 0, &rand_states[i]);
 }
 
-__global__ void proliferate(float rate, float mean_distance) {
-    assert(rate*n_cells <= N_MAX);
+__global__ void proliferate(float rate, float mean_distance, pocell* d_X) {
+    assert(rate*d_n_cells <= N_MAX);
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells) return;
+    if (i >= d_n_cells) return;
 
     switch (cell_type[i]) {
         case MESENCHYME: {
@@ -81,14 +82,14 @@ __global__ void proliferate(float rate, float mean_distance) {
         }
     }
 
-    auto n = atomicAdd(&n_cells, 1);
+    auto n = atomicAdd(&d_n_cells, 1);
     auto phi = curand_uniform(&rand_states[i])*M_PI;
     auto theta = curand_uniform(&rand_states[i])*2*M_PI;
-    X[n].x = X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
-    X[n].y = X[i].y + mean_distance/4*sinf(theta)*sinf(phi);
-    X[n].z = X[i].z + mean_distance/4*cosf(theta);
-    X[n].phi = X[i].phi;
-    X[n].theta = X[i].theta;
+    d_X[n].x = d_X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
+    d_X[n].y = d_X[i].y + mean_distance/4*sinf(theta)*sinf(phi);
+    d_X[n].z = d_X[i].z + mean_distance/4*cosf(theta);
+    d_X[n].phi = d_X[i].phi;
+    d_X[n].theta = d_X[i].theta;
     cell_type[n] = cell_type[i] == MESENCHYME ? MESENCHYME : EPITHELIUM;
     n_mes_neighbrs[n] = 0;
     n_epi_neighbrs[n] = 0;
@@ -97,43 +98,47 @@ __global__ void proliferate(float rate, float mean_distance) {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_sphere(MEAN_DIST, X, n_cells);
+    auto n_cells = get_device_object(d_n_cells);
+    uniform_sphere(MEAN_DIST, bolls, n_cells);
     for (auto i = 0; i < n_cells; i++) cell_type[i] = MESENCHYME;
     setup_rand_states<<<(N_MAX + 128 - 1)/128, 128>>>();
-    cudaDeviceSynchronize();
 
     // Relax
     for (auto time_step = 0; time_step <= 500; time_step++) {
         reset_n_neighbrs<<<(n_cells + 128 - 1)/128, 128>>>();
-        cudaDeviceSynchronize();
-        X.step(DELTA_T, d_potential, n_cells);
+        bolls.step(DELTA_T, h_cubic_w_polarity, n_cells);
     }
 
     // Find epithelium
+    bolls.memcpyDeviceToHost();
     for (auto i = 0; i < n_cells; i++) {
         if (n_mes_neighbrs[i] < 12*2) {  // 2nd order solver
             cell_type[i] = EPITHELIUM;
-            auto dist = sqrtf(X[i].x*X[i].x + X[i].y*X[i].y + X[i].z*X[i].z);
-            X[i].phi = atan2(X[i].y, X[i].x);
-            X[i].theta = acosf(X[i].z/dist);
+            auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x + bolls.h_X[i].y*bolls.h_X[i].y
+                + bolls.h_X[i].z*bolls.h_X[i].z);
+            bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x);
+            bolls.h_X[i].theta = acosf(bolls.h_X[i].z/dist);
         } else {
-            X[i].phi = 0;
-            X[i].theta = 0;
+            bolls.h_X[i].phi = 0;
+            bolls.h_X[i].theta = 0;
         }
     }
+    bolls.memcpyHostToDevice();
 
     // Simulate growth
     VtkOutput sim_output("passive_growth");
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        sim_output.write_positions(X, n_cells);
+        bolls.memcpyDeviceToHost();
+        sim_output.write_positions(bolls, n_cells);
         sim_output.write_type(cell_type, n_cells);
-        sim_output.write_polarity(X, n_cells);
-        if (time_step == N_TIME_STEPS) return 0;
-
+        sim_output.write_polarity(bolls, n_cells);
         reset_n_neighbrs<<<(n_cells + 128 - 1)/128, 128>>>();
-        cudaDeviceSynchronize();
-        X.step(DELTA_T, d_potential, n_cells);
-        proliferate<<<(n_cells + 128 - 1)/128, 128>>>(RATE*(time_step > 100), MEAN_DIST);
-        cudaDeviceSynchronize();
+        bolls.step(DELTA_T, h_cubic_w_polarity, n_cells);
+        proliferate<<<(n_cells + 128 - 1)/128, 128>>>(RATE*(time_step > 100),
+            MEAN_DIST, bolls.d_X);
+        n_cells = get_device_object(d_n_cells);
     }
+
+    cudaDeviceSynchronize();
+    return 0;
 }

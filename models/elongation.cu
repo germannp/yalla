@@ -19,21 +19,22 @@ const auto N_TIME_STEPS = 500;
 const auto DELTA_T = 0.2;
 enum CELL_TYPES {MESENCHYME, STRETCHED_EPI, EPITHELIUM};
 
-__device__ __managed__ auto n_cells = 5000;
+int n_cells;
+__device__ auto d_n_cells = 5000;
 __device__ __managed__ CELL_TYPES cell_type[N_MAX];
 __device__ __managed__ Protrusions<static_cast<int>(N_MAX*LINKS_P_CELL)> prots;
 
 
 MAKE_DTYPE(lbcell, x, y, z, w, phi, theta);
 
-__device__ __managed__ Solution<lbcell, N_MAX, LatticeSolver> X;
+Solution<lbcell, N_MAX, LatticeSolver> bolls;
 
 
 __device__ lbcell cubic_w_diffusion(lbcell Xi, lbcell Xj, int i, int j) {
     lbcell dF {0};
     if (i == j) {
         assert(Xi.w >= 0);
-        dF.w = (cell_type[i] > MESENCHYME) - 0.01*Xi.w;
+        // dF.w = (cell_type[i] > MESENCHYME) - 0.01*Xi.w;
         return dF;
     }
 
@@ -55,7 +56,8 @@ __device__ lbcell cubic_w_diffusion(lbcell Xi, lbcell Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ auto d_potential = cubic_w_diffusion;
+__device__ auto d_cubic_w_diffusion = &cubic_w_diffusion;
+auto h_cubic_w_diffusion = get_device_object(d_cubic_w_diffusion, 0);
 
 
 __device__ lbcell count_neighbours(lbcell Xi, lbcell Xj, int i, int j) {
@@ -68,47 +70,49 @@ __device__ lbcell count_neighbours(lbcell Xi, lbcell Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ auto d_count = count_neighbours;
+__device__ auto d_count_neighbours = &count_neighbours;
+auto h_count_neighbours = get_device_object(d_count_neighbours, 0);
 
 
-__global__ void update_links(const int* __restrict__ cell_id,
-        const int* __restrict__ cube_id, const int* __restrict__ cube_start,
-        const int* __restrict__ cube_end) {
+__global__ void update_links(const int* __restrict__ d_cell_id,
+        const int* __restrict__ d_cube_id, const int* __restrict__ d_cube_start,
+        const int* __restrict__ d_cube_end, const lbcell* __restrict d_X) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells*LINKS_P_CELL) return;
+    if (i >= d_n_cells*LINKS_P_CELL) return;
 
-    auto j = static_cast<int>(curand_uniform(&prots.rand_states[i])*n_cells);
-    auto rand_cube = cube_id[j]
+    auto j = static_cast<int>(curand_uniform(&prots.rand_states[i])*d_n_cells);
+    auto rand_cube = d_cube_id[j]
         +  static_cast<int>(curand_uniform(&prots.rand_states[i])*3) - 1
         + (static_cast<int>(curand_uniform(&prots.rand_states[i])*3) - 1)*LATTICE_SIZE
         + (static_cast<int>(curand_uniform(&prots.rand_states[i])*3) - 1)*LATTICE_SIZE*LATTICE_SIZE;
-    auto cells_in_cube = cube_end[rand_cube] - cube_start[rand_cube];
+    auto cells_in_cube = d_cube_end[rand_cube] - d_cube_start[rand_cube];
     if (cells_in_cube < 1) return;
 
-    auto k = cube_start[rand_cube]
+    auto k = d_cube_start[rand_cube]
         + static_cast<int>(curand_uniform(&prots.rand_states[i])*cells_in_cube);
-    auto r = X[cell_id[j]] - X[cell_id[k]];
+    auto r = d_X[d_cell_id[j]] - d_X[d_cell_id[k]];
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if ((j != k) and (cell_type[cell_id[j]] == MESENCHYME)
-            and (cell_type[cell_id[k]] == MESENCHYME)
-            and (dist < R_LINK) and (fabs(r.w/(X[cell_id[j]].w + X[cell_id[k]].w)) > 0.2)) {
+    if ((j != k) and (cell_type[d_cell_id[j]] == MESENCHYME)
+            and (cell_type[d_cell_id[k]] == MESENCHYME)
+            and (dist < R_LINK)
+            and (fabs(r.w/(d_X[d_cell_id[j]].w + d_X[d_cell_id[k]].w)) > 0.2)) {
             // and (fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
-        prots.links[i][0] = cell_id[j];
-        prots.links[i][1] = cell_id[k];
+        prots.links[i][0] = d_cell_id[j];
+        prots.links[i][1] = d_cell_id[k];
     }
 }
 
-void intercalation(const lbcell* __restrict__ X, lbcell* dX) {
-    intercalate<<<(n_cells*LINKS_P_CELL + 32 - 1)/32, 32>>>(X, dX, prots, 0.5,
+void intercalation(const lbcell* __restrict__ d_X, lbcell* d_dX) {
+    intercalate<<<(n_cells*LINKS_P_CELL + 32 - 1)/32, 32>>>(d_X, d_dX, prots, 0.5,
         n_cells*LINKS_P_CELL);
     cudaDeviceSynchronize();
 }
 
 
-__global__ void proliferate(float rate, float mean_distance) {
-    assert(rate*n_cells <= N_MAX);
+__global__ void proliferate(float rate, float mean_distance, lbcell* d_X) {
+    assert(rate*d_n_cells <= N_MAX);
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells) return;
+    if (i >= d_n_cells) return;
 
     if (cell_type[i] == EPITHELIUM) {
         cell_type[i] = STRETCHED_EPI;
@@ -120,72 +124,78 @@ __global__ void proliferate(float rate, float mean_distance) {
         if (r > rate) return;
     }
 
-    auto n = atomicAdd(&n_cells, 1);
+    auto n = atomicAdd(&d_n_cells, 1);
     auto phi = curand_uniform(&prots.rand_states[i])*M_PI;
     auto theta = curand_uniform(&prots.rand_states[i])*2*M_PI;
-    X[n].x = X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
-    X[n].y = X[i].y + mean_distance/4*sinf(theta)*sinf(phi);
-    X[n].z = X[i].z + mean_distance/4*cosf(theta);
-    X[n].w = X[i].w/2;
-    X[i].w = X[i].w/2;
-    X[n].phi = X[i].phi;
-    X[n].theta = X[i].theta;
+    d_X[n].x = d_X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
+    d_X[n].y = d_X[i].y + mean_distance/4*sinf(theta)*sinf(phi);
+    d_X[n].z = d_X[i].z + mean_distance/4*cosf(theta);
+    d_X[n].w = d_X[i].w/2;
+    d_X[i].w = d_X[i].w/2;
+    d_X[n].phi = d_X[i].phi;
+    d_X[n].theta = d_X[i].theta;
     cell_type[n] = cell_type[i] == MESENCHYME ? MESENCHYME : STRETCHED_EPI;
 }
 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_sphere(0.733333, X, n_cells);
+    n_cells = get_device_object(d_n_cells);
+    uniform_sphere(0.733333, bolls, n_cells);
     for (auto i = 0; i < n_cells; i++) {
-        X[i].x = fabs(X[i].x);
-        X[i].y = X[i].y/1.5;
-        X[i].w = 0;
+        bolls.h_X[i].x = fabs(bolls.h_X[i].x);
+        bolls.h_X[i].y = bolls.h_X[i].y/1.5;
+        bolls.h_X[i].w = 0;
         cell_type[i] = MESENCHYME;
     }
+    bolls.memcpyHostToDevice();
     init_protrusions(prots);
 
     // Relax
     VtkOutput relax_output("relaxation");
     for (auto time_step = 0; time_step <= 200; time_step++) {
-        X.step(DELTA_T, d_potential, n_cells);
+        bolls.step(DELTA_T, h_cubic_w_diffusion, n_cells);
         relax_output.print_progress();
     }
     relax_output.print_done();
 
     // Find epithelium
-    X.step(1, d_count, n_cells);
-    // X.z_order(n_cells, 2.);
+    bolls.step(1, h_count_neighbours, n_cells);
+    bolls.memcpyDeviceToHost();
     for (auto i = 0; i < n_cells; i++) {
-        if (X[i].w < 12 and X[i].x > 0) {
+        if (bolls.h_X[i].w < 12 and bolls.h_X[i].x > 0) {
             cell_type[i] = STRETCHED_EPI;
-            auto dist = sqrtf(X[i].x*X[i].x + X[i].y*X[i].y + X[i].z*X[i].z);
-            X[i].phi = atan2(X[i].y, X[i].x);
-            X[i].theta = acosf(X[i].z/dist);
+            auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x
+                + bolls.h_X[i].y*bolls.h_X[i].y + bolls.h_X[i].z*bolls.h_X[i].z);
+            bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x);
+            bolls.h_X[i].theta = acosf(bolls.h_X[i].z/dist);
         } else {
-            X[i].phi = 0;
-            X[i].theta = 0;
+            bolls.h_X[i].phi = 0;
+            bolls.h_X[i].theta = 0;
         }
-        X[i].w = 0;
+        bolls.h_X[i].w = 0;
     }
+    bolls.memcpyHostToDevice();
 
     // Simulate diffusion & intercalation
     VtkOutput sim_output("elongation");
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        sim_output.write_positions(X, n_cells);
+        bolls.memcpyDeviceToHost();
+        sim_output.write_positions(bolls, n_cells);
         sim_output.write_protrusions(prots, n_cells*LINKS_P_CELL);
         sim_output.write_type(cell_type, n_cells);
-        // sim_output.write_polarity(X, n_cells);
-        sim_output.write_field(X, n_cells, "Wnt");
-        if (time_step == N_TIME_STEPS) return 0;
+        // sim_output.write_polarity(bolls, n_cells);
+        sim_output.write_field(bolls, n_cells, "Wnt");
 
-        // X.step(DELTA_T, d_potential, n_cells);
-        X.step(DELTA_T, d_potential, intercalation, n_cells);
-        proliferate<<<(n_cells + 128 - 1)/128, 128>>>(0.005, 0.733333);
+        bolls.step(DELTA_T, h_cubic_w_diffusion, intercalation, n_cells);
+        proliferate<<<(n_cells + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X);
+        n_cells = get_device_object(d_n_cells);
         cudaDeviceSynchronize();
-        X.build_lattice(n_cells, R_LINK);
-        update_links<<<(n_cells*LINKS_P_CELL + 32 - 1)/32, 32>>>(X.cell_id,
-            X.cube_id, X.cube_start, X.cube_end);
+        bolls.build_lattice(n_cells, R_LINK);
+        update_links<<<(n_cells*LINKS_P_CELL + 32 - 1)/32, 32>>>(bolls.d_cell_id,
+            bolls.d_cube_id, bolls.d_cube_start, bolls.d_cube_end, bolls.d_X);
         cudaDeviceSynchronize();
     }
+
+    return 0;
 }

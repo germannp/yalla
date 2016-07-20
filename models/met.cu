@@ -12,7 +12,7 @@ const auto N_CELLS = 250;
 const auto N_TIME_STEPS = 100;
 const auto DELTA_T = 0.1;
 
-__device__ __managed__ Solution<pocell, N_CELLS, LatticeSolver> X;
+Solution<pocell, N_CELLS, LatticeSolver> bolls;
 
 
 // Cubic potential plus k*(n_i . r_ij/r)^2/2 for all r_ij <= R_MAX
@@ -33,25 +33,29 @@ __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ auto d_potential = epithelium;
+__device__ auto d_epithelium = &epithelium;
+auto h_epithelium = get_device_object(d_epithelium, 0);
 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_sphere(0.733333, X);
+    uniform_sphere(0.733333, bolls);
     for (auto i = 0; i < N_CELLS; i++) {
-        auto dist = sqrtf(X[i].x*X[i].x + X[i].y*X[i].y + X[i].z*X[i].z);
-        X[i].phi = atan2(X[i].y, X[i].x) + rand()/(RAND_MAX + 1.)*0.5;
-        X[i].theta = acosf(X[i].z/dist) + rand()/(RAND_MAX + 1.)*0.5;
+        auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x + bolls.h_X[i].y*bolls.h_X[i].y
+            + bolls.h_X[i].z*bolls.h_X[i].z);
+        bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x) + rand()/(RAND_MAX + 1.)*0.5;
+        bolls.h_X[i].theta = acosf(bolls.h_X[i].z/dist) + rand()/(RAND_MAX + 1.)*0.5;
     }
+    bolls.memcpyHostToDevice();
 
     // Integrate cell positions
     VtkOutput output("epithelium");
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(X);
-        output.write_polarity(X);
-        if (time_step == N_TIME_STEPS) return 0;
-
-        X.step(DELTA_T, d_potential);
+        bolls.memcpyDeviceToHost();
+        bolls.step(DELTA_T, h_epithelium);
+        output.write_positions(bolls);
+        output.write_polarity(bolls);
     }
+
+    return 0;
 }

@@ -16,7 +16,7 @@ const auto N_LINKS = N_CELLS*5;
 const auto N_TIME_STEPS = 300u;
 const auto DELTA_T = 0.05;
 
-__device__ __managed__ Solution<float3, N_CELLS, LatticeSolver> X;
+Solution<float3, N_CELLS, LatticeSolver> bolls;
 __device__ __managed__ Protrusions<N_LINKS> prots;
 
 
@@ -33,10 +33,11 @@ __device__ float3 cubic(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ auto d_cubic = cubic;
+__device__ auto d_cubic = &cubic;
+auto h_cubic = get_device_object(d_cubic, 0);
 
 
-__global__ void update_links() {
+__global__ void update_links(const float3* __restrict__ d_X) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= N_LINKS) return;
 
@@ -55,7 +56,7 @@ __global__ void update_links() {
     auto new_k = static_cast<int>(curand_uniform(&prots.rand_states[i])*N_CELLS);
     if (new_j == new_k) return;
 
-    auto dx = X[new_j] - X[new_k];
+    auto dx = d_X[new_j] - d_X[new_k];
     auto dist = sqrtf(dx.x*dx.x + dx.y*dx.y + dx.z*dx.z);
     if (dist > 2) return;
 
@@ -63,15 +64,15 @@ __global__ void update_links() {
     prots.links[i][1] = new_k;
 }
 
-void prots_forces(const float3* __restrict__ X, float3* dX) {
-    intercalate<<<(N_LINKS + 32 - 1)/32, 32>>>(X, dX, prots);
+void prots_forces(const float3* __restrict__ bolls, float3* dX) {
+    intercalate<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls, dX, prots);
     cudaDeviceSynchronize();
 }
 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_sphere(R_MIN, X);
+    uniform_sphere(R_MIN, bolls);
     int cell_type[N_CELLS];
     for (auto i = 0; i < N_CELLS; i++) {
         cell_type[i] = (i < N_CELLS/2) ? 0 : 1;
@@ -81,14 +82,13 @@ int main(int argc, char const *argv[]) {
     // Integrate cell positions
     VtkOutput output("sorting");
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(X);
+        bolls.memcpyDeviceToHost();
+        output.write_positions(bolls);
         output.write_protrusions(prots);
         output.write_type(cell_type);
-        if (time_step == N_TIME_STEPS) return 0;
-
-        // X.step(DELTA_T, d_cubic);
-        X.step(DELTA_T, d_cubic, prots_forces);
-        update_links<<<(N_LINKS + 32 - 1)/32, 32>>>();
-        cudaDeviceSynchronize();
+        bolls.step(DELTA_T, h_cubic, prots_forces);
+        update_links<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls.d_X);
     }
+
+    return 0;
 }

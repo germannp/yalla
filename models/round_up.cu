@@ -9,9 +9,9 @@ const auto R_MAX = 1;
 const auto R_MIN = 0.6;
 const auto N_CELLS = 100;
 const auto DELTA_T = 0.005;
+auto time_step = 0;
 
-__device__ __managed__ Solution<float3, N_CELLS, LatticeSolver> X;
-__device__ __managed__ auto time_step = 0;
+Solution<float3, N_CELLS, LatticeSolver> bolls;
 
 
 __device__ float3 clipped_polynomial(float3 Xi, float3 Xj, int i, int j) {
@@ -31,8 +31,8 @@ __device__ float3 clipped_polynomial(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ auto d_potential = clipped_polynomial;
-
+__device__ auto d_clipped_polynomial = &clipped_polynomial;
+auto h_clipped_polynomial = get_device_object(d_clipped_polynomial, 0);
 
 // Smooth transition from step(x < 0) = 0 to step(x > 0) = 1 over dx
 __device__ float step(float x) {
@@ -41,34 +41,36 @@ __device__ float step(float x) {
     return x*x*(3 - 2*x);
 }
 
-__global__ void squeeze_kernel(const float3* __restrict__ X, float3* dX) {
+__global__ void squeeze_kernel(const float3* __restrict__ bolls, float3* dX,
+        int time_step) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= N_CELLS) return;
 
     auto time = time_step*DELTA_T;
-    dX[i].z += 10*step(-2 - X[i].z);  // Floor
+    dX[i].z += 10*step(-2 - bolls[i].z);  // Floor
     if ((time >= 0.1) and (time <= 0.5)) {
-        dX[i].z -= 10*step(X[i].z - (2 - (time - 0.1)/0.3));
+        dX[i].z -= 10*step(bolls[i].z - (2 - (time - 0.1)/0.3));
     }
 }
 
-void squeeze_to_floor(const float3* __restrict__ X, float3* dX) {
-    squeeze_kernel<<<(N_CELLS + 16 - 1)/16, 16>>>(X, dX);
+void squeeze_to_floor(const float3* __restrict__ d_X, float3* d_dX) {
+    squeeze_kernel<<<(N_CELLS + 16 - 1)/16, 16>>>(d_X, d_dX, time_step);
     cudaDeviceSynchronize();
 }
 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_circle(0.733333, X);
-    // uniform_sphere(0.733333, X);
+    uniform_circle(0.733333, bolls);
+    // uniform_sphere(0.733333, bolls);
 
     // Integrate cell positions
     VtkOutput output("round_up");
     for (time_step = 0; time_step*DELTA_T <= 1; time_step++) {
-        output.write_positions(X);
-        if (time_step*DELTA_T == 1) return 0;
-
-        X.step(DELTA_T, d_potential, squeeze_to_floor);
+        bolls.memcpyDeviceToHost();
+        bolls.step(DELTA_T, h_clipped_polynomial, squeeze_to_floor);
+        output.write_positions(bolls);
     }
+
+    return 0;
 }

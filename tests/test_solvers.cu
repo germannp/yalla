@@ -7,8 +7,8 @@
 const int N_MAX = 1000;
 const float L_0 = 1;
 
-__device__ __managed__ Solution<float3, N_MAX, N2nSolver> n2n;
-__device__ __managed__ Solution<float3, N_MAX, LatticeSolver> latt;
+Solution<float3, N_MAX, N2nSolver> n2n;
+Solution<float3, N_MAX, LatticeSolver> latt;
 
 
 __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
@@ -21,19 +21,21 @@ __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ auto d_spring = spring;
+__device__ auto d_spring = &spring;
+auto h_spring = get_device_object(d_spring);
 
 const char* test_n2n_tetrahedron() {
-    uniform_sphere(1, n2n, 4);
+    uniform_sphere(L_0, n2n, 4);
     auto com_i = center_of_mass(n2n, 4);
     for (auto i = 0; i < 500; i++) {
-        n2n.step(0.1, d_spring, 4);
+        n2n.step(0.1, h_spring, 4);
     }
 
+    n2n.memcpyDeviceToHost();
     for (auto i = 1; i < 4; i++) {
-        auto r = n2n[0] - n2n[i];
+        auto r = n2n.h_X[0] - n2n.h_X[i];
         auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-        MU_ASSERT("Spring not relaxed in n2n tetrahedron", MU_ISCLOSE(dist, 1));
+        MU_ASSERT("Spring not relaxed in n2n tetrahedron", MU_ISCLOSE(dist, L_0));
     }
 
     auto com_f = center_of_mass(n2n, 4);
@@ -45,17 +47,18 @@ const char* test_n2n_tetrahedron() {
 }
 
 const char* test_latt_tetrahedron() {
-    uniform_sphere(1, latt, 4);
-    float3 com_i = center_of_mass(latt, 4);
+    uniform_sphere(L_0, latt, 4);
+    auto com_i = center_of_mass(latt, 4);
     for (auto i = 0; i < 500; i++) {
-        latt.step(0.1, d_spring, 4);
+        latt.step(0.1, h_spring, 4);
     }
 
+    latt.memcpyDeviceToHost();
     for (auto i = 1; i < 4; i++) {
-        auto r = float3{latt[0].x - latt[i].x, latt[0].y - latt[i].y,
-            latt[0].z - latt[i].z};
+        auto r = float3{latt.h_X[0].x - latt.h_X[i].x, latt.h_X[0].y - latt.h_X[i].y,
+            latt.h_X[0].z - latt.h_X[i].z};
         auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-        MU_ASSERT("Spring not relaxed in lattice tetrahedron", MU_ISCLOSE(dist, 1));
+        MU_ASSERT("Spring not relaxed in lattice tetrahedron", MU_ISCLOSE(dist, L_0));
     }
 
     auto com_f = center_of_mass(latt, 4);
@@ -67,7 +70,7 @@ const char* test_latt_tetrahedron() {
 }
 
 
-__device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 cubic(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
     if (i == j) return dF;
 
@@ -78,22 +81,26 @@ __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ auto d_cubic = clipped_cubic;
+__device__ auto d_cubic = &cubic;
+auto h_cubic = get_device_object(d_cubic, 0);
 
 const char* test_compare_methods() {
     uniform_sphere(0.733333, n2n);
     for (auto i = 0; i < N_MAX; i++) {
-        latt[i].x = n2n[i].x;
-        latt[i].y = n2n[i].y;
-        latt[i].z = n2n[i].z;
+        latt.h_X[i].x = n2n.h_X[i].x;
+        latt.h_X[i].y = n2n.h_X[i].y;
+        latt.h_X[i].z = n2n.h_X[i].z;
     }
-    n2n.step(0.5, d_cubic);
-    latt.step(0.5, d_cubic);
+    latt.memcpyHostToDevice();
+    n2n.step(0.5, h_cubic);
+    latt.step(0.5, h_cubic);
 
+    n2n.memcpyDeviceToHost();
+    latt.memcpyDeviceToHost();
     for (auto i = 0; i < N_MAX; i++) {
-        MU_ASSERT("Methods disagree", MU_ISCLOSE(latt[i].x, n2n[i].x));
-        MU_ASSERT("Methods disagree", MU_ISCLOSE(latt[i].y, n2n[i].y));
-        MU_ASSERT("Methods disagree", MU_ISCLOSE(latt[i].z, n2n[i].z));
+        MU_ASSERT("Methods disagree", MU_ISCLOSE(n2n.h_X[i].x, latt.h_X[i].x));
+        MU_ASSERT("Methods disagree", MU_ISCLOSE(n2n.h_X[i].y, latt.h_X[i].y));
+        MU_ASSERT("Methods disagree", MU_ISCLOSE(n2n.h_X[i].z, latt.h_X[i].z));
     }
 
     return NULL;
@@ -105,62 +112,85 @@ __device__ float3 no_interaction(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ auto d_no_interaction = no_interaction;
+__device__ auto d_no_interaction = &no_interaction;
+auto h_no_interaction = get_device_object(d_no_interaction, 0);
 
-void push(const float3* __restrict__ X, float3* dX) {
-    dX[0] = float3{1, 0, 0};
-    cudaDeviceSynchronize();
+__global__ void push(float3* d_dX) {
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i >= 1) return;
+
+    d_dX[0] = float3{1, 0, 0};
+}
+
+void push_genforce(const float3* __restrict__ d_X, float3* d_dX) {
+    push<<<1, 1>>>(d_dX);
 }
 
 const char* test_generic_forces() {
-    n2n[0] = float3{0, 0, 0};
-    n2n.step(1, d_no_interaction, push);
+    n2n.h_X[0] = float3{0, 0, 0};
+    n2n.memcpyHostToDevice();
+    n2n.step(1, h_no_interaction, push_genforce);
 
-    MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n[0].x, 1));
-    MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n[0].y, 0));
-    MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n[0].z, 0));
+    n2n.memcpyDeviceToHost();
+    MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n.h_X[0].x, 1));
+    MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n.h_X[0].y, 0));
+    MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n.h_X[0].z, 0));
 
-    latt[0] = float3{0, 0, 0};
-    latt.step(1, d_no_interaction, push);
+    latt.h_X[0] = float3{0, 0, 0};
+    latt.memcpyHostToDevice();
+    latt.step(1, h_no_interaction, push_genforce);
 
-    MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt[0].x, 1));
-    MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt[0].y, 0));
-    MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt[0].z, 0));
+    latt.memcpyDeviceToHost();
+    MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt.h_X[0].x, 1));
+    MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt.h_X[0].y, 0));
+    MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt.h_X[0].z, 0));
 
     return NULL;
 }
 
 
+__global__ void single_lattice(const int* __restrict__ d_cube_id) {
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i >= 1000) return;
+
+    auto expected_cube = pow(LATTICE_SIZE, 3)/2 + pow(LATTICE_SIZE, 2)/2 + LATTICE_SIZE/2
+        + i%10 + (i%100/10)*LATTICE_SIZE + (i/100)*LATTICE_SIZE*LATTICE_SIZE;
+    assert(d_cube_id[i] == expected_cube);
+}
+
+__global__ void double_lattice(const int* __restrict__ d_cube_id) {
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i >= 1000 - 8) return;
+
+    assert(d_cube_id[i] == d_cube_id[i - i%8]);
+}
+
 const char* test_lattice_spacing() {
     for (auto i = 0; i < 10; i++) {
         for (auto j = 0; j < 10; j++) {
             for (auto k = 0; k < 10; k++) {
-                latt[100*i + 10*j + k].x = k + 0.5;
-                latt[100*i + 10*j + k].y = j + 0.5;
-                latt[100*i + 10*j + k].z = i + 0.5;
+                latt.h_X[100*i + 10*j + k].x = k + 0.5;
+                latt.h_X[100*i + 10*j + k].y = j + 0.5;
+                latt.h_X[100*i + 10*j + k].z = i + 0.5;
             }
         }
     }
+    latt.memcpyHostToDevice();
 
     latt.build_lattice(1000, 1);
-    for (auto i = 0; i < 1000; i++) {
-        auto expected_cube = pow(LATTICE_SIZE, 3)/2 + pow(LATTICE_SIZE, 2)/2 + LATTICE_SIZE/2
-            + i%10 + (i%100/10)*LATTICE_SIZE + (i/100)*LATTICE_SIZE*LATTICE_SIZE;
-        MU_ASSERT("Single lattice", latt.cube_id[i] == expected_cube);
-    }
+    single_lattice<<<256, 4>>>(latt.d_cube_id);
 
     latt.build_lattice(1000, 2);
-    for (auto i = 0; i < 1000 - 8; i++) {
-        MU_ASSERT("Double lattice", latt.cube_id[i] == latt.cube_id[i - i%8]);
-    }
+    double_lattice<<<256, 4>>>(latt.d_cube_id);
+    cudaDeviceSynchronize();  // Wait for device to exit
 
     return NULL;
 }
 
 
 const char* all_tests() {
+    MU_RUN_TEST(test_latt_tetrahedron);  // FIXME: Some orders brake tests!
     MU_RUN_TEST(test_n2n_tetrahedron);
-    MU_RUN_TEST(test_latt_tetrahedron);
     MU_RUN_TEST(test_compare_methods);
     MU_RUN_TEST(test_generic_forces);
     MU_RUN_TEST(test_lattice_spacing);

@@ -25,12 +25,12 @@ class VtkOutput {
     void print_progress();
     void print_done();
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
-    void write_positions(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX);
+    void write_positions(Solution<Pt, N_MAX, Solver>& bolls, int n_cells = N_MAX);
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
-    void write_field(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX,
+    void write_field(Solution<Pt, N_MAX, Solver>& bolls, int n_cells = N_MAX,
         const char* data_name = "w", float Pt::*field = &Pt::w);
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
-    void write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells = N_MAX);
+    void write_polarity(Solution<Pt, N_MAX, Solver>& bolls, int n_cells = N_MAX);
     template<typename TYPES, int N_MAX>
     void write_type(TYPES (&type)[N_MAX], int n_cells = N_MAX);
     template<int N_LINKS_MAX>
@@ -98,7 +98,7 @@ void VtkOutput::print_done() {
 }
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
+void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& bolls, int n_cells) {
     assert(n_cells <= N_MAX);
     print_progress();
     if (!mWrite) return;
@@ -115,7 +115,7 @@ void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
 
     file << "\nPOINTS " << n_cells << " float\n";
     for (auto i = 0; i < n_cells; i++)
-        file << X[i].x << " " << X[i].y << " " << X[i].z << "\n";
+        file << bolls.h_X[i].x << " " << bolls.h_X[i].y << " " << bolls.h_X[i].z << "\n";
 
     file << "\nVERTICES " << n_cells << " " << 2*n_cells << "\n";
     for (auto i = 0; i < n_cells; i++)
@@ -123,7 +123,7 @@ void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
 }
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void VtkOutput::write_field(Solution<Pt, N_MAX, Solver>& X, int n_cells,
+void VtkOutput::write_field(Solution<Pt, N_MAX, Solver>& bolls, int n_cells,
         const char* data_name, float Pt::*field) {
     if (!mWrite) return;
 
@@ -139,11 +139,11 @@ void VtkOutput::write_field(Solution<Pt, N_MAX, Solver>& X, int n_cells,
     file << "SCALARS " << data_name << " float\n";
     file << "LOOKUP_TABLE default\n";
     for (auto i = 0; i < n_cells; i++)
-        file << X[i].*field << "\n";
+        file << bolls.h_X[i].*field << "\n";
 }
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
+void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& bolls, int n_cells) {
     if (!mWrite) return;
 
     assert(n_cells <= N_MAX);
@@ -157,11 +157,11 @@ void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& X, int n_cells) {
     }
     file << "NORMALS polarity float\n";
     for (auto i = 0; i < n_cells; i++) {
-        auto n = float3{0.0f, 0.0f, 0.0f};
-        if ((X[i].phi != 0) and (X[i].theta != 0)) {
-            n.x = sinf(X[i].theta)*cosf(X[i].phi);
-            n.y = sinf(X[i].theta)*sinf(X[i].phi);
-            n.z = cosf(X[i].theta);
+        float3 n {0};
+        if ((bolls.h_X[i].phi != 0) and (bolls.h_X[i].theta != 0)) {
+            n.x = sinf(bolls.h_X[i].theta)*cosf(bolls.h_X[i].phi);
+            n.y = sinf(bolls.h_X[i].theta)*sinf(bolls.h_X[i].phi);
+            n.z = cosf(bolls.h_X[i].theta);
         }
         file << n.x << " " << n.y << " " << n.z << "\n";
     }

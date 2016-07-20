@@ -11,7 +11,7 @@ const auto N_CELLS = 100;
 const auto N_TIME_STEPS = 200;
 const auto DELTA_T = 0.005;
 
-__device__ __managed__ Solution<float4, N_CELLS, N2nSolver> X;
+Solution<float4, N_CELLS, N2nSolver> bolls;
 
 
 __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
@@ -34,23 +34,26 @@ __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
     return dF;
 }
 
-__device__ __managed__ auto d_local_interactions = cubic_w_diffusion;
+__device__ auto d_cubic_w_diffusion = &cubic_w_diffusion;
+auto h_cubic_w_diffusion = get_device_object(d_cubic_w_diffusion, 0);
 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    uniform_circle(0.733333, X);
+    uniform_circle(0.733333, bolls);
     for (auto i = 0; i < N_CELLS; i++) {
-        X[i].w = i == 0 ? 1 : 0;
+        bolls.h_X[i].w = i == 0 ? 1 : 0;
     }
+    bolls.memcpyHostToDevice();
 
     // Integrate cell positions
     VtkOutput output("gradient");
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        output.write_positions(X);
-        output.write_field(X);
-        if (time_step == N_TIME_STEPS) return 0;
-
-        X.step(DELTA_T, d_local_interactions);
+        bolls.memcpyDeviceToHost();
+        bolls.step(DELTA_T, h_cubic_w_diffusion);
+        output.write_positions(bolls);
+        output.write_field(bolls);
     }
+
+    return 0;
 }
