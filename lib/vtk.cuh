@@ -17,7 +17,7 @@ class Protrusions;
 
 
 class VtkOutput {
- public:
+public:
     VtkOutput(std::string base_name, int N_TIME_STEPS, int SKIP_STEPS);
     VtkOutput(std::string base_name, int N_TIME_STEPS) : VtkOutput(base_name, N_TIME_STEPS, 1) {}
     explicit VtkOutput(std::string base_name) : VtkOutput(base_name, 0, 1) {}
@@ -36,7 +36,7 @@ class VtkOutput {
     template<int N_LINKS_MAX>
     void write_protrusions(Protrusions<N_LINKS_MAX>& links, int n_links = N_LINKS_MAX);
 
- protected:
+protected:
     int mN_TIME_STEPS;
     int mSKIP_STEPS;
     int mTimeStep = -1;

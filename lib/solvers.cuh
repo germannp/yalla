@@ -31,7 +31,7 @@ template<typename T> T get_device_object(const T& on_device, cudaStream_t stream
 // action is happening in the solver class.
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution: public Solver<Pt, N_MAX> {
- public:
+public:
     Pt *h_X = Solver<Pt, N_MAX>::h_X;
     Pt *d_X = Solver<Pt, N_MAX>::d_X;
     void memcpyHostToDevice() {
@@ -77,7 +77,7 @@ template<typename Pt> __global__ void heun_step(int n_cells, float delta_t,
 const auto TILE_SIZE = 32;
 
 template<typename Pt, int N_MAX>class N2nSolver {
- protected:
+protected:
     Pt *h_X = (Pt*)malloc(N_MAX*sizeof(Pt));
     Pt *d_X, *d_dX, *d_X1, *d_dX1;
     int h_n;
@@ -145,12 +145,12 @@ const auto LATTICE_SIZE = 50u;
 const auto N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
 template<typename Pt, int N_MAX>class LatticeSolver {
- public:
+public:
     int *d_cube_id, *d_cell_id, *d_cube_start, *d_cube_end;
     void build_lattice(int n_cells, float cube_size) {
         build_lattice(n_cells, d_X, cube_size);
     };
- protected:
+protected:
     Pt *h_X = (Pt*)malloc(N_MAX*sizeof(Pt));
     Pt *d_X, *d_dX, *d_X1, *d_dX1;
     LatticeSolver() {
