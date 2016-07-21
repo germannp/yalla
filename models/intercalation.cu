@@ -16,7 +16,7 @@ const auto N_TIME_STEPS = 1000u;
 const auto DELTA_T = 0.2f;
 
 Solution<float3, N_CELLS, LatticeSolver> bolls;
-__device__ __managed__ Protrusions<N_LINKS> prots;
+Protrusions<N_LINKS> links;
 
 
 __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
@@ -36,30 +36,28 @@ __device__ auto d_clipped_cubic = &clipped_cubic;
 auto h_clipped_cubic = get_device_object(d_clipped_cubic, 0);
 
 
-__global__ void update_links(const float3* __restrict__ d_X) {
+__global__ void update_links(const float3* __restrict__ d_X, Link* d_cell_id, curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= N_LINKS) return;
 
-    auto j = static_cast<int>(curand_uniform(&prots.rand_states[i])*N_CELLS);
-    auto k = static_cast<int>(curand_uniform(&prots.rand_states[i])*N_CELLS);
+    auto j = static_cast<int>(curand_uniform(&d_state[i])*N_CELLS);
+    auto k = static_cast<int>(curand_uniform(&d_state[i])*N_CELLS);
     auto r = d_X[j] - d_X[k];
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if ((fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
-        prots.links[i][0] = j;
-        prots.links[i][1] = k;
+        d_cell_id[i].a = j;
+        d_cell_id[i].b = k;
     }
 }
 
 void intercalation(const float3* __restrict__ d_X, float3* d_dX) {
-    intercalate<<<(N_LINKS + 32 - 1)/32, 32>>>(d_X, d_dX, prots);
-    cudaDeviceSynchronize();
+    link_force<<<(N_LINKS + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_cell_id, N_LINKS);
 }
 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
     uniform_sphere(R_MIN, bolls);
-    init_protrusions(prots);
     int i = 0;
     while (i < N_LINKS) {
         auto j = static_cast<int>(rand()/(RAND_MAX + 1.)*N_CELLS);
@@ -67,20 +65,22 @@ int main(int argc, char const *argv[]) {
         auto r = bolls.h_X[j] - bolls.h_X[k];
         auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
         if ((fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
-            prots.links[i][0] = j;
-            prots.links[i][1] = k;
+            links.h_cell_id[i].a = j;
+            links.h_cell_id[i].b = k;
             i++;
         }
     }
+    links.memcpyHostToDevice();
 
     // Integrate cell positions
     VtkOutput output("intercalation");
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
-        output.write_positions(bolls);
-        output.write_protrusions(prots);
+        links.memcpyDeviceToHost();
         bolls.step(DELTA_T, h_clipped_cubic, intercalation);
-        update_links<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls.d_X);
+        update_links<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls.d_X, links.d_cell_id, links.d_state);
+        output.write_positions(bolls);
+        output.write_protrusions(links);
     }
 
     return 0;

@@ -17,7 +17,7 @@ const auto N_TIME_STEPS = 300u;
 const auto DELTA_T = 0.05;
 
 Solution<float3, N_CELLS, LatticeSolver> bolls;
-__device__ __managed__ Protrusions<N_LINKS> prots;
+Protrusions<N_LINKS> links;
 
 
 __device__ float3 cubic(float3 Xi, float3 Xj, int i, int j) {
@@ -37,13 +37,14 @@ __device__ auto d_cubic = &cubic;
 auto h_cubic = get_device_object(d_cubic, 0);
 
 
-__global__ void update_links(const float3* __restrict__ d_X) {
+__global__ void update_links(const float3* __restrict__ d_X, Link* d_cell_id,
+        curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= N_LINKS) return;
 
-    auto r = curand_uniform(&prots.rand_states[i]);
-    auto j = prots.links[i][0];
-    auto k = prots.links[i][1];
+    auto r = curand_uniform(&d_state[i]);
+    auto j = d_cell_id[i].a;
+    auto k = d_cell_id[i].b;
     if ((j < N_CELLS/2) and (k < N_CELLS/2)) {
         if (r > 0.05) return;
     } else if ((j > N_CELLS/2) and (k > N_CELLS/2)) {
@@ -52,20 +53,20 @@ __global__ void update_links(const float3* __restrict__ d_X) {
         if (r > 0.75) return;
     }
 
-    auto new_j = static_cast<int>(curand_uniform(&prots.rand_states[i])*N_CELLS);
-    auto new_k = static_cast<int>(curand_uniform(&prots.rand_states[i])*N_CELLS);
+    auto new_j = static_cast<int>(curand_uniform(&d_state[i])*N_CELLS);
+    auto new_k = static_cast<int>(curand_uniform(&d_state[i])*N_CELLS);
     if (new_j == new_k) return;
 
     auto dx = d_X[new_j] - d_X[new_k];
     auto dist = sqrtf(dx.x*dx.x + dx.y*dx.y + dx.z*dx.z);
     if (dist > 2) return;
 
-    prots.links[i][0] = new_j;
-    prots.links[i][1] = new_k;
+    d_cell_id[i].a = new_j;
+    d_cell_id[i].b = new_k;
 }
 
-void prots_forces(const float3* __restrict__ bolls, float3* dX) {
-    intercalate<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls, dX, prots);
+void links_forces(const float3* __restrict__ d_X, float3* d_dX) {
+    link_force<<<(N_LINKS + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_cell_id, N_LINKS);
     cudaDeviceSynchronize();
 }
 
@@ -77,17 +78,17 @@ int main(int argc, char const *argv[]) {
     for (auto i = 0; i < N_CELLS; i++) {
         cell_type[i] = (i < N_CELLS/2) ? 0 : 1;
     }
-    init_protrusions(prots);
 
     // Integrate cell positions
     VtkOutput output("sorting");
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
+        links.memcpyDeviceToHost();
+        bolls.step(DELTA_T, h_cubic, links_forces);
+        update_links<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls.d_X, links.d_cell_id, links.d_state);
         output.write_positions(bolls);
-        output.write_protrusions(prots);
+        output.write_protrusions(links);
         output.write_type(cell_type);
-        bolls.step(DELTA_T, h_cubic, prots_forces);
-        update_links<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls.d_X);
     }
 
     return 0;

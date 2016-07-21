@@ -34,7 +34,7 @@ class VtkOutput {
     template<typename TYPES, int N_MAX>
     void write_type(TYPES (&type)[N_MAX], int n_cells = N_MAX);
     template<int N_LINKS_MAX>
-    void write_protrusions(Protrusions<N_LINKS_MAX>& prots, int n_links = N_LINKS_MAX);
+    void write_protrusions(Protrusions<N_LINKS_MAX>& links, int n_links = N_LINKS_MAX);
 
  protected:
     int mN_TIME_STEPS;
@@ -185,13 +185,15 @@ void VtkOutput::write_type(TYPES (&type)[N_MAX], int n_cells) {
 }
 
 template<int N_LINKS_MAX>
-void VtkOutput::write_protrusions(Protrusions<N_LINKS_MAX>& prots, int n_links) {
+void VtkOutput::write_protrusions(Protrusions<N_LINKS_MAX>& links, int n_links) {
     if (!mWrite) return;
+
+    assert(n_links <= N_LINKS_MAX);
 
     std::ofstream file(mCurrentFile, std::ios_base::app);
     assert(file.is_open());
 
     file << "\nLINES " << n_links << " " << 3*n_links << "\n";
     for (auto i = 0; i < n_links; i++)
-        file << "2 " << prots.links[i][0] << " " << prots.links[i][1] << "\n";
+        file << "2 " << links.h_cell_id[i].a << " " << links.h_cell_id[i].b << "\n";
 }
