@@ -106,7 +106,6 @@ __global__ void update_links(const int* __restrict__ d_cell_id,
 void intercalation(const lbcell* __restrict__ d_X, lbcell* d_dX) {
     link_force<<<(n_cells*LINKS_P_CELL + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_cell_id,
         n_cells*LINKS_P_CELL, 0.5);
-    cudaDeviceSynchronize();
 }
 
 
@@ -191,12 +190,10 @@ int main(int argc, char const *argv[]) {
         bolls.step(DELTA_T, h_cubic_w_diffusion, intercalation, n_cells);
         proliferate<<<(n_cells + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X, links.d_state);
         n_cells = get_device_object(d_n_cells);
-        cudaDeviceSynchronize();
         bolls.build_lattice(n_cells, R_LINK);
         update_links<<<(n_cells*LINKS_P_CELL + 32 - 1)/32, 32>>>(bolls.d_cell_id,
             bolls.d_cube_id, bolls.d_cube_start, bolls.d_cube_end, bolls.d_X,
             links.d_cell_id, links.d_state);
-        cudaDeviceSynchronize();
     }
 
     return 0;

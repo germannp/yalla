@@ -55,7 +55,6 @@ __global__ void squeeze_kernel(const float3* __restrict__ bolls, float3* dX,
 
 void squeeze_to_floor(const float3* __restrict__ d_X, float3* d_dX) {
     squeeze_kernel<<<(N_CELLS + 16 - 1)/16, 16>>>(d_X, d_dX, time_step);
-    cudaDeviceSynchronize();
 }
 
 

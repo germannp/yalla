@@ -67,7 +67,6 @@ __global__ void update_links(const float3* __restrict__ d_X, Link* d_cell_id,
 
 void links_forces(const float3* __restrict__ d_X, float3* d_dX) {
     link_force<<<(N_LINKS + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_cell_id, N_LINKS);
-    cudaDeviceSynchronize();
 }
 
 

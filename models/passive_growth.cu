@@ -139,6 +139,5 @@ int main(int argc, char const *argv[]) {
         n_cells = get_device_object(d_n_cells);
     }
 
-    cudaDeviceSynchronize();
     return 0;
 }
