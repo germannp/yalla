@@ -34,7 +34,7 @@ __device__ lbcell cubic_w_diffusion(lbcell Xi, lbcell Xj, int i, int j) {
     lbcell dF {0};
     if (i == j) {
         assert(Xi.w >= 0);
-        // dF.w = (cell_type[i] > MESENCHYME) - 0.01*Xi.w;
+        dF.w = (cell_type[i] > MESENCHYME) - 0.01*Xi.w;
         return dF;
     }
 
