@@ -17,7 +17,7 @@ __device__ auto d_no_interaction = &no_interaction;
 auto h_no_interaction = get_device_object(d_no_interaction, 0);
 
 void link_forces(const float3* __restrict__ d_X, float3* d_dX) {
-    link_force<<<(4 + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_cell_id, 4);
+    link_force<<<(4 + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link, 4);
 }
 
 
@@ -27,10 +27,10 @@ const char* square_of_four() {
     bolls.h_X[2].x = -1; bolls.h_X[2].y = -1; bolls.h_X[2].z = 0;
     bolls.h_X[3].x = -1; bolls.h_X[3].y = 1;  bolls.h_X[3].z = 0;
     bolls.memcpyHostToDevice();
-    links.h_cell_id[0].a = 0; links.h_cell_id[0].b = 1;
-    links.h_cell_id[1].a = 1; links.h_cell_id[1].b = 2;
-    links.h_cell_id[2].a = 2; links.h_cell_id[2].b = 3;
-    links.h_cell_id[3].a = 3; links.h_cell_id[3].b = 0;
+    links.h_link[0].a = 0; links.h_link[0].b = 1;
+    links.h_link[1].a = 1; links.h_link[1].b = 2;
+    links.h_link[2].a = 2; links.h_link[2].b = 3;
+    links.h_link[3].a = 3; links.h_link[3].b = 0;
     links.memcpyHostToDevice();
 
     auto com_i = center_of_mass(bolls);

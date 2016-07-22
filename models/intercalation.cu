@@ -36,7 +36,7 @@ __device__ auto d_clipped_cubic = &clipped_cubic;
 auto h_clipped_cubic = get_device_object(d_clipped_cubic, 0);
 
 
-__global__ void update_links(const float3* __restrict__ d_X, Link* d_cell_id, curandState* d_state) {
+__global__ void update_links(const float3* __restrict__ d_X, Link* d_link, curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= N_LINKS) return;
 
@@ -45,13 +45,13 @@ __global__ void update_links(const float3* __restrict__ d_X, Link* d_cell_id, cu
     auto r = d_X[j] - d_X[k];
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if ((fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
-        d_cell_id[i].a = j;
-        d_cell_id[i].b = k;
+        d_link[i].a = j;
+        d_link[i].b = k;
     }
 }
 
 void intercalation(const float3* __restrict__ d_X, float3* d_dX) {
-    link_force<<<(N_LINKS + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_cell_id, N_LINKS);
+    link_force<<<(N_LINKS + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link, N_LINKS);
 }
 
 
@@ -65,8 +65,8 @@ int main(int argc, char const *argv[]) {
         auto r = bolls.h_X[j] - bolls.h_X[k];
         auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
         if ((fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
-            links.h_cell_id[i].a = j;
-            links.h_cell_id[i].b = k;
+            links.h_link[i].a = j;
+            links.h_link[i].b = k;
             i++;
         }
     }
@@ -78,7 +78,7 @@ int main(int argc, char const *argv[]) {
         bolls.memcpyDeviceToHost();
         links.memcpyDeviceToHost();
         bolls.step(DELTA_T, h_clipped_cubic, intercalation);
-        update_links<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls.d_X, links.d_cell_id, links.d_state);
+        update_links<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls.d_X, links.d_link, links.d_state);
         output.write_positions(bolls);
         output.write_protrusions(links);
     }

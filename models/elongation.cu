@@ -75,7 +75,7 @@ auto h_count_neighbours = get_device_object(d_count_neighbours, 0);
 
 
 __global__ void update_links(const Lattice<N_MAX>* __restrict__ d_lattice,
-        const lbcell* __restrict d_X, Link* d_cell_ids, curandState* d_state) {
+        const lbcell* __restrict d_X, Link* d_link, curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= d_n_cells*LINKS_P_CELL) return;
 
@@ -96,13 +96,13 @@ __global__ void update_links(const Lattice<N_MAX>* __restrict__ d_lattice,
             and (dist < R_LINK)
             and (fabs(r.w/(d_X[d_lattice->d_cell_id[j]].w + d_X[d_lattice->d_cell_id[k]].w)) > 0.2)) {
             // and (fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
-        d_cell_ids[i].a = d_lattice->d_cell_id[j];
-        d_cell_ids[i].b = d_lattice->d_cell_id[k];
+        d_link[i].a = d_lattice->d_cell_id[j];
+        d_link[i].b = d_lattice->d_cell_id[k];
     }
 }
 
 void intercalation(const lbcell* __restrict__ d_X, lbcell* d_dX) {
-    link_force<<<(n_cells*LINKS_P_CELL + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_cell_id,
+    link_force<<<(n_cells*LINKS_P_CELL + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link,
         n_cells*LINKS_P_CELL, 0.5);
 }
 
@@ -190,7 +190,7 @@ int main(int argc, char const *argv[]) {
         n_cells = get_device_object(d_n_cells);
         bolls.build_lattice(n_cells, R_LINK);
         update_links<<<(n_cells*LINKS_P_CELL + 32 - 1)/32, 32>>>(bolls.d_lattice, bolls.d_X,
-            links.d_cell_id, links.d_state);
+            links.d_link, links.d_state);
     }
 
     return 0;

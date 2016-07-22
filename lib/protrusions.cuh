@@ -13,36 +13,36 @@ struct Link { int a, b; };
 
 template<int N_LINKS>
 struct Protrusions {
-    Link *h_cell_id = (Link*)malloc(N_LINKS*sizeof(Link));
-    Link *d_cell_id;
+    Link *h_link = (Link*)malloc(N_LINKS*sizeof(Link));
+    Link *d_link;
     curandState *d_state;
     Protrusions () {
-        cudaMalloc(&d_cell_id, N_LINKS*sizeof(Link));
+        cudaMalloc(&d_link, N_LINKS*sizeof(Link));
         cudaMalloc(&d_state, N_LINKS*sizeof(curandState));
         for (auto i = 0; i < N_LINKS; i++) {
-            h_cell_id[i].a = 0;
-            h_cell_id[i].b = 0;
+            h_link[i].a = 0;
+            h_link[i].b = 0;
         }
         memcpyHostToDevice();
         setup_rand_states<<<(N_LINKS + 32 - 1)/32, 32>>>(d_state, N_LINKS);
     }
     void memcpyHostToDevice() {
-        cudaMemcpy(d_cell_id, h_cell_id, N_LINKS*sizeof(Link), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_link, h_link, N_LINKS*sizeof(Link), cudaMemcpyHostToDevice);
     }
     void memcpyDeviceToHost() {
-        cudaMemcpy(h_cell_id, d_cell_id, N_LINKS*sizeof(Link), cudaMemcpyDeviceToHost);
+        cudaMemcpy(h_link, d_link, N_LINKS*sizeof(Link), cudaMemcpyDeviceToHost);
     }
 };
 
 
 template<typename Pt>
 __global__ void link_force(const Pt* __restrict__ d_X, Pt* d_dX,
-        const Link* __restrict__ d_cell_id, int n_links, float strength = 1.f/5) {
+        const Link* __restrict__ d_link, int n_links, float strength = 1.f/5) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_links) return;
 
-    auto j = d_cell_id[i].a;
-    auto k = d_cell_id[i].b;
+    auto j = d_link[i].a;
+    auto k = d_link[i].b;
     if (j == k) return;
 
     auto r = d_X[j] - d_X[k];

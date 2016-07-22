@@ -37,14 +37,14 @@ __device__ auto d_cubic = &cubic;
 auto h_cubic = get_device_object(d_cubic, 0);
 
 
-__global__ void update_links(const float3* __restrict__ d_X, Link* d_cell_id,
+__global__ void update_links(const float3* __restrict__ d_X, Link* d_link,
         curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= N_LINKS) return;
 
     auto r = curand_uniform(&d_state[i]);
-    auto j = d_cell_id[i].a;
-    auto k = d_cell_id[i].b;
+    auto j = d_link[i].a;
+    auto k = d_link[i].b;
     if ((j < N_CELLS/2) and (k < N_CELLS/2)) {
         if (r > 0.05) return;
     } else if ((j > N_CELLS/2) and (k > N_CELLS/2)) {
@@ -61,12 +61,12 @@ __global__ void update_links(const float3* __restrict__ d_X, Link* d_cell_id,
     auto dist = sqrtf(dx.x*dx.x + dx.y*dx.y + dx.z*dx.z);
     if (dist > 2) return;
 
-    d_cell_id[i].a = new_j;
-    d_cell_id[i].b = new_k;
+    d_link[i].a = new_j;
+    d_link[i].b = new_k;
 }
 
 void links_forces(const float3* __restrict__ d_X, float3* d_dX) {
-    link_force<<<(N_LINKS + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_cell_id, N_LINKS);
+    link_force<<<(N_LINKS + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link, N_LINKS);
 }
 
 
@@ -84,7 +84,7 @@ int main(int argc, char const *argv[]) {
         bolls.memcpyDeviceToHost();
         links.memcpyDeviceToHost();
         bolls.step(DELTA_T, h_cubic, links_forces);
-        update_links<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls.d_X, links.d_cell_id, links.d_state);
+        update_links<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls.d_X, links.d_link, links.d_state);
         output.write_positions(bolls);
         output.write_protrusions(links);
         output.write_type(cell_type);

@@ -195,5 +195,5 @@ void VtkOutput::write_protrusions(Protrusions<N_LINKS_MAX>& links, int n_links) 
 
     file << "\nLINES " << n_links << " " << 3*n_links << "\n";
     for (auto i = 0; i < n_links; i++)
-        file << "2 " << links.h_cell_id[i].a << " " << links.h_cell_id[i].b << "\n";
+        file << "2 " << links.h_link[i].a << " " << links.h_link[i].b << "\n";
 }
