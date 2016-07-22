@@ -74,32 +74,30 @@ __device__ auto d_count_neighbours = &count_neighbours;
 auto h_count_neighbours = get_device_object(d_count_neighbours, 0);
 
 
-__global__ void update_links(const int* __restrict__ d_cell_id,
-        const int* __restrict__ d_cube_id, const int* __restrict__ d_cube_start,
-        const int* __restrict__ d_cube_end, const lbcell* __restrict d_X, Link* d_cell_ids,
-        curandState* d_state) {
+__global__ void update_links(const Lattice<N_MAX>* __restrict__ d_lattice,
+        const lbcell* __restrict d_X, Link* d_cell_ids, curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= d_n_cells*LINKS_P_CELL) return;
 
     auto j = static_cast<int>(curand_uniform(&d_state[i])*d_n_cells);
-    auto rand_cube = d_cube_id[j]
+    auto rand_cube = d_lattice->d_cube_id[j]
         +  static_cast<int>(curand_uniform(&d_state[i])*3) - 1
         + (static_cast<int>(curand_uniform(&d_state[i])*3) - 1)*LATTICE_SIZE
         + (static_cast<int>(curand_uniform(&d_state[i])*3) - 1)*LATTICE_SIZE*LATTICE_SIZE;
-    auto cells_in_cube = d_cube_end[rand_cube] - d_cube_start[rand_cube];
+    auto cells_in_cube = d_lattice->d_cube_end[rand_cube] - d_lattice->d_cube_start[rand_cube];
     if (cells_in_cube < 1) return;
 
-    auto k = d_cube_start[rand_cube]
+    auto k = d_lattice->d_cube_start[rand_cube]
         + static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube);
-    auto r = d_X[d_cell_id[j]] - d_X[d_cell_id[k]];
+    auto r = d_X[d_lattice->d_cell_id[j]] - d_X[d_lattice->d_cell_id[k]];
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if ((j != k) and (cell_type[d_cell_id[j]] == MESENCHYME)
-            and (cell_type[d_cell_id[k]] == MESENCHYME)
+    if ((j != k) and (cell_type[d_lattice->d_cell_id[j]] == MESENCHYME)
+            and (cell_type[d_lattice->d_cell_id[k]] == MESENCHYME)
             and (dist < R_LINK)
-            and (fabs(r.w/(d_X[d_cell_id[j]].w + d_X[d_cell_id[k]].w)) > 0.2)) {
+            and (fabs(r.w/(d_X[d_lattice->d_cell_id[j]].w + d_X[d_lattice->d_cell_id[k]].w)) > 0.2)) {
             // and (fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
-        d_cell_ids[i].a = d_cell_id[j];
-        d_cell_ids[i].b = d_cell_id[k];
+        d_cell_ids[i].a = d_lattice->d_cell_id[j];
+        d_cell_ids[i].b = d_lattice->d_cell_id[k];
     }
 }
 
@@ -191,8 +189,7 @@ int main(int argc, char const *argv[]) {
         proliferate<<<(n_cells + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X, links.d_state);
         n_cells = get_device_object(d_n_cells);
         bolls.build_lattice(n_cells, R_LINK);
-        update_links<<<(n_cells*LINKS_P_CELL + 32 - 1)/32, 32>>>(bolls.d_cell_id,
-            bolls.d_cube_id, bolls.d_cube_start, bolls.d_cube_end, bolls.d_X,
+        update_links<<<(n_cells*LINKS_P_CELL + 32 - 1)/32, 32>>>(bolls.d_lattice, bolls.d_X,
             links.d_cell_id, links.d_state);
     }
 

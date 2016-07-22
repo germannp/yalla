@@ -144,9 +144,21 @@ const auto CUBE_SIZE = 1.f;
 const auto LATTICE_SIZE = 50u;
 const auto N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
-template<typename Pt, int N_MAX>class LatticeSolver {
+template<int N_MAX>struct Lattice {
 public:
     int *d_cube_id, *d_cell_id, *d_cube_start, *d_cube_end;
+    Lattice() {
+        cudaMalloc(&d_cube_id, N_MAX*sizeof(int));
+        cudaMalloc(&d_cell_id, N_MAX*sizeof(int));
+        cudaMalloc(&d_cube_start, N_CUBES*sizeof(int));
+        cudaMalloc(&d_cube_end, N_CUBES*sizeof(int));
+    }
+};
+
+template<typename Pt, int N_MAX>class LatticeSolver {
+public:
+    Lattice<N_MAX> lattice;
+    Lattice<N_MAX> *d_lattice;
     void build_lattice(int n_cells, float cube_size) {
         build_lattice(n_cells, d_X, cube_size);
     };
@@ -154,26 +166,24 @@ protected:
     Pt *h_X = (Pt*)malloc(N_MAX*sizeof(Pt));
     Pt *d_X, *d_dX, *d_X1, *d_dX1;
     LatticeSolver() {
-        cudaMalloc(&d_cube_id, N_MAX*sizeof(int));
-        cudaMalloc(&d_cell_id, N_MAX*sizeof(int));
-        cudaMalloc(&d_cube_start, N_CUBES*sizeof(int));
-        cudaMalloc(&d_cube_end, N_CUBES*sizeof(int));
-
         cudaMalloc(&d_X, N_MAX*sizeof(Pt));
         cudaMalloc(&d_dX, N_MAX*sizeof(Pt));
         cudaMalloc(&d_X1, N_MAX*sizeof(Pt));
         cudaMalloc(&d_dX1, N_MAX*sizeof(Pt));
+
+        cudaMalloc(&d_lattice, sizeof(Lattice<N_MAX>));
+        cudaMemcpy(d_lattice, &lattice, sizeof(Lattice<N_MAX>), cudaMemcpyHostToDevice);
     }
-    void build_lattice(int n_cells, const Pt* __restrict__ d_X, float cube_size = CUBE_SIZE);
     void step(float delta_t, d_PairwiseInteraction<Pt> d_pwint, GenericForces<Pt> genforce,
         int n_cells);
+    void build_lattice(int n_cells, const Pt* __restrict__ d_X, float cube_size = CUBE_SIZE);
 };
 
 
 // Build lattice
-template<typename Pt>
+template<typename Pt, int N_MAX>
 __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ d_X,
-        int* d_cube_id, int* d_cell_id, float cube_size) {
+        Lattice<N_MAX>* d_lattice, float cube_size) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
@@ -183,49 +193,46 @@ __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ d_X,
         (floor(d_X[i].z/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE*LATTICE_SIZE);
     assert(id >= 0);
     assert(id <= N_CUBES);
-    d_cube_id[i] = id;
-    d_cell_id[i] = i;
+    d_lattice->d_cube_id[i] = id;
+    d_lattice->d_cell_id[i] = i;
 }
 
-__global__ void compute_cube_start_and_end(int n_cells, const int* __restrict__ d_cube_id,
-        int* d_cube_start, int* d_cube_end) {
+template<int N_MAX>
+__global__ void compute_cube_start_and_end(int n_cells, Lattice<N_MAX>* d_lattice) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
-    auto cube = d_cube_id[i];
-    auto prev = i > 0 ? d_cube_id[i - 1] : -1;
-    if (cube != prev) d_cube_start[cube] = i;
-    auto next = i < n_cells ? d_cube_id[i + 1] : d_cube_id[i] + 1;
-    if (cube != next) d_cube_end[cube] = i;
+    auto cube = d_lattice->d_cube_id[i];
+    auto prev = i > 0 ? d_lattice->d_cube_id[i - 1] : -1;
+    if (cube != prev) d_lattice->d_cube_start[cube] = i;
+    auto next = i < n_cells ? d_lattice->d_cube_id[i + 1] : d_lattice->d_cube_id[i] + 1;
+    if (cube != next) d_lattice->d_cube_end[cube] = i;
 }
 
 template<typename Pt, int N_MAX>
 void LatticeSolver<Pt, N_MAX>::build_lattice(int n_cells, const Pt* __restrict__ d_X,
         float cube_size) {
     assert(n_cells <= N_MAX);
-    compute_cube_ids<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, d_X, d_cube_id, d_cell_id,
-        cube_size);
-    thrust::fill(thrust::device, d_cube_start, d_cube_start + N_CUBES, -1);
-    thrust::fill(thrust::device, d_cube_end, d_cube_end + N_CUBES, -2);
-    thrust::sort_by_key(thrust::device, d_cube_id, d_cube_id + n_cells, d_cell_id);
-    compute_cube_start_and_end<<<(n_cells + 32 - 1)/32, 32>>>(n_cells,
-        d_cube_id, d_cube_start, d_cube_end);
+    compute_cube_ids<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, d_X, d_lattice, cube_size);
+    thrust::fill(thrust::device, lattice.d_cube_start, lattice.d_cube_start + N_CUBES, -1);
+    thrust::fill(thrust::device, lattice.d_cube_end, lattice.d_cube_end + N_CUBES, -2);
+    thrust::sort_by_key(thrust::device, lattice.d_cube_id, lattice.d_cube_id + n_cells,
+        lattice.d_cell_id);
+    compute_cube_start_and_end<<<(n_cells + 32 - 1)/32, 32>>>(n_cells, d_lattice);
 }
 
 
 // Integration
-template<typename Pt>
+template<typename Pt, int N_MAX>
 __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
-        const int* __restrict__ d_cell_id, const int* __restrict__ d_cube_id,
-        const int* __restrict__ d_cube_start, const int* __restrict__ d_cube_end,
-        d_PairwiseInteraction<Pt> d_pwint) {
+        const Lattice<N_MAX>* __restrict__ d_lattice, d_PairwiseInteraction<Pt> d_pwint) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
     int interacting_cubes[27];
-    interacting_cubes[0] = d_cube_id[i] - 1;
-    interacting_cubes[1] = d_cube_id[i];
-    interacting_cubes[2] = d_cube_id[i] + 1;
+    interacting_cubes[0] = d_lattice->d_cube_id[i] - 1;
+    interacting_cubes[1] = d_lattice->d_cube_id[i];
+    interacting_cubes[2] = d_lattice->d_cube_id[i] + 1;
     for (auto j = 0; j < 3; j++) {
         interacting_cubes[j + 3] = interacting_cubes[j % 3] - LATTICE_SIZE;
         interacting_cubes[j + 6] = interacting_cubes[j % 3] + LATTICE_SIZE;
@@ -235,16 +242,16 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ d_X, Pt
         interacting_cubes[j + 18] = interacting_cubes[j % 9] + LATTICE_SIZE*LATTICE_SIZE;
     }
 
-    auto Xi = d_X[d_cell_id[i]];
+    auto Xi = d_X[d_lattice->d_cell_id[i]];
     Pt F {0};
     for (auto j = 0; j < 27; j++) {
         auto cube = interacting_cubes[j];
-        for (auto k = d_cube_start[cube]; k <= d_cube_end[cube]; k++) {
-            auto Xj = d_X[d_cell_id[k]];
-            F += d_pwint(Xi, Xj, d_cell_id[i], d_cell_id[k]);
+        for (auto k = d_lattice->d_cube_start[cube]; k <= d_lattice->d_cube_end[cube]; k++) {
+            auto Xj = d_X[d_lattice->d_cell_id[k]];
+            F += d_pwint(Xi, Xj, d_lattice->d_cell_id[i], d_lattice->d_cell_id[k]);
         }
     }
-    d_dX[d_cell_id[i]] = F;
+    d_dX[d_lattice->d_cell_id[i]] = F;
 }
 
 template<typename Pt, int N_MAX>
@@ -254,15 +261,13 @@ void LatticeSolver<Pt, N_MAX>::step(float delta_t, d_PairwiseInteraction<Pt> d_p
 
     // 1st step
     build_lattice(n_cells, d_X);
-    calculate_lattice_dX<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, d_X, d_dX,
-        d_cell_id, d_cube_id, d_cube_start, d_cube_end, d_pwint);
+    calculate_lattice_dX<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, d_X, d_dX, d_lattice, d_pwint);
     genforce(d_X, d_dX);
     euler_step<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, delta_t, d_X, d_X1, d_dX);
 
     // 2nd step
     build_lattice(n_cells, d_X1);
-    calculate_lattice_dX<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, d_X1, d_dX1,
-        d_cell_id, d_cube_id, d_cube_start, d_cube_end, d_pwint);
+    calculate_lattice_dX<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, d_X1, d_dX1, d_lattice, d_pwint);
     genforce(d_X1, d_dX1);
     heun_step<<<(n_cells + 64 - 1)/64, 64>>>(n_cells, delta_t, d_X, d_dX, d_dX1);
 }

@@ -149,20 +149,22 @@ const char* test_generic_forces() {
 }
 
 
-__global__ void single_lattice(const int* __restrict__ d_cube_id) {
+template<int N_MAX>
+__global__ void single_lattice(const Lattice<N_MAX>* __restrict__ d_lattice) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= 1000) return;
 
     auto expected_cube = pow(LATTICE_SIZE, 3)/2 + pow(LATTICE_SIZE, 2)/2 + LATTICE_SIZE/2
         + i%10 + (i%100/10)*LATTICE_SIZE + (i/100)*LATTICE_SIZE*LATTICE_SIZE;
-    assert(d_cube_id[i] == expected_cube);
+    assert(d_lattice->d_cube_id[i] == expected_cube);
 }
 
-__global__ void double_lattice(const int* __restrict__ d_cube_id) {
+template<int N_MAX>
+__global__ void double_lattice(const Lattice<N_MAX>* __restrict__ d_lattice) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= 1000 - 8) return;
 
-    assert(d_cube_id[i] == d_cube_id[i - i%8]);
+    assert(d_lattice->d_cube_id[i] == d_lattice->d_cube_id[i - i%8]);
 }
 
 const char* test_lattice_spacing() {
@@ -178,10 +180,10 @@ const char* test_lattice_spacing() {
     latt.memcpyHostToDevice();
 
     latt.build_lattice(1000, 1);
-    single_lattice<<<256, 4>>>(latt.d_cube_id);
+    single_lattice<<<256, 4>>>(latt.d_lattice);
 
     latt.build_lattice(1000, 2);
-    double_lattice<<<256, 4>>>(latt.d_cube_id);
+    double_lattice<<<256, 4>>>(latt.d_lattice);
     cudaDeviceSynchronize();  // Wait for device to exit
 
     return NULL;
