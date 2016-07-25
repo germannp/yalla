@@ -158,7 +158,7 @@ __global__ void single_lattice(const Lattice<N_MAX>* __restrict__ d_lattice) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= 1000) return;
 
-    auto expected_cube = pow(LATTICE_SIZE, 3)/2 + pow(LATTICE_SIZE, 2)/2 + LATTICE_SIZE/2
+    auto expected_cube = powf(LATTICE_SIZE, 3)/2 + powf(LATTICE_SIZE, 2)/2 + LATTICE_SIZE/2
         + i%10 + (i%100/10)*LATTICE_SIZE + (i/100)*LATTICE_SIZE*LATTICE_SIZE;
     assert(d_lattice->d_cube_id[i] == expected_cube);
 }
