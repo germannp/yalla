@@ -29,7 +29,7 @@ const char* test_n2n_tetrahedron() {
     uniform_sphere(L_0, n2n);
     auto com_i = center_of_mass(n2n);
     for (auto i = 0; i < 500; i++) {
-        n2n.step(0.1, h_spring, 4);
+        n2n.step(0.1, h_spring);
     }
 
     n2n.memcpyDeviceToHost();
@@ -52,7 +52,7 @@ const char* test_latt_tetrahedron() {
     uniform_sphere(L_0, latt);
     auto com_i = center_of_mass(latt);
     for (auto i = 0; i < 500; i++) {
-        latt.step(0.1, h_spring, 4);
+        latt.step(0.1, h_spring);
     }
 
     latt.memcpyDeviceToHost();
@@ -183,10 +183,10 @@ const char* test_lattice_spacing() {
     }
     latt.memcpyHostToDevice();
 
-    latt.build_lattice(1000, 1);
+    latt.build_lattice(1);
     single_lattice<<<256, 4>>>(latt.d_lattice);
 
-    latt.build_lattice(1000, 2);
+    latt.build_lattice(2);
     double_lattice<<<256, 4>>>(latt.d_lattice);
     cudaDeviceSynchronize();  // Wait for device to exit
 

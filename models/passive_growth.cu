@@ -99,18 +99,18 @@ int main(int argc, char const *argv[]) {
     // Prepare initial state
     bolls.set_n(200);
     uniform_sphere(MEAN_DIST, bolls);
-    for (auto i = 0; i < *bolls.h_n; i++) cell_type[i] = MESENCHYME;
+    for (auto i = 0; i < bolls.get_n(); i++) cell_type[i] = MESENCHYME;
     setup_rand_states<<<(N_MAX + 128 - 1)/128, 128>>>();
 
     // Relax
     for (auto time_step = 0; time_step <= 500; time_step++) {
-        reset_n_neighbrs<<<(*bolls.h_n + 128 - 1)/128, 128>>>(*bolls.h_n);
+        reset_n_neighbrs<<<(bolls.get_n() + 128 - 1)/128, 128>>>(bolls.get_n());
         bolls.step(DELTA_T, h_cubic_w_polarity);
     }
 
     // Find epithelium
     bolls.memcpyDeviceToHost();
-    for (auto i = 0; i < *bolls.h_n; i++) {
+    for (auto i = 0; i < bolls.get_n(); i++) {
         if (n_mes_neighbrs[i] < 12*2) {  // 2nd order solver
             cell_type[i] = EPITHELIUM;
             auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x + bolls.h_X[i].y*bolls.h_X[i].y
@@ -128,12 +128,12 @@ int main(int argc, char const *argv[]) {
     VtkOutput sim_output("passive_growth");
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
-        sim_output.write_positions(bolls, *bolls.h_n);
-        sim_output.write_type(cell_type, *bolls.h_n);
-        sim_output.write_polarity(bolls, *bolls.h_n);
-        reset_n_neighbrs<<<(*bolls.h_n + 128 - 1)/128, 128>>>(*bolls.h_n);
+        sim_output.write_positions(bolls);
+        sim_output.write_type(cell_type);
+        sim_output.write_polarity(bolls);
+        reset_n_neighbrs<<<(bolls.get_n() + 128 - 1)/128, 128>>>(bolls.get_n());
         bolls.step(DELTA_T, h_cubic_w_polarity);
-        proliferate<<<(*bolls.h_n + 128 - 1)/128, 128>>>(RATE*(time_step > 100),
+        proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(RATE*(time_step > 100),
             MEAN_DIST, bolls.d_X, bolls.d_n);
     }
 

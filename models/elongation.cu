@@ -19,8 +19,6 @@ const auto N_TIME_STEPS = 500;
 const auto DELTA_T = 0.2;
 enum CELL_TYPES {MESENCHYME, STRETCHED_EPI, EPITHELIUM};
 
-int n_cells;
-__device__ auto d_n_cells = 5000;
 __device__ __managed__ CELL_TYPES cell_type[N_MAX];
 
 
@@ -75,11 +73,11 @@ auto h_count_neighbours = get_device_object(d_count_neighbours, 0);
 
 
 __global__ void update_links(const Lattice<N_MAX>* __restrict__ d_lattice,
-        const lbcell* __restrict d_X, Link* d_link, curandState* d_state) {
+        const lbcell* __restrict d_X, int n_cells, Link* d_link, curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= d_n_cells*LINKS_P_CELL) return;
+    if (i >= n_cells*LINKS_P_CELL) return;
 
-    auto j = static_cast<int>(curand_uniform(&d_state[i])*d_n_cells);
+    auto j = static_cast<int>(curand_uniform(&d_state[i])*n_cells);
     auto rand_cube = d_lattice->d_cube_id[j]
         +  static_cast<int>(curand_uniform(&d_state[i])*3) - 1
         + (static_cast<int>(curand_uniform(&d_state[i])*3) - 1)*LATTICE_SIZE
@@ -102,15 +100,16 @@ __global__ void update_links(const Lattice<N_MAX>* __restrict__ d_lattice,
 }
 
 void intercalation(const lbcell* __restrict__ d_X, lbcell* d_dX) {
-    link_force<<<(n_cells*LINKS_P_CELL + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link,
-        n_cells*LINKS_P_CELL, 0.5);
+    link_force<<<(bolls.get_n()*LINKS_P_CELL + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link,
+        bolls.get_n()*LINKS_P_CELL, 0.5);
 }
 
 
-__global__ void proliferate(float rate, float mean_distance, lbcell* d_X, curandState* d_state) {
-    assert(rate*d_n_cells <= N_MAX);
+__global__ void proliferate(float rate, float mean_distance, lbcell* d_X, int* d_n_cells,
+        curandState* d_state) {
+    assert(rate* *d_n_cells <= N_MAX);
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= d_n_cells) return;
+    if (i >= *d_n_cells) return;
 
     if (cell_type[i] == EPITHELIUM) {
         cell_type[i] = STRETCHED_EPI;
@@ -122,7 +121,7 @@ __global__ void proliferate(float rate, float mean_distance, lbcell* d_X, curand
         if (r > rate) return;
     }
 
-    auto n = atomicAdd(&d_n_cells, 1);
+    auto n = atomicAdd(d_n_cells, 1);
     auto phi = curand_uniform(&d_state[i])*M_PI;
     auto theta = curand_uniform(&d_state[i])*2*M_PI;
     d_X[n].x = d_X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
@@ -138,9 +137,9 @@ __global__ void proliferate(float rate, float mean_distance, lbcell* d_X, curand
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    n_cells = get_device_object(d_n_cells);
-    uniform_sphere(0.733333, bolls, n_cells);
-    for (auto i = 0; i < n_cells; i++) {
+    bolls.set_n(5000);
+    uniform_sphere(0.733333, bolls);
+    for (auto i = 0; i < bolls.get_n(); i++) {
         bolls.h_X[i].x = fabs(bolls.h_X[i].x);
         bolls.h_X[i].y = bolls.h_X[i].y/1.5;
         bolls.h_X[i].w = 0;
@@ -151,15 +150,15 @@ int main(int argc, char const *argv[]) {
     // Relax
     VtkOutput relax_output("relaxation");
     for (auto time_step = 0; time_step <= 200; time_step++) {
-        bolls.step(DELTA_T, h_cubic_w_diffusion, n_cells);
+        bolls.step(DELTA_T, h_cubic_w_diffusion);
         relax_output.print_progress();
     }
     relax_output.print_done();
 
     // Find epithelium
-    bolls.step(1, h_count_neighbours, n_cells);
+    bolls.step(1, h_count_neighbours);
     bolls.memcpyDeviceToHost();
-    for (auto i = 0; i < n_cells; i++) {
+    for (auto i = 0; i < bolls.get_n(); i++) {
         if (bolls.h_X[i].w < 12 and bolls.h_X[i].x > 0) {
             cell_type[i] = STRETCHED_EPI;
             auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x
@@ -179,18 +178,18 @@ int main(int argc, char const *argv[]) {
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
         links.memcpyDeviceToHost();
-        sim_output.write_positions(bolls, n_cells);
-        sim_output.write_protrusions(links, n_cells*LINKS_P_CELL);
-        sim_output.write_type(cell_type, n_cells);
-        // sim_output.write_polarity(bolls, n_cells);
-        sim_output.write_field(bolls, n_cells, "Wnt");
+        sim_output.write_positions(bolls);
+        sim_output.write_protrusions(links, bolls.get_n()*LINKS_P_CELL);
+        sim_output.write_type(cell_type);
+        // sim_output.write_polarity(bolls);
+        sim_output.write_field(bolls, "Wnt");
 
-        bolls.step(DELTA_T, h_cubic_w_diffusion, intercalation, n_cells);
-        proliferate<<<(n_cells + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X, links.d_state);
-        n_cells = get_device_object(d_n_cells);
-        bolls.build_lattice(n_cells, R_LINK);
-        update_links<<<(n_cells*LINKS_P_CELL + 32 - 1)/32, 32>>>(bolls.d_lattice, bolls.d_X,
-            links.d_link, links.d_state);
+        bolls.step(DELTA_T, h_cubic_w_diffusion, intercalation);
+        proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X, bolls.d_n,
+            links.d_state);
+        bolls.build_lattice(R_LINK);
+        update_links<<<(bolls.get_n()*LINKS_P_CELL + 32 - 1)/32, 32>>>(bolls.d_lattice, bolls.d_X,
+            bolls.get_n(), links.d_link, links.d_state);
     }
 
     return 0;

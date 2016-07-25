@@ -25,18 +25,19 @@ public:
     void print_progress();
     void print_done();
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
-    void write_positions(Solution<Pt, N_MAX, Solver>& bolls, int n_cells = N_MAX);
+    void write_positions(Solution<Pt, N_MAX, Solver>& bolls);
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
-    void write_field(Solution<Pt, N_MAX, Solver>& bolls, int n_cells = N_MAX,
+    void write_field(Solution<Pt, N_MAX, Solver>& bolls,
         const char* data_name = "w", float Pt::*field = &Pt::w);
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
-    void write_polarity(Solution<Pt, N_MAX, Solver>& bolls, int n_cells = N_MAX);
+    void write_polarity(Solution<Pt, N_MAX, Solver>& bolls);
     template<typename TYPES, int N_MAX>
-    void write_type(TYPES (&type)[N_MAX], int n_cells = N_MAX);
+    void write_type(TYPES (&type)[N_MAX]);
     template<int N_LINKS_MAX>
     void write_protrusions(Protrusions<N_LINKS_MAX>& links, int n_links = N_LINKS_MAX);
 
 protected:
+    int mN_cells;
     int mN_TIME_STEPS;
     int mSKIP_STEPS;
     int mTimeStep = -1;
@@ -97,11 +98,14 @@ void VtkOutput::print_done() {
     mDone = true;
 }
 
+
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& bolls, int n_cells) {
-    assert(n_cells <= N_MAX);
+void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& bolls) {
     print_progress();
     if (!mWrite) return;
+
+    mN_cells = bolls.get_n();
+    assert(mN_cells <= N_MAX);
 
     mCurrentFile = "output/" + mBASE_NAME + "_" + std::to_string(mTimeStep/mSKIP_STEPS)
         + ".vtk";
@@ -113,50 +117,48 @@ void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& bolls, int n_cells)
     file << "ASCII\n";
     file << "DATASET POLYDATA\n";
 
-    file << "\nPOINTS " << n_cells << " float\n";
-    for (auto i = 0; i < n_cells; i++)
+    file << "\nPOINTS " << mN_cells << " float\n";
+    for (auto i = 0; i < mN_cells; i++)
         file << bolls.h_X[i].x << " " << bolls.h_X[i].y << " " << bolls.h_X[i].z << "\n";
 
-    file << "\nVERTICES " << n_cells << " " << 2*n_cells << "\n";
-    for (auto i = 0; i < n_cells; i++)
+    file << "\nVERTICES " << mN_cells << " " << 2*mN_cells << "\n";
+    for (auto i = 0; i < mN_cells; i++)
         file << "1 " << i << "\n";
 }
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void VtkOutput::write_field(Solution<Pt, N_MAX, Solver>& bolls, int n_cells,
+void VtkOutput::write_field(Solution<Pt, N_MAX, Solver>& bolls,
         const char* data_name, float Pt::*field) {
     if (!mWrite) return;
-
-    assert(n_cells <= N_MAX);
 
     std::ofstream file(mCurrentFile, std::ios_base::app);
     assert(file.is_open());
 
+    auto mN_cells = bolls.get_n();
     if (!mPDataStarted) {
-        file << "\nPOINT_DATA " << n_cells << "\n";
+        file << "\nPOINT_DATA " << mN_cells << "\n";
         mPDataStarted = true;
     }
     file << "SCALARS " << data_name << " float\n";
     file << "LOOKUP_TABLE default\n";
-    for (auto i = 0; i < n_cells; i++)
+    for (auto i = 0; i < mN_cells; i++)
         file << bolls.h_X[i].*field << "\n";
 }
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& bolls, int n_cells) {
+void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& bolls) {
     if (!mWrite) return;
-
-    assert(n_cells <= N_MAX);
 
     std::ofstream file(mCurrentFile, std::ios_base::app);
     assert(file.is_open());
 
+    auto mN_cells = bolls.get_n();
     if (!mPDataStarted) {
-        file << "\nPOINT_DATA " << n_cells << "\n";
+        file << "\nPOINT_DATA " << mN_cells << "\n";
         mPDataStarted = true;
     }
     file << "NORMALS polarity float\n";
-    for (auto i = 0; i < n_cells; i++) {
+    for (auto i = 0; i < mN_cells; i++) {
         float3 n {0};
         if ((bolls.h_X[i].phi != 0) and (bolls.h_X[i].theta != 0)) {
             n.x = sinf(bolls.h_X[i].theta)*cosf(bolls.h_X[i].phi);
@@ -168,19 +170,19 @@ void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& bolls, int n_cells) 
 }
 
 template<typename TYPES, int N_MAX>
-void VtkOutput::write_type(TYPES (&type)[N_MAX], int n_cells) {
+void VtkOutput::write_type(TYPES (&type)[N_MAX]) {
     if (!mWrite) return;
 
     std::ofstream file(mCurrentFile, std::ios_base::app);
     assert(file.is_open());
 
     if (!mPDataStarted) {
-        file << "\nPOINT_DATA " << n_cells << "\n";
+        file << "\nPOINT_DATA " << mN_cells << "\n";
         mPDataStarted = true;
     }
     file << "SCALARS cell_type int\n";
     file << "LOOKUP_TABLE default\n";
-    for (auto i = 0; i < n_cells; i++)
+    for (auto i = 0; i < mN_cells; i++)
         file << type[i] << "\n";
 }
 

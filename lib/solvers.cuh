@@ -32,29 +32,32 @@ template<typename T> T get_device_object(const T& on_device, cudaStream_t stream
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution: public Solver<Pt, N_MAX> {
 public:
-    Pt *h_X = Solver<Pt, N_MAX>::h_X;  // The current solution
+    Pt *h_X = Solver<Pt, N_MAX>::h_X;   // The current solution
     Pt *d_X = Solver<Pt, N_MAX>::d_X;
-    int *h_n = Solver<Pt, N_MAX>::h_n;  // The current number of cells
-    int *d_n = Solver<Pt, N_MAX>::d_n;
+    int *d_n = Solver<Pt, N_MAX>::d_n;  // The number of bolls
+    void set_n(int n) {
+        assert(n <= N_MAX);
+        *Solver<Pt, N_MAX>::h_n = n;
+        cudaMemcpy(Solver<Pt, N_MAX>::d_n, Solver<Pt, N_MAX>::h_n, sizeof(int),
+        cudaMemcpyHostToDevice);
+    }
+    int get_n() {
+        return *Solver<Pt, N_MAX>::h_n;
+    }
     void memcpyHostToDevice() {
         cudaMemcpy(d_X, h_X, N_MAX*sizeof(Pt), cudaMemcpyHostToDevice);
-        cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice);
+        cudaMemcpy(Solver<Pt, N_MAX>::d_n, Solver<Pt, N_MAX>::h_n, sizeof(int),
+            cudaMemcpyHostToDevice);
     }
     void memcpyDeviceToHost() {
         cudaMemcpy(h_X, d_X, N_MAX*sizeof(Pt), cudaMemcpyDeviceToHost);
-        cudaMemcpy(h_n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
-        assert(*h_n <= N_MAX);
-    }
-    void set_n(int n) {
-        assert(n <= N_MAX);
-        *h_n = n;
-        cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice);
+        cudaMemcpy(Solver<Pt, N_MAX>::h_n, Solver<Pt, N_MAX>::d_n, sizeof(int),
+            cudaMemcpyDeviceToHost);
     }
     void step(float delta_t, d_PairwiseInteraction<Pt> d_pwint) {
         return Solver<Pt, N_MAX>::step(delta_t, d_pwint, none<Pt>);
     }
     void step(float delta_t, d_PairwiseInteraction<Pt> d_pwint, GenericForces<Pt> genforce) {
-        // assert(n_cells <= N_MAX);
         return Solver<Pt, N_MAX>::step(delta_t, d_pwint, genforce);
     }
 };
@@ -88,7 +91,7 @@ template<typename Pt, int N_MAX>class N2nSolver {
 protected:
     Pt *h_X = (Pt*)malloc(N_MAX*sizeof(Pt));
     Pt *d_X, *d_dX, *d_X1, *d_dX1;
-    int h_n N_MAX;
+    int *h_n = (int*)malloc(sizeof(int));
     int *d_n;
     N2nSolver() {
         cudaMalloc(&d_X, N_MAX*sizeof(Pt));
@@ -96,6 +99,7 @@ protected:
         cudaMalloc(&d_X1, N_MAX*sizeof(Pt));
         cudaMalloc(&d_dX1, N_MAX*sizeof(Pt));
 
+        *h_n = N_MAX;
         cudaMalloc(&d_n, sizeof(int));
         cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice);
     }
@@ -169,8 +173,8 @@ template<typename Pt, int N_MAX>class LatticeSolver {
 public:
     Lattice<N_MAX> lattice;
     Lattice<N_MAX> *d_lattice;
-    void build_lattice(int n_cells, float cube_size) {
-        build_lattice(n_cells, d_X, cube_size);
+    void build_lattice(float cube_size) {
+        build_lattice(d_X, cube_size);
     };
 protected:
     Pt *h_X = (Pt*)malloc(N_MAX*sizeof(Pt));
