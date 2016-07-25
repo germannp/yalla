@@ -25,16 +25,15 @@ template<typename T> T get_device_object(const T& on_device, cudaStream_t stream
 }
 
 
-// Solution<Pt, N_MAX, Solver> combines a method Solver with a point type Pt. It provides
-// pointers h_X and d_X to the current solution, methods to copy the solution from host to
-// device and vice versa, and a method step() to calculate the next solution. All the
-// action is happening in the solver class.
+// Solution<Pt, N_MAX, Solver> combines a method Solver with a point type Pt.
+// It specfies how solutions can be accessed and new steps calculated. All the action
+// is happening in the Solver classes.
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution: public Solver<Pt, N_MAX> {
 public:
-    Pt *h_X = Solver<Pt, N_MAX>::h_X;   // The current solution
-    Pt *d_X = Solver<Pt, N_MAX>::d_X;
-    int *d_n = Solver<Pt, N_MAX>::d_n;  // The number of bolls
+    Pt *h_X = Solver<Pt, N_MAX>::h_X;   // Current solution on host
+    Pt *d_X = Solver<Pt, N_MAX>::d_X;   // Current solution on device (GPU)
+    int *d_n = Solver<Pt, N_MAX>::d_n;  // Number of bolls
     void set_n(int n) {
         assert(n <= N_MAX);
         *Solver<Pt, N_MAX>::h_n = n;
