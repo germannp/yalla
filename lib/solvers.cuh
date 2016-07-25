@@ -38,7 +38,7 @@ public:
         assert(n <= N_MAX);
         *Solver<Pt, N_MAX>::h_n = n;
         cudaMemcpy(Solver<Pt, N_MAX>::d_n, Solver<Pt, N_MAX>::h_n, sizeof(int),
-        cudaMemcpyHostToDevice);
+            cudaMemcpyHostToDevice);
     }
     int get_n() {
         return *Solver<Pt, N_MAX>::h_n;
