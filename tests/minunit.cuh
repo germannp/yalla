@@ -30,12 +30,12 @@ template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution;
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
-float3 center_of_mass(Solution<Pt, N_MAX, Solver>& bolls, int n_cells = N_MAX) {
+float3 center_of_mass(Solution<Pt, N_MAX, Solver>& bolls) {
     float3 com {0};
-    for (auto i = 0; i < n_cells; i++) {
-        com.x += bolls.h_X[i].x/n_cells;
-        com.y += bolls.h_X[i].y/n_cells;
-        com.z += bolls.h_X[i].z/n_cells;
+    for (auto i = 0; i < *bolls.h_n; i++) {
+        com.x += bolls.h_X[i].x/ *bolls.h_n;
+        com.y += bolls.h_X[i].y/ *bolls.h_n;
+        com.z += bolls.h_X[i].z/ *bolls.h_n;
     }
     return com;
 }

@@ -21,7 +21,6 @@ Solution<pocell, N_MAX, LatticeSolver> bolls;
 __device__ __managed__ CELL_TYPES cell_type[N_MAX];
 __device__ __managed__ int n_mes_neighbrs[N_MAX];
 __device__ __managed__ int n_epi_neighbrs[N_MAX];
-__device__ auto d_n_cells = 200u;
 __device__ curandState rand_states[N_MAX];
 
 
@@ -56,10 +55,10 @@ __device__ auto d_cubic_w_polarity = &cubic_w_polarity;
 auto h_cubic_w_polarity = get_device_object(d_cubic_w_polarity, 0);
 
 
-__global__ void reset_n_neighbrs() {  // TODO: Use thrust?
+__global__ void reset_n_neighbrs(int n_cells) {  // TODO: Use thrust?
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < d_n_cells) n_mes_neighbrs[i] = 0;
-    if (i < d_n_cells) n_epi_neighbrs[i] = 0;
+    if (i < n_cells) n_mes_neighbrs[i] = 0;
+    if (i < n_cells) n_epi_neighbrs[i] = 0;
 }
 
 __global__ void setup_rand_states() {
@@ -67,10 +66,10 @@ __global__ void setup_rand_states() {
     if (i < N_MAX) curand_init(1337, i, 0, &rand_states[i]);
 }
 
-__global__ void proliferate(float rate, float mean_distance, pocell* d_X) {
-    assert(rate*d_n_cells <= N_MAX);
+__global__ void proliferate(float rate, float mean_distance, pocell* d_X, int* n_cells) {
+    assert(rate* *n_cells <= N_MAX);
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= d_n_cells) return;
+    if (i >= *n_cells) return;
 
     switch (cell_type[i]) {
         case MESENCHYME: {
@@ -82,7 +81,7 @@ __global__ void proliferate(float rate, float mean_distance, pocell* d_X) {
         }
     }
 
-    auto n = atomicAdd(&d_n_cells, 1);
+    auto n = atomicAdd(n_cells, 1);
     auto phi = curand_uniform(&rand_states[i])*M_PI;
     auto theta = curand_uniform(&rand_states[i])*2*M_PI;
     d_X[n].x = d_X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
@@ -98,20 +97,20 @@ __global__ void proliferate(float rate, float mean_distance, pocell* d_X) {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    auto n_cells = get_device_object(d_n_cells);
-    uniform_sphere(MEAN_DIST, bolls, n_cells);
-    for (auto i = 0; i < n_cells; i++) cell_type[i] = MESENCHYME;
+    bolls.set_n(200);
+    uniform_sphere(MEAN_DIST, bolls);
+    for (auto i = 0; i < *bolls.h_n; i++) cell_type[i] = MESENCHYME;
     setup_rand_states<<<(N_MAX + 128 - 1)/128, 128>>>();
 
     // Relax
     for (auto time_step = 0; time_step <= 500; time_step++) {
-        reset_n_neighbrs<<<(n_cells + 128 - 1)/128, 128>>>();
-        bolls.step(DELTA_T, h_cubic_w_polarity, n_cells);
+        reset_n_neighbrs<<<(*bolls.h_n + 128 - 1)/128, 128>>>(*bolls.h_n);
+        bolls.step(DELTA_T, h_cubic_w_polarity);
     }
 
     // Find epithelium
     bolls.memcpyDeviceToHost();
-    for (auto i = 0; i < n_cells; i++) {
+    for (auto i = 0; i < *bolls.h_n; i++) {
         if (n_mes_neighbrs[i] < 12*2) {  // 2nd order solver
             cell_type[i] = EPITHELIUM;
             auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x + bolls.h_X[i].y*bolls.h_X[i].y
@@ -129,14 +128,13 @@ int main(int argc, char const *argv[]) {
     VtkOutput sim_output("passive_growth");
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
-        sim_output.write_positions(bolls, n_cells);
-        sim_output.write_type(cell_type, n_cells);
-        sim_output.write_polarity(bolls, n_cells);
-        reset_n_neighbrs<<<(n_cells + 128 - 1)/128, 128>>>();
-        bolls.step(DELTA_T, h_cubic_w_polarity, n_cells);
-        proliferate<<<(n_cells + 128 - 1)/128, 128>>>(RATE*(time_step > 100),
-            MEAN_DIST, bolls.d_X);
-        n_cells = get_device_object(d_n_cells);
+        sim_output.write_positions(bolls, *bolls.h_n);
+        sim_output.write_type(cell_type, *bolls.h_n);
+        sim_output.write_polarity(bolls, *bolls.h_n);
+        reset_n_neighbrs<<<(*bolls.h_n + 128 - 1)/128, 128>>>(*bolls.h_n);
+        bolls.step(DELTA_T, h_cubic_w_polarity);
+        proliferate<<<(*bolls.h_n + 128 - 1)/128, 128>>>(RATE*(time_step > 100),
+            MEAN_DIST, bolls.d_X, bolls.d_n);
     }
 
     return 0;

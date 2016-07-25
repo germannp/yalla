@@ -25,8 +25,9 @@ __device__ auto d_spring = &spring;
 auto h_spring = get_device_object(d_spring);
 
 const char* test_n2n_tetrahedron() {
-    uniform_sphere(L_0, n2n, 4);
-    auto com_i = center_of_mass(n2n, 4);
+    n2n.set_n(4);
+    uniform_sphere(L_0, n2n);
+    auto com_i = center_of_mass(n2n);
     for (auto i = 0; i < 500; i++) {
         n2n.step(0.1, h_spring, 4);
     }
@@ -38,7 +39,7 @@ const char* test_n2n_tetrahedron() {
         MU_ASSERT("Spring not relaxed in n2n tetrahedron", MU_ISCLOSE(dist, L_0));
     }
 
-    auto com_f = center_of_mass(n2n, 4);
+    auto com_f = center_of_mass(n2n);
     MU_ASSERT("Momentum in n2n tetrahedron", MU_ISCLOSE(com_i.x, com_f.x));
     MU_ASSERT("Momentum in n2n tetrahedron", MU_ISCLOSE(com_i.y, com_f.y));
     MU_ASSERT("Momentum in n2n tetrahedron", MU_ISCLOSE(com_i.z, com_f.z));
@@ -47,8 +48,9 @@ const char* test_n2n_tetrahedron() {
 }
 
 const char* test_latt_tetrahedron() {
-    uniform_sphere(L_0, latt, 4);
-    auto com_i = center_of_mass(latt, 4);
+    latt.set_n(4);
+    uniform_sphere(L_0, latt);
+    auto com_i = center_of_mass(latt);
     for (auto i = 0; i < 500; i++) {
         latt.step(0.1, h_spring, 4);
     }
@@ -61,7 +63,7 @@ const char* test_latt_tetrahedron() {
         MU_ASSERT("Spring not relaxed in lattice tetrahedron", MU_ISCLOSE(dist, L_0));
     }
 
-    auto com_f = center_of_mass(latt, 4);
+    auto com_f = center_of_mass(latt);
     MU_ASSERT("Momentum in lattice tetrahedron", MU_ISCLOSE(com_i.x, com_f.x));
     MU_ASSERT("Momentum in lattice tetrahedron", MU_ISCLOSE(com_i.y, com_f.y));
     MU_ASSERT("Momentum in lattice tetrahedron", MU_ISCLOSE(com_i.z, com_f.z));
@@ -85,6 +87,8 @@ __device__ auto d_cubic = &cubic;
 auto h_cubic = get_device_object(d_cubic, 0);
 
 const char* test_compare_methods() {
+    n2n.set_n(N_MAX);
+    latt.set_n(N_MAX);
     uniform_sphere(0.733333, n2n);
     for (auto i = 0; i < N_MAX; i++) {
         latt.h_X[i].x = n2n.h_X[i].x;
