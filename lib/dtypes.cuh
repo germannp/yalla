@@ -24,12 +24,12 @@ __device__ __host__ float4 operator*=(float4& a, const float b) {
 }
 
 
-// MAKE_DTYPE(Pt, ...) makes data type Pt with __VA_ARGS__ as members
+// MAKE_PT(Pt, ...) makes data type Pt with __VA_ARGS__ as members
 #define MEMBER(component) float component
 #define COMP_WISE_ADD(component) a.component += b.component
 #define COMP_WISE_MULTIPLY(component) a.component *= b
 
-#define MAKE_DTYPE(Pt, ...) \
+#define MAKE_PT(Pt, ...) \
 struct Pt { \
     MAP(MEMBER, __VA_ARGS__) \
     \
@@ -62,7 +62,7 @@ struct Pt { \
     _MAP3, _MAP2, _MAP1, _MAP0)(MACRO, __VA_ARGS__)
 
 // Polarized cell
-MAKE_DTYPE(pocell, x, y, z, phi, theta);
+MAKE_PT(pocell, x, y, z, phi, theta);
 
 
 // Generalize += and *= to +, -=, -, *, /= and /

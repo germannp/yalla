@@ -24,7 +24,7 @@ __device__ auto d_n_cells = 5000;
 __device__ __managed__ CELL_TYPES cell_type[N_MAX];
 
 
-MAKE_DTYPE(lbcell, x, y, z, w, phi, theta);
+MAKE_PT(lbcell, x, y, z, w, phi, theta);
 
 Solution<lbcell, N_MAX, LatticeSolver> bolls;
 Protrusions<static_cast<int>(N_MAX*LINKS_P_CELL)> links;

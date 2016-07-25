@@ -36,7 +36,7 @@ const char* test_float4() {
 }
 
 
-MAKE_DTYPE(myfloat3, x, y, z);
+MAKE_PT(myfloat3, x, y, z);
 
 const char* test_make_pt() {
     myfloat3 x {1, 2, 3};
