@@ -1,4 +1,5 @@
 // Biolerplate vector space over data type Pt
+#include <type_traits>
 
 
 // float3
@@ -66,48 +67,55 @@ MAKE_PT(pocell, x, y, z, phi, theta);
 
 
 // Generalize += and *= to +, -=, -, *, /= and /
-template<typename Pt>
-__device__ __host__ Pt operator+(const Pt& a, const Pt& b) {
+template<typename Pt> __device__ __host__
+typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+operator+(const Pt& a, const Pt& b) {
     auto sum = a;
     sum += b;
     return sum;
 }
 
-template<typename Pt>
-__device__ __host__ Pt operator-=(Pt& a, const Pt& b) {
+template<typename Pt> __device__ __host__
+typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+operator-=(Pt& a, const Pt& b) {
     a += -1*b;
     return a;
 }
 
-template<typename Pt>
-__device__ __host__ Pt operator-(const Pt& a, const Pt& b) {
+template<typename Pt> __device__ __host__
+typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+operator-(const Pt& a, const Pt& b) {
     auto diff = a;
     diff -= b;
     return diff;
 }
 
-template<typename Pt>
-__device__ __host__ Pt operator*(const Pt& a, const float b) {
+template<typename Pt> __device__ __host__
+typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+operator*(const Pt& a, const float b) {
     auto prod = a;
     prod *= b;
     return prod;
 }
 
-template<typename Pt>
-__device__ __host__ Pt operator*(const float b, const Pt& a) {
+template<typename Pt> __device__ __host__
+typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+operator*(const float b, const Pt& a) {
     auto prod = a;
     prod *= b;
     return prod;
 }
 
-template<typename Pt>
-__device__ __host__ Pt operator/=(Pt& a, const float b) {
+template<typename Pt> __device__ __host__
+typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+operator/=(Pt& a, const float b) {
     a *= 1./b;
     return a;
 }
 
-template<typename Pt>
-__device__ __host__ Pt operator/(const Pt& a, const float b) {
+template<typename Pt> __device__ __host__
+typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+operator/(const Pt& a, const float b) {
     auto quot = a;
     quot /= b;
     return quot;
