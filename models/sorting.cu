@@ -1,4 +1,4 @@
-// Simulate cell sorting
+// Simulate cell sorting by forces strength
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/solvers.cuh"
@@ -16,7 +16,6 @@ Solution<float3, N_CELLS, LatticeSolver> bolls;
 Property<N_CELLS> type;
 
 
-// Sorting by forces strength
 __device__ float3 cubic_sorting(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
     if (i == j) return dF;
