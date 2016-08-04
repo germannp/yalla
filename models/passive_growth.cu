@@ -1,6 +1,7 @@
 // Simulate growing mesenchyme envelopped by epithelium
 #include <assert.h>
 #include <curand_kernel.h>
+#include <thrust/fill.h>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
@@ -20,8 +21,8 @@ enum CELL_TYPES {MESENCHYME, EPITHELIUM};
 
 Solution<pocell, N_MAX, LatticeSolver> bolls;
 Property<N_MAX, CELL_TYPES> type;
-Property<N_MAX, int> n_mes_neighbrs;
-Property<N_MAX, int> n_epi_neighbrs;
+Property<N_MAX, int> n_mes_nbs;
+Property<N_MAX, int> n_epi_nbs;
 __device__ curandState rand_states[N_MAX];
 
 
@@ -59,12 +60,6 @@ __device__ pocell relu_w_polarity(pocell Xi, pocell Xj, int i, int j) {
 __device__ auto d_relu_w_polarity = &relu_w_polarity;
 auto h_relu_w_polarity = get_device_object(d_relu_w_polarity, 0);
 
-
-__global__ void reset_n_neighbrs(int n_cells) {  // TODO: Use thrust?
-    auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < n_cells) d_mes_nbs[i] = 0;
-    if (i < n_cells) d_epi_nbs[i] = 0;
-}
 
 __global__ void setup_rand_states() {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
@@ -107,21 +102,22 @@ int main(int argc, char const *argv[]) {
     for (auto i = 0; i < bolls.get_n(); i++) type.h_prop[i] = MESENCHYME;
     type.memcpyHostToDevice();
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
-    cudaMemcpyToSymbol(d_mes_nbs, &n_mes_neighbrs.d_prop, sizeof(d_mes_nbs));
-    cudaMemcpyToSymbol(d_epi_nbs, &n_epi_neighbrs.d_prop, sizeof(d_epi_nbs));
+    cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
+    cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
     setup_rand_states<<<(N_MAX + 128 - 1)/128, 128>>>();
 
     // Relax
     for (auto time_step = 0; time_step <= 500; time_step++) {
-        reset_n_neighbrs<<<(bolls.get_n() + 128 - 1)/128, 128>>>(bolls.get_n());
+        thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
+        thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_n(), 0);
         bolls.step(DELTA_T, h_relu_w_polarity);
     }
 
     // Find epithelium
     bolls.memcpyDeviceToHost();
-    n_mes_neighbrs.memcpyDeviceToHost();
+    n_mes_nbs.memcpyDeviceToHost();
     for (auto i = 0; i < bolls.get_n(); i++) {
-        if (n_mes_neighbrs.h_prop[i] < 12*2) {  // 2nd order solver
+        if (n_mes_nbs.h_prop[i] < 12*2) {  // 2nd order solver
             type.h_prop[i] = EPITHELIUM;
             auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x + bolls.h_X[i].y*bolls.h_X[i].y
                 + bolls.h_X[i].z*bolls.h_X[i].z);
@@ -140,13 +136,14 @@ int main(int argc, char const *argv[]) {
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
         type.memcpyDeviceToHost();
-        sim_output.write_positions(bolls);
-        sim_output.write_property(type);
-        sim_output.write_polarity(bolls);
-        reset_n_neighbrs<<<(bolls.get_n() + 128 - 1)/128, 128>>>(bolls.get_n());
+        thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
+        thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_n(), 0);
         bolls.step(DELTA_T, h_relu_w_polarity);
         proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(RATE*(time_step > 100),
             MEAN_DIST, bolls.d_X, bolls.d_n);
+        sim_output.write_positions(bolls);
+        sim_output.write_property(type);
+        sim_output.write_polarity(bolls);
     }
 
     return 0;
