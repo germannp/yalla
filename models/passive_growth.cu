@@ -29,7 +29,7 @@ __device__ CELL_TYPES* d_type;
 __device__ int* d_mes_nbs;
 __device__ int* d_epi_nbs;
 
-__device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {  // TODO: rename
+__device__ pocell relu_w_polarity(pocell Xi, pocell Xj, int i, int j) {  // TODO: rename
     pocell dF {0};
     if (i == j) return dF;
 
@@ -56,8 +56,8 @@ __device__ pocell cubic_w_polarity(pocell Xi, pocell Xj, int i, int j) {  // TOD
     return dF;
 }
 
-__device__ auto d_cubic_w_polarity = &cubic_w_polarity;
-auto h_cubic_w_polarity = get_device_object(d_cubic_w_polarity, 0);
+__device__ auto d_relu_w_polarity = &relu_w_polarity;
+auto h_relu_w_polarity = get_device_object(d_relu_w_polarity, 0);
 
 
 __global__ void reset_n_neighbrs(int n_cells) {  // TODO: Use thrust?
@@ -114,7 +114,7 @@ int main(int argc, char const *argv[]) {
     // Relax
     for (auto time_step = 0; time_step <= 500; time_step++) {
         reset_n_neighbrs<<<(bolls.get_n() + 128 - 1)/128, 128>>>(bolls.get_n());
-        bolls.step(DELTA_T, h_cubic_w_polarity);
+        bolls.step(DELTA_T, h_relu_w_polarity);
     }
 
     // Find epithelium
@@ -144,7 +144,7 @@ int main(int argc, char const *argv[]) {
         sim_output.write_property(type);
         sim_output.write_polarity(bolls);
         reset_n_neighbrs<<<(bolls.get_n() + 128 - 1)/128, 128>>>(bolls.get_n());
-        bolls.step(DELTA_T, h_cubic_w_polarity);
+        bolls.step(DELTA_T, h_relu_w_polarity);
         proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(RATE*(time_step > 100),
             MEAN_DIST, bolls.d_X, bolls.d_n);
     }
