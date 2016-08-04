@@ -6,6 +6,7 @@
 #include "../lib/inits.cuh"
 #include "../lib/solvers.cuh"
 #include "../lib/protrusions.cuh"
+#include "../lib/property.cuh"
 #include "../lib/vtk.cuh"
 
 
@@ -18,6 +19,7 @@ const auto DELTA_T = 0.05;
 
 Solution<float3, N_CELLS, LatticeSolver> bolls;
 Protrusions<N_LINKS> links;
+Property<N_CELLS> type;
 
 
 __device__ float3 cubic(float3 Xi, float3 Xj, int i, int j) {
@@ -73,9 +75,8 @@ void links_forces(const float3* __restrict__ d_X, float3* d_dX) {
 int main(int argc, char const *argv[]) {
     // Prepare initial state
     uniform_sphere(R_MIN, bolls);
-    int cell_type[N_CELLS];
     for (auto i = 0; i < N_CELLS; i++) {
-        cell_type[i] = (i < N_CELLS/2) ? 0 : 1;
+        type.h_prop[i] = (i < N_CELLS/2) ? 0 : 1;
     }
 
     // Integrate cell positions
@@ -87,7 +88,7 @@ int main(int argc, char const *argv[]) {
         update_links<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls.d_X, links.d_link, links.d_state);
         output.write_positions(bolls);
         output.write_protrusions(links);
-        output.write_type(cell_type);
+        output.write_property(type);
     }
 
     return 0;

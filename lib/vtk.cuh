@@ -12,8 +12,11 @@
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution;
 
-template<int N_LINKS>
-class Protrusions;
+template<int N_LINKS_MAX>
+struct Protrusions;
+
+template<int N_MAX, typename Prop>
+struct Property;
 
 
 class VtkOutput {
@@ -31,8 +34,8 @@ public:
         const char* data_name = "w", float Pt::*field = &Pt::w);
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_polarity(Solution<Pt, N_MAX, Solver>& bolls);
-    template<typename TYPES, int N_MAX>
-    void write_type(TYPES (&type)[N_MAX]);
+    template<int N_MAX, typename Prop>
+    void write_property(Property<N_MAX, Prop>& property);
     template<int N_LINKS_MAX>
     void write_protrusions(Protrusions<N_LINKS_MAX>& links, int n_links = N_LINKS_MAX);
 
@@ -169,8 +172,8 @@ void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& bolls) {
     }
 }
 
-template<typename TYPES, int N_MAX>
-void VtkOutput::write_type(TYPES (&type)[N_MAX]) {
+template<int N_MAX, typename Prop>
+void VtkOutput::write_property(Property<N_MAX, Prop>& property) {
     if (!mWrite) return;
 
     std::ofstream file(mCurrentFile, std::ios_base::app);
@@ -180,10 +183,10 @@ void VtkOutput::write_type(TYPES (&type)[N_MAX]) {
         file << "\nPOINT_DATA " << mN_cells << "\n";
         mPDataStarted = true;
     }
-    file << "SCALARS cell_type int\n";
+    file << "SCALARS " << property.name << " int\n";
     file << "LOOKUP_TABLE default\n";
     for (auto i = 0; i < mN_cells; i++)
-        file << type[i] << "\n";
+        file << property.h_prop[i] << "\n";
 }
 
 template<int N_LINKS_MAX>

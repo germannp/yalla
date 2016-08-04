@@ -2,6 +2,7 @@
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/solvers.cuh"
+#include "../lib/property.cuh"
 #include "../lib/vtk.cuh"
 
 
@@ -12,6 +13,7 @@ const auto N_TIME_STEPS = 300u;
 const auto DELTA_T = 0.05;
 
 Solution<float3, N_CELLS, LatticeSolver> bolls;
+Property<N_CELLS> type;
 
 
 // Sorting by forces strength
@@ -36,9 +38,8 @@ auto h_cubic_sorting = get_device_object(d_cubic_sorting, 0);
 int main(int argc, char const *argv[]) {
     // Prepare initial state
     uniform_sphere(R_MIN, bolls);
-    int cell_type[N_CELLS];
     for (auto i = 0; i < N_CELLS; i++) {
-        cell_type[i] = (i < N_CELLS/2) ? 0 : 1;
+        type.h_prop[i] = (i < N_CELLS/2) ? 0 : 1;
     }
 
     // Integrate cell positions
@@ -47,7 +48,7 @@ int main(int argc, char const *argv[]) {
         bolls.memcpyDeviceToHost();
         bolls.step(DELTA_T, h_cubic_sorting);
         output.write_positions(bolls);
-        output.write_type(cell_type);
+        output.write_property(type);
     }
 
     return 0;

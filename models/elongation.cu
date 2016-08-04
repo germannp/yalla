@@ -7,6 +7,7 @@
 #include "../lib/solvers.cuh"
 #include "../lib/protrusions.cuh"
 #include "../lib/epithelium.cuh"
+#include "../lib/property.cuh"
 #include "../lib/vtk.cuh"
 
 
@@ -19,20 +20,20 @@ const auto N_TIME_STEPS = 500;
 const auto DELTA_T = 0.2;
 enum CELL_TYPES {MESENCHYME, STRETCHED_EPI, EPITHELIUM};
 
-__device__ __managed__ CELL_TYPES cell_type[N_MAX];
-
-
 MAKE_PT(lbcell, x, y, z, w, phi, theta);
 
 Solution<lbcell, N_MAX, LatticeSolver> bolls;
 Protrusions<static_cast<int>(N_MAX*LINKS_P_CELL)> links;
+Property<N_MAX, CELL_TYPES> type;
 
+
+__device__ CELL_TYPES* d_type;
 
 __device__ lbcell cubic_w_diffusion(lbcell Xi, lbcell Xj, int i, int j) {
     lbcell dF {0};
     if (i == j) {
         assert(Xi.w >= 0);
-        dF.w = (cell_type[i] > MESENCHYME) - 0.01*Xi.w;
+        dF.w = (d_type[i] > MESENCHYME) - 0.01*Xi.w;
         return dF;
     }
 
@@ -47,9 +48,9 @@ __device__ lbcell cubic_w_diffusion(lbcell Xi, lbcell Xj, int i, int j) {
     auto D = dist < R_MAX ? 0.1 : 0;
     dF.w = - r.w*D;
 
-    if (cell_type[i] == MESENCHYME or cell_type[j] == MESENCHYME) return dF;
+    if (d_type[i] == MESENCHYME or d_type[j] == MESENCHYME) return dF;
 
-    if (dist < 0.733333) cell_type[i] = EPITHELIUM;
+    if (dist < 0.733333) d_type[i] = EPITHELIUM;
     dF += polarity_force(Xi, Xj)*0.2;
     return dF;
 }
@@ -89,8 +90,8 @@ __global__ void update_links(const Lattice<N_MAX>* __restrict__ d_lattice,
         + static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube);
     auto r = d_X[d_lattice->d_cell_id[j]] - d_X[d_lattice->d_cell_id[k]];
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if ((j != k) and (cell_type[d_lattice->d_cell_id[j]] == MESENCHYME)
-            and (cell_type[d_lattice->d_cell_id[k]] == MESENCHYME)
+    if ((j != k) and (d_type[d_lattice->d_cell_id[j]] == MESENCHYME)
+            and (d_type[d_lattice->d_cell_id[k]] == MESENCHYME)
             and (dist < R_LINK)
             and (fabs(r.w/(d_X[d_lattice->d_cell_id[j]].w + d_X[d_lattice->d_cell_id[k]].w)) > 0.2)) {
             // and (fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
@@ -111,12 +112,12 @@ __global__ void proliferate(float rate, float mean_distance, lbcell* d_X, int* d
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= *d_n_cells) return;
 
-    if (cell_type[i] == EPITHELIUM) {
-        cell_type[i] = STRETCHED_EPI;
+    if (d_type[i] == EPITHELIUM) {
+        d_type[i] = STRETCHED_EPI;
         return;
     }
 
-    if (cell_type[i] == MESENCHYME) {
+    if (d_type[i] == MESENCHYME) {
         auto r = curand_uniform(&d_state[i]);
         if (r > rate) return;
     }
@@ -131,7 +132,7 @@ __global__ void proliferate(float rate, float mean_distance, lbcell* d_X, int* d
     d_X[i].w = d_X[i].w/2;
     d_X[n].phi = d_X[i].phi;
     d_X[n].theta = d_X[i].theta;
-    cell_type[n] = cell_type[i] == MESENCHYME ? MESENCHYME : STRETCHED_EPI;
+    d_type[n] = d_type[i] == MESENCHYME ? MESENCHYME : STRETCHED_EPI;
 }
 
 
@@ -143,9 +144,11 @@ int main(int argc, char const *argv[]) {
         bolls.h_X[i].x = fabs(bolls.h_X[i].x);
         bolls.h_X[i].y = bolls.h_X[i].y/1.5;
         bolls.h_X[i].w = 0;
-        cell_type[i] = MESENCHYME;
+        type.h_prop[i] = MESENCHYME;
     }
     bolls.memcpyHostToDevice();
+    type.memcpyHostToDevice();
+    cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
 
     // Relax
     VtkOutput relax_output("relaxation");
@@ -160,7 +163,7 @@ int main(int argc, char const *argv[]) {
     bolls.memcpyDeviceToHost();
     for (auto i = 0; i < bolls.get_n(); i++) {
         if (bolls.h_X[i].w < 12 and bolls.h_X[i].x > 0) {
-            cell_type[i] = STRETCHED_EPI;
+            type.h_prop[i] = STRETCHED_EPI;
             auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x
                 + bolls.h_X[i].y*bolls.h_X[i].y + bolls.h_X[i].z*bolls.h_X[i].z);
             bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x);
@@ -172,15 +175,17 @@ int main(int argc, char const *argv[]) {
         bolls.h_X[i].w = 0;
     }
     bolls.memcpyHostToDevice();
+    type.memcpyHostToDevice();
 
     // Simulate diffusion & intercalation
     VtkOutput sim_output("elongation");
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
         links.memcpyDeviceToHost();
+        type.memcpyDeviceToHost();
         sim_output.write_positions(bolls);
         sim_output.write_protrusions(links, bolls.get_n()*LINKS_P_CELL);
-        sim_output.write_type(cell_type);
+        sim_output.write_property(type);
         // sim_output.write_polarity(bolls);
         sim_output.write_field(bolls, "Wnt");
 
