@@ -29,7 +29,7 @@ __device__ CELL_TYPES* d_type;
 __device__ int* d_mes_nbs;
 __device__ int* d_epi_nbs;
 
-__device__ pocell relu_w_polarity(pocell Xi, pocell Xj, int i, int j) {  // TODO: rename
+__device__ pocell relu_w_polarity(pocell Xi, pocell Xj, int i, int j) {
     pocell dF {0};
     if (i == j) return dF;
 
