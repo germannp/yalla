@@ -1,7 +1,4 @@
 // Initial states
-#include <assert.h>
-
-
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution;
 

@@ -2,7 +2,7 @@
 // 2015/04/file-formats.pdf
 #include <time.h>
 #include <sys/stat.h>
-#include <cassert>
+#include <assert.h>
 #include <string>
 #include <fstream>
 #include <iostream>
