@@ -1,6 +1,7 @@
 // Simulate elongation of semisphere
 #include <assert.h>
 #include <curand_kernel.h>
+#include <thread>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
@@ -15,7 +16,7 @@ const auto R_MAX = 1;
 const auto R_MIN = 0.6;
 const auto N_MAX = 61000;
 const auto R_LINK = 1.5;
-const auto LINKS_P_CELL = 1.f;
+const auto LINKS_P_CELL = 1.f;  // Must be >= 1 as rand states used to proliferatie
 const auto N_TIME_STEPS = 500;
 const auto DELTA_T = 0.2;
 enum CELL_TYPES {MESENCHYME, STRETCHED_EPI, EPITHELIUM};
@@ -183,18 +184,23 @@ int main(int argc, char const *argv[]) {
         bolls.memcpyDeviceToHost();
         links.memcpyDeviceToHost();
         type.memcpyDeviceToHost();
+
+        std::thread calculation([] {
+            bolls.step(DELTA_T, h_cubic_w_diffusion, intercalation);
+            proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X,
+                bolls.d_n, links.d_state);
+            bolls.build_lattice(R_LINK);
+            update_links<<<(bolls.get_n()*LINKS_P_CELL + 32 - 1)/32, 32>>>(bolls.d_lattice,
+                bolls.d_X, bolls.get_n(), links.d_link, links.d_state);
+        });
+
         sim_output.write_positions(bolls);
         sim_output.write_protrusions(links, bolls.get_n()*LINKS_P_CELL);
         sim_output.write_property(type);
         // sim_output.write_polarity(bolls);
         sim_output.write_field(bolls, "Wnt");
 
-        bolls.step(DELTA_T, h_cubic_w_diffusion, intercalation);
-        proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X,
-            bolls.d_n, links.d_state);
-        bolls.build_lattice(R_LINK);
-        update_links<<<(bolls.get_n()*LINKS_P_CELL + 32 - 1)/32, 32>>>(bolls.d_lattice,
-            bolls.d_X, bolls.get_n(), links.d_link, links.d_state);
+        calculation.join();
     }
 
     return 0;
