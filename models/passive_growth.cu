@@ -7,6 +7,7 @@
 #include "../lib/inits.cuh"
 #include "../lib/solvers.cuh"
 #include "../lib/property.cuh"
+#include "../lib/protrusions.cuh"
 #include "../lib/vtk.cuh"
 #include "../lib/epithelium.cuh"
 
@@ -23,7 +24,7 @@ Solution<pocell, N_MAX, LatticeSolver> bolls;
 Property<N_MAX, CELL_TYPES> type;
 Property<N_MAX, int> n_mes_nbs;
 Property<N_MAX, int> n_epi_nbs;
-__device__ curandState rand_states[N_MAX];
+curandState *d_state;
 
 
 __device__ CELL_TYPES* d_type;
@@ -61,19 +62,15 @@ __device__ auto d_relu_w_polarity = &relu_w_polarity;
 auto h_relu_w_polarity = get_device_object(d_relu_w_polarity, 0);
 
 
-__global__ void setup_rand_states() {
-    auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i < N_MAX) curand_init(1337, i, 0, &rand_states[i]);
-}
-
-__global__ void proliferate(float rate, float mean_distance, pocell* d_X, int* d_n_cells) {
+__global__ void proliferate(float rate, float mean_distance, pocell* d_X, int* d_n_cells,
+        curandState* d_state) {
     assert(*d_n_cells*rate <= N_MAX);
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= *d_n_cells*(1 - rate)) return;  // Dividing new cells is problematic!
 
     switch (d_type[i]) {
         case MESENCHYME: {
-            auto r = curand_uniform(&rand_states[i]);
+            auto r = curand_uniform(&d_state[i]);
             if (r > rate) return;
         }
         case EPITHELIUM: {
@@ -82,8 +79,8 @@ __global__ void proliferate(float rate, float mean_distance, pocell* d_X, int* d
     }
 
     auto n = atomicAdd(d_n_cells, 1);
-    auto phi = curand_uniform(&rand_states[i])*M_PI;
-    auto theta = curand_uniform(&rand_states[i])*2*M_PI;
+    auto phi = curand_uniform(&d_state[i])*M_PI;
+    auto theta = curand_uniform(&d_state[i])*2*M_PI;
     d_X[n].x = d_X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
     d_X[n].y = d_X[i].y + mean_distance/4*sinf(theta)*sinf(phi);
     d_X[n].z = d_X[i].z + mean_distance/4*cosf(theta);
@@ -104,7 +101,8 @@ int main(int argc, char const *argv[]) {
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
-    setup_rand_states<<<(N_MAX + 128 - 1)/128, 128>>>();
+    cudaMalloc(&d_state, N_MAX*sizeof(curandState));
+    setup_rand_states<<<(N_MAX + 128 - 1)/128, 128>>>(d_state, N_MAX);
 
     // Relax
     for (auto time_step = 0; time_step <= 500; time_step++) {
@@ -140,7 +138,7 @@ int main(int argc, char const *argv[]) {
         thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_n(), 0);
         bolls.step(DELTA_T, h_relu_w_polarity);
         proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(RATE*(time_step > 100),
-            MEAN_DIST, bolls.d_X, bolls.d_n);
+            MEAN_DIST, bolls.d_X, bolls.d_n, d_state);
         sim_output.write_positions(bolls);
         sim_output.write_property(type);
         sim_output.write_polarity(bolls);
