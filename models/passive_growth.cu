@@ -66,10 +66,10 @@ __global__ void setup_rand_states() {
     if (i < N_MAX) curand_init(1337, i, 0, &rand_states[i]);
 }
 
-__global__ void proliferate(float rate, float mean_distance, pocell* d_X, int* n_cells) {
-    assert(rate* *n_cells <= N_MAX);
+__global__ void proliferate(float rate, float mean_distance, pocell* d_X, int* d_n_cells) {
+    assert(*d_n_cells*rate <= N_MAX);
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= *n_cells) return;
+    if (i >= *d_n_cells*(1 - rate)) return;  // Dividing new cells is problematic!
 
     switch (d_type[i]) {
         case MESENCHYME: {
@@ -81,7 +81,7 @@ __global__ void proliferate(float rate, float mean_distance, pocell* d_X, int* n
         }
     }
 
-    auto n = atomicAdd(n_cells, 1);
+    auto n = atomicAdd(d_n_cells, 1);
     auto phi = curand_uniform(&rand_states[i])*M_PI;
     auto theta = curand_uniform(&rand_states[i])*2*M_PI;
     d_X[n].x = d_X[i].x + mean_distance/4*sinf(theta)*cosf(phi);

@@ -108,9 +108,9 @@ void intercalation(const lbcell* __restrict__ d_X, lbcell* d_dX) {
 
 __global__ void proliferate(float rate, float mean_distance, lbcell* d_X, int* d_n_cells,
         curandState* d_state) {
-    assert(rate* *d_n_cells <= N_MAX);
+    assert(*d_n_cells*rate <= N_MAX);
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= *d_n_cells) return;
+    if (i >= *d_n_cells*(1 - rate)) return;  // Dividing new cells is problematic!
 
     if (d_type[i] == EPITHELIUM) {
         d_type[i] = STRETCHED_EPI;
@@ -190,11 +190,11 @@ int main(int argc, char const *argv[]) {
         sim_output.write_field(bolls, "Wnt");
 
         bolls.step(DELTA_T, h_cubic_w_diffusion, intercalation);
-        proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X, bolls.d_n,
-            links.d_state);
+        proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X,
+            bolls.d_n, links.d_state);
         bolls.build_lattice(R_LINK);
-        update_links<<<(bolls.get_n()*LINKS_P_CELL + 32 - 1)/32, 32>>>(bolls.d_lattice, bolls.d_X,
-            bolls.get_n(), links.d_link, links.d_state);
+        update_links<<<(bolls.get_n()*LINKS_P_CELL + 32 - 1)/32, 32>>>(bolls.d_lattice,
+            bolls.d_X, bolls.get_n(), links.d_link, links.d_state);
     }
 
     return 0;
