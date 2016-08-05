@@ -1,5 +1,4 @@
 // Protrusions as constant forces between linked Pts
-#include <cassert>
 #include <curand_kernel.h>
 
 
