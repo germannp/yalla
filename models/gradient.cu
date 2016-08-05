@@ -20,7 +20,7 @@ __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
 
     auto r = Xi - Xj;
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if  (dist > R_MAX) return dF;
+    if (dist > R_MAX) return dF;
 
     auto n = 2;
     auto D = 10;
