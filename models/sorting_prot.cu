@@ -1,5 +1,4 @@
 // Simulate cell sorting by protrusions
-#include <functional>
 #include <curand_kernel.h>
 
 #include "../lib/dtypes.cuh"
