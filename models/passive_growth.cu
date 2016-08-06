@@ -1,5 +1,4 @@
 // Simulate growing mesenchyme envelopped by epithelium
-#include <assert.h>
 #include <curand_kernel.h>
 #include <thrust/fill.h>
 
@@ -64,7 +63,7 @@ auto h_relu_w_polarity = get_device_object(d_relu_w_polarity, 0);
 
 __global__ void proliferate(float rate, float mean_distance, pocell* d_X, int* d_n_cells,
         curandState* d_state) {
-    assert(*d_n_cells*rate <= N_MAX);
+    D_ASSERT(*d_n_cells*rate <= N_MAX);
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= *d_n_cells*(1 - rate)) return;  // Dividing new cells is problematic!
 

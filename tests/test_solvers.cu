@@ -161,7 +161,7 @@ __global__ void single_lattice(const Lattice<N_MAX>* __restrict__ d_lattice) {
     auto expected_cube = (LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE)/2
         + (LATTICE_SIZE*LATTICE_SIZE)/2 + LATTICE_SIZE/2
         + i%10 + (i%100/10)*LATTICE_SIZE + (i/100)*LATTICE_SIZE*LATTICE_SIZE;
-    assert(d_lattice->d_cube_id[i] == expected_cube);
+    D_ASSERT(d_lattice->d_cube_id[i] == expected_cube);
 }
 
 template<int N_MAX>
@@ -169,7 +169,7 @@ __global__ void double_lattice(const Lattice<N_MAX>* __restrict__ d_lattice) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= 1000 - 8) return;
 
-    assert(d_lattice->d_cube_id[i] == d_lattice->d_cube_id[i - i%8]);
+    D_ASSERT(d_lattice->d_cube_id[i] == d_lattice->d_cube_id[i - i%8]);
 }
 
 const char* test_lattice_spacing() {

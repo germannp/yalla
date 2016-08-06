@@ -63,12 +63,19 @@ public:
 
 
 // Integration templates
+#ifdef __APPLE__
+#define D_ASSERT(predicate) if (!(predicate)) printf("(%s:%d) Device assertion failed!\n", \
+    __FILE__, __LINE__)
+#else
+#define D_ASSERT(predicate) assert(predicate)
+#endif
+
 template<typename Pt> __global__ void euler_step(int n_cells, float delta_t,
         const Pt* __restrict__ d_X0, Pt* d_X, const Pt* __restrict__ d_dX) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
-    assert(d_dX[i].x == d_dX[i].x);  // For NaN f != f
+    D_ASSERT(d_dX[i].x == d_dX[i].x);  // For NaN f != f
     d_X[i] = d_X0[i] + d_dX[i]*delta_t;
 }
 
@@ -77,7 +84,7 @@ template<typename Pt> __global__ void heun_step(int n_cells, float delta_t,
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
-    assert(d_dX1[i].x == d_dX1[i].x);
+    D_ASSERT(d_dX1[i].x == d_dX1[i].x);
     d_X[i] += (d_dX[i] + d_dX1[i])*0.5*delta_t;
 }
 
@@ -209,8 +216,8 @@ __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ d_X,
         (floor(d_X[i].x/cube_size) + LATTICE_SIZE/2) +
         (floor(d_X[i].y/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE +
         (floor(d_X[i].z/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE*LATTICE_SIZE);
-    assert(id >= 0);
-    assert(id <= N_CUBES);
+    D_ASSERT(id >= 0);
+    D_ASSERT(id <= N_CUBES);
     d_lattice->d_cube_id[i] = id;
     d_lattice->d_cell_id[i] = i;
 }

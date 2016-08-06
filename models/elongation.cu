@@ -1,5 +1,4 @@
 // Simulate elongation of semisphere
-#include <assert.h>
 #include <curand_kernel.h>
 #include <thread>
 
@@ -33,7 +32,7 @@ __device__ CELL_TYPES* d_type;
 __device__ lbcell cubic_w_diffusion(lbcell Xi, lbcell Xj, int i, int j) {
     lbcell dF {0};
     if (i == j) {
-        assert(Xi.w >= 0);
+        D_ASSERT(Xi.w >= 0);
         dF.w = (d_type[i] > MESENCHYME) - 0.01*Xi.w;
         return dF;
     }
@@ -109,7 +108,7 @@ void intercalation(const lbcell* __restrict__ d_X, lbcell* d_dX) {
 
 __global__ void proliferate(float rate, float mean_distance, lbcell* d_X, int* d_n_cells,
         curandState* d_state) {
-    assert(*d_n_cells*rate <= N_MAX);
+    D_ASSERT(*d_n_cells*rate <= N_MAX);
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= *d_n_cells*(1 - rate)) return;  // Dividing new cells is problematic!
 
