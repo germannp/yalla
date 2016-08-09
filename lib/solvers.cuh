@@ -230,7 +230,7 @@ __global__ void compute_cube_start_and_end(int n_cells, Lattice<N_MAX>* d_lattic
     auto cube = d_lattice->d_cube_id[i];
     auto prev = i > 0 ? d_lattice->d_cube_id[i - 1] : -1;
     if (cube != prev) d_lattice->d_cube_start[cube] = i;
-    auto next = i < n_cells ? d_lattice->d_cube_id[i + 1] : d_lattice->d_cube_id[i] + 1;
+    auto next = i < n_cells - 1 ? d_lattice->d_cube_id[i + 1] : d_lattice->d_cube_id[i] + 1;
     if (cube != next) d_lattice->d_cube_end[cube] = i;
 }
 

@@ -196,8 +196,8 @@ const char* test_lattice_spacing() {
 
 
 const char* all_tests() {
-    MU_RUN_TEST(test_latt_tetrahedron);  // FIXME: Some orders brake tests!
     MU_RUN_TEST(test_n2n_tetrahedron);
+    MU_RUN_TEST(test_latt_tetrahedron);
     MU_RUN_TEST(test_compare_methods);
     MU_RUN_TEST(test_generic_forces);
     MU_RUN_TEST(test_lattice_spacing);
