@@ -6,6 +6,8 @@
 #include <thrust/execution_policy.h>
 
 
+// Interactions must be specified either between two points of type Pt (e.g. float3,
+// see dtypes.cuh) or generally with the following signatures:
 template<typename Pt>
 using d_PairwiseInteraction = Pt (*)(Pt Xi, Pt Xj, int i, int j);
 
@@ -25,9 +27,9 @@ template<typename T> T get_device_object(const T& on_device, cudaStream_t stream
 }
 
 
-// Solution<Pt, N_MAX, Solver> combines a method Solver with a point type Pt.
-// It specfies how solutions can be accessed and new steps calculated. All the action
-// is happening in the Solver classes.
+// Solution<Pt, N_MAX, Solver> combines a method, Solver, with a point type, Pt.
+// It specfies how solutions can be accessed and new steps calculated, but all the
+// action is happening in the Solver classes.
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution: public Solver<Pt, N_MAX> {
 public:
@@ -89,7 +91,7 @@ template<typename Pt> __global__ void heun_step(int n_cells, float delta_t,
 }
 
 
-// Parallelization with interactions among all pairs, after
+// Solver implementation with interactions among all pairs, after
 // http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html.
 const auto TILE_SIZE = 32;
 
@@ -112,7 +114,7 @@ protected:
     void step(float delta_t, d_PairwiseInteraction<Pt> d_pwint, GenericForces<Pt> genforce);
 };
 
-// Calculate d_dX one thread per cell, to TILE_SIZE other bodies at a time
+// Calculate d_dX one thread per point, to TILE_SIZE other points at a time
 template<typename Pt>
 __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
         d_PairwiseInteraction<Pt> d_pwint) {
@@ -158,7 +160,7 @@ void N2nSolver<Pt, N_MAX>::step(float delta_t, d_PairwiseInteraction<Pt> d_pwint
 }
 
 
-// Sorting based lattice with limited interaction, after
+// Solver implementation with sorting based lattice for limited interactions, after
 // http://docs.nvidia.com/cuda/samples/5_Simulations/particles/doc/particles.pdf
 const auto CUBE_SIZE = 1.f;
 const auto LATTICE_SIZE = 50u;

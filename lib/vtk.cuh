@@ -27,17 +27,22 @@ public:
     ~VtkOutput(void);
     void print_progress();
     void print_done();
+    // Write x, z, and y component of Pt, has to be written first
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_positions(Solution<Pt, N_MAX, Solver>& bolls);
+    // Write links, see protrusions.cuh, if written has to be second
+    template<int N_LINKS_MAX>
+    void write_protrusions(Protrusions<N_LINKS_MAX>& links, int n_links = N_LINKS_MAX);
+    // Write further components of Pt
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_field(Solution<Pt, N_MAX, Solver>& bolls,
         const char* data_name = "w", float Pt::*field = &Pt::w);
+    // Write polarity from phi and theta of Pt, see epithelium.cuh
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_polarity(Solution<Pt, N_MAX, Solver>& bolls);
+    // Write not integrated property, see property.cuh
     template<int N_MAX, typename Prop>
     void write_property(Property<N_MAX, Prop>& property);
-    template<int N_LINKS_MAX>
-    void write_protrusions(Protrusions<N_LINKS_MAX>& links, int n_links = N_LINKS_MAX);
 
 protected:
     int mN_cells;
@@ -129,6 +134,20 @@ void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& bolls) {
         file << "1 " << i << "\n";
 }
 
+template<int N_LINKS_MAX>
+void VtkOutput::write_protrusions(Protrusions<N_LINKS_MAX>& links, int n_links) {
+    if (!mWrite) return;
+
+    assert(n_links <= N_LINKS_MAX);
+
+    std::ofstream file(mCurrentFile, std::ios_base::app);
+    assert(file.is_open());
+
+    file << "\nLINES " << n_links << " " << 3*n_links << "\n";
+    for (auto i = 0; i < n_links; i++)
+        file << "2 " << links.h_link[i].a << " " << links.h_link[i].b << "\n";
+}
+
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 void VtkOutput::write_field(Solution<Pt, N_MAX, Solver>& bolls,
         const char* data_name, float Pt::*field) {
@@ -187,18 +206,4 @@ void VtkOutput::write_property(Property<N_MAX, Prop>& property) {
     file << "LOOKUP_TABLE default\n";
     for (auto i = 0; i < mN_cells; i++)
         file << property.h_prop[i] << "\n";
-}
-
-template<int N_LINKS_MAX>
-void VtkOutput::write_protrusions(Protrusions<N_LINKS_MAX>& links, int n_links) {
-    if (!mWrite) return;
-
-    assert(n_links <= N_LINKS_MAX);
-
-    std::ofstream file(mCurrentFile, std::ios_base::app);
-    assert(file.is_open());
-
-    file << "\nLINES " << n_links << " " << 3*n_links << "\n";
-    for (auto i = 0; i < n_links; i++)
-        file << "2 " << links.h_link[i].a << " " << links.h_link[i].b << "\n";
 }
