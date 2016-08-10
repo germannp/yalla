@@ -1,4 +1,5 @@
 // Simulate cell sorting by protrusions
+#include <functional>
 #include <curand_kernel.h>
 
 #include "../lib/dtypes.cuh"
@@ -66,9 +67,8 @@ __global__ void update_links(const float3* __restrict__ d_X, Link* d_link,
     d_link[i].b = new_k;
 }
 
-void links_forces(const float3* __restrict__ d_X, float3* d_dX) {
-    link_force<<<(N_LINKS + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link, N_LINKS);
-}
+auto prot_forces = std::bind(link_forces<N_LINKS>, links,
+    std::placeholders::_1, std::placeholders::_2);
 
 
 int main(int argc, char const *argv[]) {
@@ -83,7 +83,7 @@ int main(int argc, char const *argv[]) {
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
         links.memcpyDeviceToHost();
-        bolls.step(DELTA_T, h_cubic, links_forces);
+        bolls.step(DELTA_T, h_cubic, prot_forces);
         update_links<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls.d_X, links.d_link, links.d_state);
         output.write_positions(bolls);
         output.write_protrusions(links);

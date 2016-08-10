@@ -1,6 +1,7 @@
 // Simulate elongation of semisphere
-#include <curand_kernel.h>
 #include <thread>
+#include <functional>
+#include <curand_kernel.h>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
@@ -16,6 +17,7 @@ const auto R_MIN = 0.6;
 const auto N_MAX = 61000;
 const auto R_LINK = 1.5;
 const auto LINKS_P_CELL = 1.f;  // Must be >= 1 as rand states used to proliferatie
+const auto LINK_STRENGTH = 0.5;
 const auto N_TIME_STEPS = 500;
 const auto DELTA_T = 0.2;
 enum CELL_TYPES {MESENCHYME, STRETCHED_EPI, EPITHELIUM};
@@ -23,7 +25,7 @@ enum CELL_TYPES {MESENCHYME, STRETCHED_EPI, EPITHELIUM};
 MAKE_PT(lbcell, x, y, z, w, phi, theta);
 
 Solution<lbcell, N_MAX, LatticeSolver> bolls;
-Protrusions<static_cast<int>(N_MAX*LINKS_P_CELL)> links;
+Protrusions<static_cast<int>(N_MAX*LINKS_P_CELL)> links(LINK_STRENGTH);
 Property<N_MAX, CELL_TYPES> type;
 
 
@@ -100,10 +102,8 @@ __global__ void update_links(const Lattice<N_MAX>* __restrict__ d_lattice,
     }
 }
 
-void intercalation(const lbcell* __restrict__ d_X, lbcell* d_dX) {
-    link_force<<<(bolls.get_n()*LINKS_P_CELL + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link,
-        bolls.get_n()*LINKS_P_CELL, 0.5);
-}
+auto intercalation = std::bind(link_forces<static_cast<int>(N_MAX*LINKS_P_CELL), lbcell>,
+    links, std::placeholders::_1, std::placeholders::_2);
 
 
 __global__ void proliferate(float rate, float mean_distance, lbcell* d_X, int* d_n_cells,
@@ -182,6 +182,7 @@ int main(int argc, char const *argv[]) {
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
         links.memcpyDeviceToHost();
+        links.set_n(bolls.get_n()*LINKS_P_CELL);
         type.memcpyDeviceToHost();
 
         std::thread calculation([] {
@@ -189,12 +190,12 @@ int main(int argc, char const *argv[]) {
             proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X,
                 bolls.d_n, links.d_state);
             bolls.build_lattice(R_LINK);
-            update_links<<<(bolls.get_n()*LINKS_P_CELL + 32 - 1)/32, 32>>>(bolls.d_lattice,
+            update_links<<<(links.get_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
                 bolls.d_X, bolls.get_n(), links.d_link, links.d_state);
         });
 
         sim_output.write_positions(bolls);
-        sim_output.write_protrusions(links, bolls.get_n()*LINKS_P_CELL);
+        sim_output.write_protrusions(links);
         sim_output.write_property(type);
         // sim_output.write_polarity(bolls);
         sim_output.write_field(bolls, "Wnt");

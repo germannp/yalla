@@ -13,7 +13,7 @@ template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution;
 
 template<int N_LINKS_MAX>
-struct Protrusions;
+class Protrusions;
 
 template<int N_MAX, typename Prop>
 struct Property;
@@ -32,7 +32,7 @@ public:
     void write_positions(Solution<Pt, N_MAX, Solver>& bolls);
     // Write links, see protrusions.cuh, if written has to be second
     template<int N_LINKS_MAX>
-    void write_protrusions(Protrusions<N_LINKS_MAX>& links, int n_links = N_LINKS_MAX);
+    void write_protrusions(Protrusions<N_LINKS_MAX>& links);
     // Write further components of Pt
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_field(Solution<Pt, N_MAX, Solver>& bolls,
@@ -135,14 +135,13 @@ void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& bolls) {
 }
 
 template<int N_LINKS_MAX>
-void VtkOutput::write_protrusions(Protrusions<N_LINKS_MAX>& links, int n_links) {
+void VtkOutput::write_protrusions(Protrusions<N_LINKS_MAX>& links) {
     if (!mWrite) return;
-
-    assert(n_links <= N_LINKS_MAX);
 
     std::ofstream file(mCurrentFile, std::ios_base::app);
     assert(file.is_open());
 
+    auto n_links = links.get_n();
     file << "\nLINES " << n_links << " " << 3*n_links << "\n";
     for (auto i = 0; i < n_links; i++)
         file << "2 " << links.h_link[i].a << " " << links.h_link[i].b << "\n";

@@ -1,4 +1,5 @@
 // Simulate intercalating cells
+#include <functional>
 #include <curand_kernel.h>
 
 #include "../lib/dtypes.cuh"
@@ -36,7 +37,8 @@ __device__ auto d_clipped_cubic = &clipped_cubic;
 auto h_clipped_cubic = get_device_object(d_clipped_cubic, 0);
 
 
-__global__ void update_links(const float3* __restrict__ d_X, Link* d_link, curandState* d_state) {
+__global__ void update_links(const float3* __restrict__ d_X, Link* d_link,
+        curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= N_LINKS) return;
 
@@ -50,9 +52,8 @@ __global__ void update_links(const float3* __restrict__ d_X, Link* d_link, curan
     }
 }
 
-void intercalation(const float3* __restrict__ d_X, float3* d_dX) {
-    link_force<<<(N_LINKS + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link, N_LINKS);
-}
+auto intercalation = std::bind(link_forces<N_LINKS>, links,
+    std::placeholders::_1, std::placeholders::_2);
 
 
 int main(int argc, char const *argv[]) {
