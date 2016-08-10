@@ -54,6 +54,8 @@ public:
         cudaMemcpy(h_X, d_X, N_MAX*sizeof(Pt), cudaMemcpyDeviceToHost);
         cudaMemcpy(Solver<Pt, N_MAX>::h_n, Solver<Pt, N_MAX>::d_n, sizeof(int),
             cudaMemcpyDeviceToHost);
+        auto n = *Solver<Pt, N_MAX>::h_n;
+        assert(n <= N_MAX);
     }
     void step(float delta_t, d_PairwiseInteraction<Pt> d_pwint) {
         return Solver<Pt, N_MAX>::step(delta_t, d_pwint, none<Pt>);
