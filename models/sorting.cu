@@ -12,9 +12,6 @@ const auto N_CELLS = 100u;
 const auto N_TIME_STEPS = 300u;
 const auto DELTA_T = 0.05;
 
-Solution<float3, N_CELLS, LatticeSolver> bolls;
-Property<N_CELLS> type;
-
 
 __device__ float3 cubic_sorting(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
@@ -36,7 +33,9 @@ auto h_cubic_sorting = get_device_object(d_cubic_sorting, 0);
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
+    Solution<float3, N_CELLS, LatticeSolver> bolls;
     uniform_sphere(R_MIN, bolls);
+    Property<N_CELLS> type;
     for (auto i = 0; i < N_CELLS; i++) {
         type.h_prop[i] = (i < N_CELLS/2) ? 0 : 1;
     }

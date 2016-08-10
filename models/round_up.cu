@@ -11,8 +11,6 @@ const auto N_CELLS = 100;
 const auto DELTA_T = 0.005;
 auto time_step = 0;
 
-Solution<float3, N_CELLS, LatticeSolver> bolls;
-
 
 __device__ float3 clipped_polynomial(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
@@ -60,6 +58,7 @@ void squeeze_to_floor(const float3* __restrict__ d_X, float3* d_dX) {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
+    Solution<float3, N_CELLS, LatticeSolver> bolls;
     uniform_circle(0.733333, bolls);
     // uniform_sphere(0.733333, bolls);
 

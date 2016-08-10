@@ -17,10 +17,6 @@ const auto N_LINKS = N_CELLS*5;
 const auto N_TIME_STEPS = 300u;
 const auto DELTA_T = 0.05;
 
-Solution<float3, N_CELLS, LatticeSolver> bolls;
-Protrusions<N_LINKS> links;
-Property<N_CELLS> type;
-
 
 __device__ float3 cubic(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
@@ -67,13 +63,15 @@ __global__ void update_links(const float3* __restrict__ d_X, Link* d_link,
     d_link[i].b = new_k;
 }
 
-auto prot_forces = std::bind(link_forces<N_LINKS>, links,
-    std::placeholders::_1, std::placeholders::_2);
-
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
+    Solution<float3, N_CELLS, LatticeSolver> bolls;
     uniform_sphere(R_MIN, bolls);
+    Protrusions<N_LINKS> links;
+    auto prot_forces = std::bind(link_forces<N_LINKS>, links,
+        std::placeholders::_1, std::placeholders::_2);
+    Property<N_CELLS> type;
     for (auto i = 0; i < N_CELLS; i++) {
         type.h_prop[i] = (i < N_CELLS/2) ? 0 : 1;
     }

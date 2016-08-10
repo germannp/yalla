@@ -16,9 +16,6 @@ const auto N_LINKS = 250u;
 const auto N_TIME_STEPS = 1000u;
 const auto DELTA_T = 0.2f;
 
-Solution<float3, N_CELLS, LatticeSolver> bolls;
-Protrusions<N_LINKS> links;
-
 
 __device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
@@ -52,13 +49,14 @@ __global__ void update_links(const float3* __restrict__ d_X, Link* d_link,
     }
 }
 
-auto intercalation = std::bind(link_forces<N_LINKS>, links,
-    std::placeholders::_1, std::placeholders::_2);
-
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
+    Solution<float3, N_CELLS, LatticeSolver> bolls;
     uniform_sphere(R_MIN, bolls);
+    Protrusions<N_LINKS> links;
+    auto intercalation = std::bind(link_forces<N_LINKS>, links,
+        std::placeholders::_1, std::placeholders::_2);
     int i = 0;
     while (i < N_LINKS) {
         auto j = static_cast<int>(rand()/(RAND_MAX + 1.)*N_CELLS);

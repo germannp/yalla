@@ -12,8 +12,6 @@ const auto N_CELLS = 250;
 const auto N_TIME_STEPS = 100;
 const auto DELTA_T = 0.1;
 
-Solution<pocell, N_CELLS, LatticeSolver> bolls;
-
 
 // Cubic potential plus k*(n_i . r_ij/r)^2/2 for all r_ij <= R_MAX
 __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
@@ -39,6 +37,7 @@ auto h_epithelium = get_device_object(d_epithelium, 0);
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
+    Solution<pocell, N_CELLS, LatticeSolver> bolls;
     uniform_sphere(0.733333, bolls);
     for (auto i = 0; i < N_CELLS; i++) {
         auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x + bolls.h_X[i].y*bolls.h_X[i].y

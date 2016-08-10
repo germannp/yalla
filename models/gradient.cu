@@ -11,8 +11,6 @@ const auto N_CELLS = 100;
 const auto N_TIME_STEPS = 200;
 const auto DELTA_T = 0.005;
 
-Solution<float4, N_CELLS, N2nSolver> bolls;
-
 
 __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
     float4 dF {0};
@@ -40,6 +38,7 @@ auto h_cubic_w_diffusion = get_device_object(d_cubic_w_diffusion, 0);
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
+    Solution<float4, N_CELLS, N2nSolver> bolls;
     uniform_circle(0.733333, bolls);
     for (auto i = 0; i < N_CELLS; i++) {
         bolls.h_X[i].w = i == 0 ? 1 : 0;

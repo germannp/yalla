@@ -10,8 +10,6 @@ const auto N_CELLS = 800u;
 const auto N_TIME_STEPS = 100u;
 const auto DELTA_T = 0.001f;
 
-Solution<float3, N_CELLS, N2nSolver> bolls;
-
 
 __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
@@ -29,6 +27,7 @@ auto h_spring = get_device_object(d_spring, 0);
 
 int main(int argc, const char* argv[]) {
     // Prepare initial state
+    Solution<float3, N_CELLS, N2nSolver> bolls;
     uniform_sphere(L_0, bolls);
 
     // Integrate positions

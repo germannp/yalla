@@ -19,12 +19,6 @@ const auto N_TIME_STEPS = 500;
 const auto DELTA_T = 0.2;
 enum CELL_TYPES {MESENCHYME, EPITHELIUM};
 
-Solution<pocell, N_MAX, LatticeSolver> bolls;
-Property<N_MAX, CELL_TYPES> type;
-Property<N_MAX, int> n_mes_nbs;
-Property<N_MAX, int> n_epi_nbs;
-curandState *d_state;
-
 
 __device__ CELL_TYPES* d_type;
 __device__ int* d_mes_nbs;
@@ -93,13 +87,18 @@ __global__ void proliferate(float rate, float mean_distance, pocell* d_X, int* d
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
+    Solution<pocell, N_MAX, LatticeSolver> bolls;
     bolls.set_n(200);
     uniform_sphere(MEAN_DIST, bolls);
+    Property<N_MAX, CELL_TYPES> type;
     for (auto i = 0; i < bolls.get_n(); i++) type.h_prop[i] = MESENCHYME;
-    type.memcpyHostToDevice();
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
+    type.memcpyHostToDevice();
+    Property<N_MAX, int> n_mes_nbs;
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
+    Property<N_MAX, int> n_epi_nbs;
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
+    curandState *d_state;
     cudaMalloc(&d_state, N_MAX*sizeof(curandState));
     setup_rand_states<<<(N_MAX + 128 - 1)/128, 128>>>(d_state, N_MAX);
 

@@ -24,10 +24,6 @@ enum CELL_TYPES {MESENCHYME, STRETCHED_EPI, EPITHELIUM};
 
 MAKE_PT(lbcell, x, y, z, w, phi, theta);
 
-Solution<lbcell, N_MAX, LatticeSolver> bolls;
-Protrusions<static_cast<int>(N_MAX*LINKS_P_CELL)> links(LINK_STRENGTH);
-Property<N_MAX, CELL_TYPES> type;
-
 
 __device__ CELL_TYPES* d_type;
 
@@ -102,9 +98,6 @@ __global__ void update_links(const Lattice<N_MAX>* __restrict__ d_lattice,
     }
 }
 
-auto intercalation = std::bind(link_forces<static_cast<int>(N_MAX*LINKS_P_CELL), lbcell>,
-    links, std::placeholders::_1, std::placeholders::_2);
-
 
 __global__ void proliferate(float rate, float mean_distance, lbcell* d_X, int* d_n_cells,
         curandState* d_state) {
@@ -138,8 +131,11 @@ __global__ void proliferate(float rate, float mean_distance, lbcell* d_X, int* d
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
+    Solution<lbcell, N_MAX, LatticeSolver> bolls;
     bolls.set_n(5000);
     uniform_sphere(0.733333, bolls);
+    Property<N_MAX, CELL_TYPES> type;
+    cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     for (auto i = 0; i < bolls.get_n(); i++) {
         bolls.h_X[i].x = fabs(bolls.h_X[i].x);
         bolls.h_X[i].y = bolls.h_X[i].y/1.5;
@@ -148,7 +144,10 @@ int main(int argc, char const *argv[]) {
     }
     bolls.memcpyHostToDevice();
     type.memcpyHostToDevice();
-    cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
+    Protrusions<static_cast<int>(N_MAX*LINKS_P_CELL)> links(LINK_STRENGTH);
+    auto intercalation = std::bind(
+        link_forces<static_cast<int>(N_MAX*LINKS_P_CELL), lbcell>,
+        links, std::placeholders::_1, std::placeholders::_2);
 
     // Relax
     VtkOutput relax_output("relaxation");
@@ -185,7 +184,7 @@ int main(int argc, char const *argv[]) {
         links.set_n(bolls.get_n()*LINKS_P_CELL);
         type.memcpyDeviceToHost();
 
-        std::thread calculation([] {
+        std::thread calculation([&] {
             bolls.step(DELTA_T, h_cubic_w_diffusion, intercalation);
             proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X,
                 bolls.d_n, links.d_state);
