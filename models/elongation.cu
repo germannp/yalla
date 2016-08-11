@@ -175,6 +175,7 @@ int main(int argc, char const *argv[]) {
     }
     bolls.memcpyHostToDevice();
     type.memcpyHostToDevice();
+    bolls.step(DELTA_T, h_cubic_w_diffusion);  // Relax epithelium before proliferate
 
     // Simulate diffusion & intercalation
     VtkOutput sim_output("elongation");
@@ -185,12 +186,12 @@ int main(int argc, char const *argv[]) {
         type.memcpyDeviceToHost();
 
         std::thread calculation([&] {
-            bolls.step(DELTA_T, h_cubic_w_diffusion, intercalation);
             proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X,
                 bolls.d_n, links.d_state);
             bolls.build_lattice(R_LINK);
             update_links<<<(links.get_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
                 bolls.d_X, bolls.get_n(), links.d_link, links.d_state);
+            bolls.step(DELTA_T, h_cubic_w_diffusion, intercalation);
         });
 
         sim_output.write_positions(bolls);

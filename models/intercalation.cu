@@ -76,8 +76,8 @@ int main(int argc, char const *argv[]) {
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
         links.memcpyDeviceToHost();
-        bolls.step(DELTA_T, h_clipped_cubic, intercalation);
         update_links<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls.d_X, links.d_link, links.d_state);
+        bolls.step(DELTA_T, h_clipped_cubic, intercalation);
         output.write_positions(bolls);
         output.write_protrusions(links);
     }
