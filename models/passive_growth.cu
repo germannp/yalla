@@ -14,6 +14,7 @@
 const auto R_MAX = 1;
 const auto MEAN_DIST = 0.75;
 const auto RATE = 0.006;
+const auto N_0 = 200;
 const auto N_MAX = 5000;
 const auto N_TIME_STEPS = 500;
 const auto DELTA_T = 0.2;
@@ -21,7 +22,7 @@ enum CELL_TYPES {MESENCHYME, EPITHELIUM};
 
 
 __device__ CELL_TYPES* d_type;
-__device__ int* d_mes_nbs;
+__device__ int* d_mes_nbs;  // number of mesenchymal neighbours
 __device__ int* d_epi_nbs;
 
 __device__ pocell relu_w_polarity(pocell Xi, pocell Xj, int i, int j) {
@@ -88,7 +89,7 @@ __global__ void proliferate(float rate, float mean_distance, pocell* d_X, int* d
 int main(int argc, char const *argv[]) {
     // Prepare initial state
     Solution<pocell, N_MAX, LatticeSolver> bolls;
-    bolls.set_n(200);
+    bolls.set_n(N_0);
     uniform_sphere(MEAN_DIST, bolls);
     Property<N_MAX, CELL_TYPES> type;
     for (auto i = 0; i < bolls.get_n(); i++) type.h_prop[i] = MESENCHYME;
