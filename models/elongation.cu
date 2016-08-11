@@ -12,11 +12,12 @@
 #include "../lib/vtk.cuh"
 
 
+const auto N_CELLS_0 = 5000;
+const auto N_MAX = 61000;
 const auto R_MAX = 1;
 const auto R_MIN = 0.6;
-const auto N_MAX = 61000;
 const auto R_LINK = 1.5;
-const auto LINKS_P_CELL = 1.f;  // Must be >= 1 as rand states used to proliferatie
+const auto LINKS_P_CELL = 1.f;  // Must be >= 1 as rand states used to proliferate
 const auto LINK_STRENGTH = 0.5;
 const auto N_TIME_STEPS = 500;
 const auto DELTA_T = 0.2;
@@ -132,7 +133,7 @@ __global__ void proliferate(float rate, float mean_distance, lbcell* d_X, int* d
 int main(int argc, char const *argv[]) {
     // Prepare initial state
     Solution<lbcell, N_MAX, LatticeSolver> bolls;
-    bolls.set_n(5000);
+    bolls.set_n(N_CELLS_0);
     uniform_sphere(0.733333, bolls);
     Property<N_MAX, CELL_TYPES> type;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
