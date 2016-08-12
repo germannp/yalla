@@ -3,6 +3,7 @@
 #include <functional>
 #include <curand_kernel.h>
 #include <thrust/fill.h>
+#include <thrust/execution_policy.h>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
