@@ -4,8 +4,8 @@
 #include "minunit.cuh"
 
 
-const int N_MAX = 1000;
-const float L_0 = 1;
+const auto N_MAX = 1000;
+const auto L_0 = 0.5;
 
 Solution<float3, N_MAX, N2nSolver> n2n;
 Solution<float3, N_MAX, LatticeSolver> latt;
@@ -17,6 +17,8 @@ __device__ float3 spring(float3 Xi, float3 Xj, int i, int j) {
 
     auto r = Xi - Xj;
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    if (dist > 1) return dF;
+
     dF = r*(L_0 - dist)/dist;
     return dF;
 }
@@ -72,20 +74,6 @@ const char* test_latt_tetrahedron() {
 }
 
 
-__device__ float3 cubic(float3 Xi, float3 Xj, int i, int j) {
-    float3 dF {0};
-    if (i == j) return dF;
-
-    auto r = Xi - Xj;
-    auto dist = fminf(sqrtf(r.x*r.x + r.y*r.y + r.z*r.z), 1);
-    auto F = 2*(0.6 - dist)*(1 - dist) + (1 - dist)*(1 - dist);
-    dF = r*F/dist;
-    return dF;
-}
-
-__device__ auto d_cubic = &cubic;
-auto h_cubic = get_device_object(d_cubic, 0);
-
 const char* test_compare_methods() {
     n2n.set_n(N_MAX);
     latt.set_n(N_MAX);
@@ -96,8 +84,8 @@ const char* test_compare_methods() {
         latt.h_X[i].z = n2n.h_X[i].z;
     }
     latt.memcpyHostToDevice();
-    n2n.step(0.5, h_cubic);
-    latt.step(0.5, h_cubic);
+    n2n.step(0.5, h_spring);
+    latt.step(0.5, h_spring);
 
     n2n.memcpyDeviceToHost();
     latt.memcpyDeviceToHost();
@@ -110,14 +98,6 @@ const char* test_compare_methods() {
     return NULL;
 }
 
-
-__device__ float3 no_interaction(float3 Xi, float3 Xj, int i, int j) {
-    float3 dF {0};
-    return dF;
-}
-
-__device__ auto d_no_interaction = &no_interaction;
-auto h_no_interaction = get_device_object(d_no_interaction, 0);
 
 __global__ void push(float3* d_dX) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
@@ -133,7 +113,7 @@ void push_genforce(const float3* __restrict__ d_X, float3* d_dX) {
 const char* test_generic_forces() {
     n2n.h_X[0] = float3{0, 0, 0};
     n2n.memcpyHostToDevice();
-    n2n.step(1, h_no_interaction, push_genforce);
+    n2n.step(1, h_spring, push_genforce);
 
     n2n.memcpyDeviceToHost();
     MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n.h_X[0].x, 1));
@@ -142,7 +122,7 @@ const char* test_generic_forces() {
 
     latt.h_X[0] = float3{0, 0, 0};
     latt.memcpyHostToDevice();
-    latt.step(1, h_no_interaction, push_genforce);
+    latt.step(1, h_spring, push_genforce);
 
     latt.memcpyDeviceToHost();
     MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt.h_X[0].x, 1));
