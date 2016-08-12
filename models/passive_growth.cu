@@ -106,7 +106,6 @@ int main(int argc, char const *argv[]) {
     // Relax
     for (auto time_step = 0; time_step <= 500; time_step++) {
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
-        thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_n(), 0);
         bolls.step(DELTA_T, h_relu_w_polarity);
     }
 
