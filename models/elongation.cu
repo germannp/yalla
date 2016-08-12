@@ -2,6 +2,7 @@
 #include <thread>
 #include <functional>
 #include <curand_kernel.h>
+#include <thrust/fill.h>
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
@@ -15,18 +16,19 @@
 const auto N_CELLS_0 = 5000;
 const auto N_MAX = 61000;
 const auto R_MAX = 1;
-const auto R_MIN = 0.6;
 const auto R_LINK = 1.5;
 const auto LINKS_P_CELL = 1.f;  // Must be >= 1 as rand states used to proliferate
 const auto LINK_STRENGTH = 0.5;
 const auto N_TIME_STEPS = 500;
 const auto DELTA_T = 0.2;
-enum CELL_TYPES {MESENCHYME, STRETCHED_EPI, EPITHELIUM};
+enum CELL_TYPES {MESENCHYME, EPITHELIUM};
 
 MAKE_PT(lbcell, x, y, z, w, phi, theta);
 
 
 __device__ CELL_TYPES* d_type;
+__device__ int* d_mes_nbs;  // number of mesenchymal neighbours
+__device__ int* d_epi_nbs;
 
 __device__ lbcell cubic_w_diffusion(lbcell Xi, lbcell Xj, int i, int j) {
     lbcell dF {0};
@@ -40,36 +42,29 @@ __device__ lbcell cubic_w_diffusion(lbcell Xi, lbcell Xj, int i, int j) {
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if (dist > R_MAX) return dF;
 
-    auto F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
-    dF.x = r.x*F/dist*(Xi.x > 0);
+    float F;
+    if (d_type[i] == d_type[j]) {
+        F = fmaxf(0.7 - dist, 0)*2 - fmaxf(dist - 0.8, 0)/2;
+    } else {
+        F = fmaxf(0.8 - dist, 0)*2 - fmaxf(dist - 0.9, 0)/2;
+    }
+    dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
     auto D = dist < R_MAX ? 0.1 : 0;
     dF.w = - r.w*D;
 
+    if (d_type[j] == MESENCHYME) d_mes_nbs[i] += 1;
+    else d_epi_nbs[i] += 1;
+
     if (d_type[i] == MESENCHYME or d_type[j] == MESENCHYME) return dF;
 
-    if (dist < 0.733333) d_type[i] = EPITHELIUM;
     dF += polarity_force(Xi, Xj)*0.2;
     return dF;
 }
 
 __device__ auto d_cubic_w_diffusion = &cubic_w_diffusion;
 auto h_cubic_w_diffusion = get_device_object(d_cubic_w_diffusion, 0);
-
-
-__device__ lbcell count_neighbours(lbcell Xi, lbcell Xj, int i, int j) {
-    lbcell dF {0};
-    if (i == j) return dF;
-
-    auto r = Xi - Xj;
-    auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    dF.w = dist < R_MAX ? 1 : 0;
-    return dF;
-}
-
-__device__ auto d_count_neighbours = &count_neighbours;
-auto h_count_neighbours = get_device_object(d_count_neighbours, 0);
 
 
 __global__ void update_links(const Lattice<N_MAX>* __restrict__ d_lattice,
@@ -106,14 +101,14 @@ __global__ void proliferate(float rate, float mean_distance, lbcell* d_X, int* d
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= *d_n_cells*(1 - rate)) return;  // Dividing new cells is problematic!
 
-    if (d_type[i] == EPITHELIUM) {
-        d_type[i] = STRETCHED_EPI;
-        return;
-    }
-
-    if (d_type[i] == MESENCHYME) {
-        auto r = curand_uniform(&d_state[i]);
-        if (r > rate) return;
+    switch (d_type[i]) {
+        case MESENCHYME: {
+            auto r = curand_uniform(&d_state[i]);
+            if (r > rate) return;
+        }
+        case EPITHELIUM: {
+            if (d_epi_nbs[i] > d_mes_nbs[i]) return;
+        }
     }
 
     auto n = atomicAdd(d_n_cells, 1);
@@ -126,7 +121,7 @@ __global__ void proliferate(float rate, float mean_distance, lbcell* d_X, int* d
     d_X[i].w = d_X[i].w/2;
     d_X[n].phi = d_X[i].phi;
     d_X[n].theta = d_X[i].theta;
-    d_type[n] = d_type[i] == MESENCHYME ? MESENCHYME : STRETCHED_EPI;
+    d_type[n] = d_type[i];
 }
 
 
@@ -145,6 +140,10 @@ int main(int argc, char const *argv[]) {
     }
     bolls.memcpyHostToDevice();
     type.memcpyHostToDevice();
+    Property<N_MAX, int> n_mes_nbs;
+    cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
+    Property<N_MAX, int> n_epi_nbs;
+    cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
     Protrusions<static_cast<int>(N_MAX*LINKS_P_CELL)> links(LINK_STRENGTH);
     auto intercalation = std::bind(
         link_forces<static_cast<int>(N_MAX*LINKS_P_CELL), lbcell>,
@@ -153,17 +152,18 @@ int main(int argc, char const *argv[]) {
     // Relax
     VtkOutput relax_output("relaxation");
     for (auto time_step = 0; time_step <= 200; time_step++) {
+        thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
         bolls.step(DELTA_T, h_cubic_w_diffusion);
         relax_output.print_progress();
     }
     relax_output.print_done();
 
     // Find epithelium
-    bolls.step(1, h_count_neighbours);
     bolls.memcpyDeviceToHost();
+    n_mes_nbs.memcpyDeviceToHost();
     for (auto i = 0; i < bolls.get_n(); i++) {
-        if (bolls.h_X[i].w < 12 and bolls.h_X[i].x > 0) {
-            type.h_prop[i] = STRETCHED_EPI;
+        if (n_mes_nbs.h_prop[i] < 12*2 and bolls.h_X[i].x > 0) {  // 2nd order solver
+            type.h_prop[i] = EPITHELIUM;
             auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x
                 + bolls.h_X[i].y*bolls.h_X[i].y + bolls.h_X[i].z*bolls.h_X[i].z);
             bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x);
@@ -192,6 +192,8 @@ int main(int argc, char const *argv[]) {
             bolls.build_lattice(R_LINK);
             update_links<<<(links.get_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
                 bolls.d_X, bolls.get_n(), links.d_link, links.d_state);
+            thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
+            thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_n(), 0);
             bolls.step(DELTA_T, h_cubic_w_diffusion, intercalation);
         });
 
