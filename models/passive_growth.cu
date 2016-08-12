@@ -80,7 +80,7 @@ __global__ void proliferate(float rate, float mean_distance, pocell* d_X, int* d
     d_X[n].z = d_X[i].z + mean_distance/4*cosf(theta);
     d_X[n].phi = d_X[i].phi;
     d_X[n].theta = d_X[i].theta;
-    d_type[n] = d_type[i] == MESENCHYME ? MESENCHYME : EPITHELIUM;
+    d_type[n] = d_type[i];
     d_mes_nbs[n] = 0;
     d_epi_nbs[n] = 0;
 }
