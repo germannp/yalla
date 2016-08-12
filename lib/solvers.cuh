@@ -179,6 +179,8 @@ public:
     }
 };
 
+__constant__ int d_moore_nhood[27];
+
 template<typename Pt, int N_MAX>class LatticeSolver {
 public:
     Lattice<N_MAX> lattice;
@@ -203,6 +205,20 @@ protected:
         *h_n = N_MAX;
         cudaMalloc(&d_n, sizeof(int));
         cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice);
+
+        int h_moore_nhood[27];
+        h_moore_nhood[0] = - 1;
+        h_moore_nhood[1] = 0;
+        h_moore_nhood[2] = 1;
+        for (auto i = 0; i < 3; i++) {
+            h_moore_nhood[i + 3] = h_moore_nhood[i % 3] - LATTICE_SIZE;
+            h_moore_nhood[i + 6] = h_moore_nhood[i % 3] + LATTICE_SIZE;
+        }
+        for (auto i = 0; i < 9; i++) {
+            h_moore_nhood[i +  9] = h_moore_nhood[i % 9] - LATTICE_SIZE*LATTICE_SIZE;
+            h_moore_nhood[i + 18] = h_moore_nhood[i % 9] + LATTICE_SIZE*LATTICE_SIZE;
+        }
+        cudaMemcpyToSymbol(d_moore_nhood, &h_moore_nhood, 27*sizeof(int));
     }
     void step(float delta_t, d_PairwiseInteraction<Pt> d_pwint, GenericForces<Pt> genforce);
     void build_lattice(const Pt* __restrict__ d_X, float cube_size = CUBE_SIZE);
@@ -256,23 +272,10 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ d_X, Pt
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
-    int interacting_cubes[27];
-    interacting_cubes[0] = d_lattice->d_cube_id[i] - 1;
-    interacting_cubes[1] = d_lattice->d_cube_id[i];
-    interacting_cubes[2] = d_lattice->d_cube_id[i] + 1;
-    for (auto j = 0; j < 3; j++) {
-        interacting_cubes[j + 3] = interacting_cubes[j % 3] - LATTICE_SIZE;
-        interacting_cubes[j + 6] = interacting_cubes[j % 3] + LATTICE_SIZE;
-    }
-    for (auto j = 0; j < 9; j++) {
-        interacting_cubes[j +  9] = interacting_cubes[j % 9] - LATTICE_SIZE*LATTICE_SIZE;
-        interacting_cubes[j + 18] = interacting_cubes[j % 9] + LATTICE_SIZE*LATTICE_SIZE;
-    }
-
     auto Xi = d_X[d_lattice->d_cell_id[i]];
     Pt F {0};
     for (auto j = 0; j < 27; j++) {
-        auto cube = interacting_cubes[j];
+        auto cube = d_lattice->d_cube_id[i] + d_moore_nhood[j];
         for (auto k = d_lattice->d_cube_start[cube]; k <= d_lattice->d_cube_end[cube]; k++) {
             auto Xj = d_X[d_lattice->d_cell_id[k]];
             F += d_pwint(Xi, Xj, d_lattice->d_cell_id[i], d_lattice->d_cell_id[k]);
