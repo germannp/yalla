@@ -1,27 +1,24 @@
+#include <functional>
+
 #include "../lib/dtypes.cuh"
-#include "../lib/solvers.cuh"
 #include "../lib/protrusions.cuh"
 #include "minunit.cuh"
 
 
-Solution<float3, 4, N2nSolver> bolls;
-Protrusions<4> links;
-
-
-__device__ float3 no_interaction(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
     return dF;
 }
 
-__device__ auto d_no_interaction = &no_interaction;
-auto h_no_interaction = get_device_object(d_no_interaction, 0);
-
-void link_forces(const float3* __restrict__ d_X, float3* d_dX) {
-    link_force<<<(4 + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link, 4);
-}
+#include "../lib/solvers.cuh"
 
 
 const char* square_of_four() {
+    Solution<float3, 4, N2nSolver> bolls;
+    Protrusions<4> links;
+    auto forces = std::bind(link_forces<4>, links,
+        std::placeholders::_1, std::placeholders::_2);
+
     bolls.h_X[0].x = 1;  bolls.h_X[0].y = 1;  bolls.h_X[0].z = 0;
     bolls.h_X[1].x = 1;  bolls.h_X[1].y = -1; bolls.h_X[1].z = 0;
     bolls.h_X[2].x = -1; bolls.h_X[2].y = -1; bolls.h_X[2].z = 0;
@@ -35,7 +32,7 @@ const char* square_of_four() {
 
     auto com_i = center_of_mass(bolls);
     for (auto i = 0; i < 500; i++) {
-        bolls.step(0.1, h_no_interaction, link_forces);
+        bolls.step(0.1, forces);
     }
 
     bolls.memcpyDeviceToHost();

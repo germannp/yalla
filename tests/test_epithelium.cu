@@ -1,13 +1,9 @@
 #include "../lib/dtypes.cuh"
-#include "../lib/solvers.cuh"
 #include "../lib/epithelium.cuh"
 #include "minunit.cuh"
 
 
-Solution<pocell, 4, N2nSolver> bolls;
-
-
-__device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
+__device__ pocell pairwise_interaction(pocell Xi, pocell Xj, int i, int j) {
     pocell dF {0};
     if (i == j) return dF;
 
@@ -24,8 +20,9 @@ __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
     return dF;
 }
 
-__device__ auto d_epithelium = &epithelium;
-auto h_epithelium = get_device_object(d_epithelium, 0);
+#include "../lib/solvers.cuh"
+
+Solution<pocell, 4, N2nSolver> bolls;
 
 const char* test_line_of_four() {
     for (auto i = 0; i < 4; i++) {
@@ -38,7 +35,7 @@ const char* test_line_of_four() {
     bolls.memcpyHostToDevice();
     auto com_i = center_of_mass(bolls);
     for (auto i = 0; i < 500; i++) {
-        bolls.step(0.5, h_epithelium);
+        bolls.step(0.5);
     }
 
     bolls.memcpyDeviceToHost();

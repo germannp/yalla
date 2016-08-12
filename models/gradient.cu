@@ -1,7 +1,6 @@
 // Simulate gradient formation
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
-#include "../lib/solvers.cuh"
 #include "../lib/vtk.cuh"
 
 
@@ -12,7 +11,7 @@ const auto N_TIME_STEPS = 200;
 const auto DELTA_T = 0.005;
 
 
-__device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
+__device__ float4 pairwise_interaction(float4 Xi, float4 Xj, int i, int j) {
     float4 dF {0};
     if (i == j) return dF;
 
@@ -32,8 +31,7 @@ __device__ float4 cubic_w_diffusion(float4 Xi, float4 Xj, int i, int j) {
     return dF;
 }
 
-__device__ auto d_cubic_w_diffusion = &cubic_w_diffusion;
-auto h_cubic_w_diffusion = get_device_object(d_cubic_w_diffusion, 0);
+#include "../lib/solvers.cuh"
 
 
 int main(int argc, char const *argv[]) {
@@ -49,7 +47,7 @@ int main(int argc, char const *argv[]) {
     VtkOutput output("gradient");
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
-        bolls.step(DELTA_T, h_cubic_w_diffusion);
+        bolls.step(DELTA_T);
         output.write_positions(bolls);
         output.write_field(bolls);
     }

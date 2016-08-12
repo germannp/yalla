@@ -1,7 +1,6 @@
 // Simulate a mesenchyme-to-epithelium transition
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
-#include "../lib/solvers.cuh"
 #include "../lib/vtk.cuh"
 #include "../lib/epithelium.cuh"
 
@@ -14,7 +13,7 @@ const auto DELTA_T = 0.1;
 
 
 // Cubic potential plus k*(n_i . r_ij/r)^2/2 for all r_ij <= R_MAX
-__device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
+__device__ pocell pairwise_interaction(pocell Xi, pocell Xj, int i, int j) {
     pocell dF {0};
     if (i == j) return dF;
 
@@ -31,8 +30,7 @@ __device__ pocell epithelium(pocell Xi, pocell Xj, int i, int j) {
     return dF;
 }
 
-__device__ auto d_epithelium = &epithelium;
-auto h_epithelium = get_device_object(d_epithelium, 0);
+#include "../lib/solvers.cuh"
 
 
 int main(int argc, char const *argv[]) {
@@ -51,7 +49,7 @@ int main(int argc, char const *argv[]) {
     VtkOutput output("epithelium");
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
-        bolls.step(DELTA_T, h_epithelium);
+        bolls.step(DELTA_T);
         output.write_positions(bolls);
         output.write_polarity(bolls);
     }

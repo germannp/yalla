@@ -1,4 +1,4 @@
-// Solvers for N-body problem
+// Solvers for N-body problems
 #include <assert.h>
 #include <functional>
 #include <thrust/fill.h>
@@ -6,25 +6,16 @@
 #include <thrust/execution_policy.h>
 
 
-// Interactions must be specified either between two points of type Pt (e.g. float3,
-// see dtypes.cuh) or generally with the following signatures:
-template<typename Pt>
-using d_PairwiseInteraction = Pt (*)(Pt Xi, Pt Xj, int i, int j);
+// A function Pt pairwise_interaction(Pt Xi, Pt Xj, int i, int j) defining the
+// interaction between each pair of points of type Pt (e.g. float3, see dtypes.cuh)
+// must be defined before #including this file to allow inlining in kernels.
 
+// Optional a generic force with the following signature can be passed:
 template<typename Pt>
 using GenericForces = std::function<void (const Pt* __restrict__ d_X, Pt* d_dX)>;
 
 template<typename Pt>
 void none(const Pt* __restrict__ d_X, Pt* d_dX) {}
-
-// Wrapper to copy device object to host, from pisto
-template<typename T> T get_device_object(const T& on_device, cudaStream_t stream = 0){
-    T on_host;
-    cudaMemcpyFromSymbolAsync((void*)&on_host, (const void*)&on_device, sizeof(T), 0,
-        cudaMemcpyDeviceToHost, stream);
-    cudaStreamSynchronize(stream);
-    return on_host;
-}
 
 
 // Solution<Pt, N_MAX, Solver> combines a method, Solver, with a point type, Pt.
@@ -57,11 +48,11 @@ public:
         auto n = *Solver<Pt, N_MAX>::h_n;
         assert(n <= N_MAX);
     }
-    void step(float delta_t, d_PairwiseInteraction<Pt> d_pwint) {
-        return Solver<Pt, N_MAX>::step(delta_t, d_pwint, none<Pt>);
+    void step(float delta_t) {
+        return Solver<Pt, N_MAX>::step(delta_t, none<Pt>);
     }
-    void step(float delta_t, d_PairwiseInteraction<Pt> d_pwint, GenericForces<Pt> genforce) {
-        return Solver<Pt, N_MAX>::step(delta_t, d_pwint, genforce);
+    void step(float delta_t, GenericForces<Pt> genforce) {
+        return Solver<Pt, N_MAX>::step(delta_t, genforce);
     }
 };
 
@@ -113,13 +104,12 @@ protected:
         cudaMalloc(&d_n, sizeof(int));
         cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice);
     }
-    void step(float delta_t, d_PairwiseInteraction<Pt> d_pwint, GenericForces<Pt> genforce);
+    void step(float delta_t, GenericForces<Pt> genforce);
 };
 
 // Calculate d_dX one thread per point, to TILE_SIZE other points at a time
 template<typename Pt>
-__global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
-        d_PairwiseInteraction<Pt> d_pwint) {
+__global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX) {
     auto d_cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
 
     __shared__ Pt shX[TILE_SIZE];
@@ -135,7 +125,7 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_
         for (auto i = 0; i < TILE_SIZE; i++) {
             auto other_d_cell_idx = tile_start + i;
             if ((d_cell_idx < n_cells) and (other_d_cell_idx < n_cells)) {
-                Fi += d_pwint(Xi, shX[i], d_cell_idx, other_d_cell_idx);
+                Fi += pairwise_interaction(Xi, shX[i], d_cell_idx, other_d_cell_idx);
             }
         }
     }
@@ -146,24 +136,23 @@ __global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_
 }
 
 template<typename Pt, int N_MAX>
-void N2nSolver<Pt, N_MAX>::step(float delta_t, d_PairwiseInteraction<Pt> d_pwint,
-        GenericForces<Pt> genforce) {
+void N2nSolver<Pt, N_MAX>::step(float delta_t, GenericForces<Pt> genforce) {
     // 1st step
-    calculate_n2n_dX<<<(*h_n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(*h_n,
-        d_X, d_dX, d_pwint);  // ceil int div.
+    calculate_n2n_dX<<<(*h_n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(  // ceil int div.
+        *h_n, d_X, d_dX);
     genforce(d_X, d_dX);
     euler_step<<<(*h_n + 32 - 1)/32, 32>>>(*h_n, delta_t, d_X, d_X1, d_dX);
 
     // 2nd step
-    calculate_n2n_dX<<<(*h_n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(*h_n,
-        d_X1, d_dX1, d_pwint);
+    calculate_n2n_dX<<<(*h_n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
+        *h_n, d_X1, d_dX1);
     genforce(d_X1, d_dX1);
     heun_step<<<(*h_n + 32 - 1)/32, 32>>>(*h_n, delta_t, d_X, d_dX, d_dX1);
 }
 
 
-// Solver implementation with sorting based lattice for limited interactions, after
-// http://docs.nvidia.com/cuda/samples/5_Simulations/particles/doc/particles.pdf
+// Solver implementation with sorting based lattice for limited pairwise_interaction,
+// after http://docs.nvidia.com/cuda/samples/5_Simulations/particles/doc/particles.pdf
 const auto CUBE_SIZE = 1.f;
 const auto LATTICE_SIZE = 50u;
 const auto N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
@@ -220,7 +209,7 @@ protected:
         }
         cudaMemcpyToSymbol(d_moore_nhood, &h_moore_nhood, 27*sizeof(int));
     }
-    void step(float delta_t, d_PairwiseInteraction<Pt> d_pwint, GenericForces<Pt> genforce);
+    void step(float delta_t, GenericForces<Pt> genforce);
     void build_lattice(const Pt* __restrict__ d_X, float cube_size = CUBE_SIZE);
 };
 
@@ -268,7 +257,7 @@ void LatticeSolver<Pt, N_MAX>::build_lattice(const Pt* __restrict__ d_X, float c
 // Integration
 template<typename Pt, int N_MAX>
 __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
-        const Lattice<N_MAX>* __restrict__ d_lattice, d_PairwiseInteraction<Pt> d_pwint) {
+        const Lattice<N_MAX>* __restrict__ d_lattice) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
@@ -278,26 +267,26 @@ __global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ d_X, Pt
         auto cube = d_lattice->d_cube_id[i] + d_moore_nhood[j];
         for (auto k = d_lattice->d_cube_start[cube]; k <= d_lattice->d_cube_end[cube]; k++) {
             auto Xj = d_X[d_lattice->d_cell_id[k]];
-            F += d_pwint(Xi, Xj, d_lattice->d_cell_id[i], d_lattice->d_cell_id[k]);
+            F += pairwise_interaction(Xi, Xj,
+                d_lattice->d_cell_id[i], d_lattice->d_cell_id[k]);
         }
     }
     d_dX[d_lattice->d_cell_id[i]] = F;
 }
 
 template<typename Pt, int N_MAX>
-void LatticeSolver<Pt, N_MAX>::step(float delta_t, d_PairwiseInteraction<Pt> d_pwint,
-        GenericForces<Pt> genforce) {
+void LatticeSolver<Pt, N_MAX>::step(float delta_t, GenericForces<Pt> genforce) {
     assert(LATTICE_SIZE % 2 == 0);  // Needed?
 
     // 1st step
     build_lattice(d_X);
-    calculate_lattice_dX<<<(*h_n + 64 - 1)/64, 64>>>(*h_n, d_X, d_dX, d_lattice, d_pwint);
+    calculate_lattice_dX<<<(*h_n + 64 - 1)/64, 64>>>(*h_n, d_X, d_dX, d_lattice);
     genforce(d_X, d_dX);
     euler_step<<<(*h_n + 64 - 1)/64, 64>>>(*h_n, delta_t, d_X, d_X1, d_dX);
 
     // 2nd step
     build_lattice(d_X1);
-    calculate_lattice_dX<<<(*h_n + 64 - 1)/64, 64>>>(*h_n, d_X1, d_dX1, d_lattice, d_pwint);
+    calculate_lattice_dX<<<(*h_n + 64 - 1)/64, 64>>>(*h_n, d_X1, d_dX1, d_lattice);
     genforce(d_X1, d_dX1);
     heun_step<<<(*h_n + 64 - 1)/64, 64>>>(*h_n, delta_t, d_X, d_dX, d_dX1);
 }

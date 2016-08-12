@@ -6,7 +6,6 @@
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
-#include "../lib/solvers.cuh"
 #include "../lib/protrusions.cuh"
 #include "../lib/epithelium.cuh"
 #include "../lib/property.cuh"
@@ -30,10 +29,10 @@ __device__ CELL_TYPES* d_type;
 __device__ int* d_mes_nbs;  // number of mesenchymal neighbours
 __device__ int* d_epi_nbs;
 
-__device__ lbcell cubic_w_diffusion(lbcell Xi, lbcell Xj, int i, int j) {
+__device__ lbcell pairwise_interaction(lbcell Xi, lbcell Xj, int i, int j) {
     lbcell dF {0};
     if (i == j) {
-        D_ASSERT(Xi.w >= 0);
+        // D_ASSERT(Xi.w >= 0);
         dF.w = (d_type[i] > MESENCHYME) - 0.01*Xi.w;
         return dF;
     }
@@ -63,8 +62,7 @@ __device__ lbcell cubic_w_diffusion(lbcell Xi, lbcell Xj, int i, int j) {
     return dF;
 }
 
-__device__ auto d_cubic_w_diffusion = &cubic_w_diffusion;
-auto h_cubic_w_diffusion = get_device_object(d_cubic_w_diffusion, 0);
+#include "../lib/solvers.cuh"
 
 
 __global__ void update_links(const Lattice<N_MAX>* __restrict__ d_lattice,
@@ -153,7 +151,7 @@ int main(int argc, char const *argv[]) {
     VtkOutput relax_output("relaxation");
     for (auto time_step = 0; time_step <= 200; time_step++) {
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
-        bolls.step(DELTA_T, h_cubic_w_diffusion);
+        bolls.step(DELTA_T);
         relax_output.print_progress();
     }
     relax_output.print_done();
@@ -176,7 +174,7 @@ int main(int argc, char const *argv[]) {
     }
     bolls.memcpyHostToDevice();
     type.memcpyHostToDevice();
-    bolls.step(DELTA_T, h_cubic_w_diffusion);  // Relax epithelium before proliferate
+    bolls.step(DELTA_T);  // Relax epithelium before proliferate
 
     // Simulate diffusion & intercalation
     VtkOutput sim_output("elongation");
@@ -194,7 +192,7 @@ int main(int argc, char const *argv[]) {
                 bolls.d_X, bolls.get_n(), links.d_link, links.d_state);
             thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
             thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_n(), 0);
-            bolls.step(DELTA_T, h_cubic_w_diffusion, intercalation);
+            bolls.step(DELTA_T, intercalation);
         });
 
         sim_output.write_positions(bolls);

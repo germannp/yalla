@@ -4,7 +4,6 @@
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
-#include "../lib/solvers.cuh"
 #include "../lib/property.cuh"
 #include "../lib/protrusions.cuh"
 #include "../lib/vtk.cuh"
@@ -25,7 +24,7 @@ __device__ CELL_TYPES* d_type;
 __device__ int* d_mes_nbs;  // number of mesenchymal neighbours
 __device__ int* d_epi_nbs;
 
-__device__ pocell relu_w_polarity(pocell Xi, pocell Xj, int i, int j) {
+__device__ pocell pairwise_interaction(pocell Xi, pocell Xj, int i, int j) {
     pocell dF {0};
     if (i == j) return dF;
 
@@ -52,8 +51,7 @@ __device__ pocell relu_w_polarity(pocell Xi, pocell Xj, int i, int j) {
     return dF;
 }
 
-__device__ auto d_relu_w_polarity = &relu_w_polarity;
-auto h_relu_w_polarity = get_device_object(d_relu_w_polarity, 0);
+#include "../lib/solvers.cuh"
 
 
 __global__ void proliferate(float rate, float mean_distance, pocell* d_X, int* d_n_cells,
@@ -106,7 +104,7 @@ int main(int argc, char const *argv[]) {
     // Relax
     for (auto time_step = 0; time_step <= 500; time_step++) {
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
-        bolls.step(DELTA_T, h_relu_w_polarity);
+        bolls.step(DELTA_T);
     }
 
     // Find epithelium
@@ -134,7 +132,7 @@ int main(int argc, char const *argv[]) {
         type.memcpyDeviceToHost();
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_n(), 0);
-        bolls.step(DELTA_T, h_relu_w_polarity);
+        bolls.step(DELTA_T);
         proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(RATE*(time_step > 100),
             MEAN_DIST, bolls.d_X, bolls.d_n, d_state);
         sim_output.write_positions(bolls);

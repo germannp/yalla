@@ -1,7 +1,6 @@
 // Simulate rounding up
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
-#include "../lib/solvers.cuh"
 #include "../lib/vtk.cuh"
 
 
@@ -12,7 +11,7 @@ const auto DELTA_T = 0.005;
 auto time_step = 0;
 
 
-__device__ float3 clipped_polynomial(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
     if (i == j) return dF;
 
@@ -29,8 +28,8 @@ __device__ float3 clipped_polynomial(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ auto d_clipped_polynomial = &clipped_polynomial;
-auto h_clipped_polynomial = get_device_object(d_clipped_polynomial, 0);
+#include "../lib/solvers.cuh"
+
 
 // Smooth transition from step(x < 0) = 0 to step(x > 0) = 1 over dx
 __device__ float step(float x) {
@@ -66,7 +65,7 @@ int main(int argc, char const *argv[]) {
     VtkOutput output("round_up");
     for (time_step = 0; time_step*DELTA_T <= 1; time_step++) {
         bolls.memcpyDeviceToHost();
-        bolls.step(DELTA_T, h_clipped_polynomial, squeeze_to_floor);
+        bolls.step(DELTA_T, squeeze_to_floor);
         output.write_positions(bolls);
     }
 

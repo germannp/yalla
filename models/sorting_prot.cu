@@ -4,7 +4,6 @@
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
-#include "../lib/solvers.cuh"
 #include "../lib/protrusions.cuh"
 #include "../lib/property.cuh"
 #include "../lib/vtk.cuh"
@@ -18,7 +17,7 @@ const auto N_TIME_STEPS = 300u;
 const auto DELTA_T = 0.05;
 
 
-__device__ float3 cubic(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
     if (i == j) return dF;
 
@@ -31,8 +30,7 @@ __device__ float3 cubic(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-__device__ auto d_cubic = &cubic;
-auto h_cubic = get_device_object(d_cubic, 0);
+#include "../lib/solvers.cuh"
 
 
 __global__ void update_links(const float3* __restrict__ d_X, Link* d_link,
@@ -82,7 +80,7 @@ int main(int argc, char const *argv[]) {
         bolls.memcpyDeviceToHost();
         links.memcpyDeviceToHost();
         update_links<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls.d_X, links.d_link, links.d_state);
-        bolls.step(DELTA_T, h_cubic, prot_forces);
+        bolls.step(DELTA_T, prot_forces);
         output.write_positions(bolls);
         output.write_protrusions(links);
         output.write_property(type);
