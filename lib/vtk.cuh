@@ -21,12 +21,8 @@ struct Property;
 
 class VtkOutput {
 public:
-    VtkOutput(std::string base_name, int N_TIME_STEPS, int SKIP_STEPS);
-    VtkOutput(std::string base_name, int N_TIME_STEPS) : VtkOutput(base_name, N_TIME_STEPS, 1) {}
-    explicit VtkOutput(std::string base_name) : VtkOutput(base_name, 0, 1) {}
+    VtkOutput(std::string base_name);
     ~VtkOutput(void);
-    void print_progress();
-    void print_done();
     // Write x, z, and y component of Pt, has to be written first
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_positions(Solution<Pt, N_MAX, Solver>& bolls);
@@ -46,78 +42,48 @@ public:
 
 protected:
     int mN_cells;
-    int mN_TIME_STEPS;
-    int mSKIP_STEPS;
-    int mTimeStep = -1;
+    int mTimeStep = 0;
     std::string mBASE_NAME;
-    std::string mCurrentFile;
-    bool mWrite;
+    std::string mCurrentPath;
     bool mPDataStarted;
-    bool mDone = false;
     time_t mStart;
 };
 
 
-VtkOutput::VtkOutput(std::string base_name, int N_TIME_STEPS, int SKIP_STEPS) {
+VtkOutput::VtkOutput(std::string base_name) {
     mBASE_NAME = base_name;
-    mN_TIME_STEPS = N_TIME_STEPS;
-    mSKIP_STEPS = SKIP_STEPS;
     mkdir("output", 755);
     time(&mStart);
 }
 
 VtkOutput::~VtkOutput() {
-    if (!mDone) print_done();
-}
-
-
-void VtkOutput::print_progress() {
-    if (mTimeStep % mSKIP_STEPS == 0) {
-        std::cout << "Integrating " << mBASE_NAME << ", ";
-        if (mN_TIME_STEPS > 0) {
-            std::cout << std::setw(3)
-                << static_cast<int>(100.0*(mTimeStep + 1)/mN_TIME_STEPS)
-                << "% done\r";
-        } else {
-            std::cout << mTimeStep + 1 << " steps done\r";
-        }
-        std::cout.flush();
-        mWrite = true;
-        mPDataStarted = false;
-    } else {
-        mWrite = false;
-    }
-    mTimeStep += 1;
-}
-
-void VtkOutput::print_done() {
     auto end = time(NULL);
-
     auto duration = end - mStart;
     std::cout << "Integrating " << mBASE_NAME << ", ";
     if (duration < 60)
-    std::cout << duration << " seconds";
+        std::cout << duration << " seconds";
     else if (duration < 60*60)
-    std::cout << duration/60 << "m " << duration % 60 << "s";
+        std::cout << duration/60 << "m " << duration % 60 << "s";
     else
-    std::cout << duration/60/60 << "h " << duration % 60*60 << "m";
-    std::cout << " taken." << std::endl;
-
-    mDone = true;
+        std::cout << duration/60/60 << "h " << duration % 60*60 << "m";
+    std::cout << " taken.\n";
 }
 
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& bolls) {
-    print_progress();
-    if (!mWrite) return;
+    std::cout << "Integrating " << mBASE_NAME << ", ";
+    std::cout << mTimeStep << " steps done\r";
+    std::cout.flush();
+    mPDataStarted = false;
+    mTimeStep += 1;
 
     mN_cells = bolls.get_n();
     assert(mN_cells <= N_MAX);
 
-    mCurrentFile = "output/" + mBASE_NAME + "_" + std::to_string(mTimeStep/mSKIP_STEPS)
+    mCurrentPath = "output/" + mBASE_NAME + "_" + std::to_string(mTimeStep)
         + ".vtk";
-    std::ofstream file(mCurrentFile);
+    std::ofstream file(mCurrentPath);
     assert(file.is_open());
 
     file << "# vtk DataFile Version 3.0\n";
@@ -136,9 +102,7 @@ void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& bolls) {
 
 template<int N_LINKS_MAX>
 void VtkOutput::write_protrusions(Protrusions<N_LINKS_MAX>& links) {
-    if (!mWrite) return;
-
-    std::ofstream file(mCurrentFile, std::ios_base::app);
+    std::ofstream file(mCurrentPath, std::ios_base::app);
     assert(file.is_open());
 
     auto n_links = links.get_n();
@@ -150,9 +114,7 @@ void VtkOutput::write_protrusions(Protrusions<N_LINKS_MAX>& links) {
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 void VtkOutput::write_field(Solution<Pt, N_MAX, Solver>& bolls,
         const char* data_name, float Pt::*field) {
-    if (!mWrite) return;
-
-    std::ofstream file(mCurrentFile, std::ios_base::app);
+    std::ofstream file(mCurrentPath, std::ios_base::app);
     assert(file.is_open());
 
     auto mN_cells = bolls.get_n();
@@ -168,9 +130,7 @@ void VtkOutput::write_field(Solution<Pt, N_MAX, Solver>& bolls,
 
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& bolls) {
-    if (!mWrite) return;
-
-    std::ofstream file(mCurrentFile, std::ios_base::app);
+    std::ofstream file(mCurrentPath, std::ios_base::app);
     assert(file.is_open());
 
     auto mN_cells = bolls.get_n();
@@ -192,9 +152,7 @@ void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& bolls) {
 
 template<int N_MAX, typename Prop>
 void VtkOutput::write_property(Property<N_MAX, Prop>& property) {
-    if (!mWrite) return;
-
-    std::ofstream file(mCurrentFile, std::ios_base::app);
+    std::ofstream file(mCurrentPath, std::ios_base::app);
     assert(file.is_open());
 
     if (!mPDataStarted) {

@@ -149,13 +149,10 @@ int main(int argc, char const *argv[]) {
         links, std::placeholders::_1, std::placeholders::_2);
 
     // Relax
-    VtkOutput relax_output("relaxation");
     for (auto time_step = 0; time_step <= 200; time_step++) {
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
         bolls.step(DELTA_T);
-        relax_output.print_progress();
     }
-    relax_output.print_done();
 
     // Find epithelium
     bolls.memcpyDeviceToHost();
