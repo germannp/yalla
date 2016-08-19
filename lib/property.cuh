@@ -1,4 +1,6 @@
 // Container for properties that are not integrated (like cell type)
+#pragma once
+
 #include <string>
 
 

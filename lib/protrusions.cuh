@@ -1,4 +1,6 @@
 // Protrusions as constant forces between linked Pts
+#pragma once
+
 #include <assert.h>
 #include <curand_kernel.h>
 

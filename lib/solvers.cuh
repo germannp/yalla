@@ -1,4 +1,6 @@
 // Solvers for N-body problems
+#pragma once
+
 #include <assert.h>
 #include <functional>
 #include <thrust/fill.h>

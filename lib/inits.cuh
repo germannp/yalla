@@ -1,4 +1,7 @@
 // Initial states
+#pragma once
+
+
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution;
 

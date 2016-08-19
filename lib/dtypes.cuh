@@ -1,4 +1,6 @@
 // Biolerplate vector space over data type Pt
+#pragma once
+
 #include <type_traits>
 
 

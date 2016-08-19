@@ -1,5 +1,7 @@
 // Write Vtk legacy files, see http://www.vtk.org/wp-content/uploads/
 // 2015/04/file-formats.pdf
+#pragma once
+
 #include <time.h>
 #include <sys/stat.h>
 #include <assert.h>
