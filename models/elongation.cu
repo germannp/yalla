@@ -20,6 +20,7 @@ const auto R_LINK = 1.5;
 const auto LINKS_P_CELL = 1.f;  // Must be >= 1 as rand states used to proliferate
 const auto LINK_STRENGTH = 0.5;
 const auto N_TIME_STEPS = 500;
+const auto SKIP_STEPS = 5;
 const auto DELTA_T = 0.2;
 enum CELL_TYPES {MESENCHYME, EPITHELIUM};
 
@@ -176,21 +177,23 @@ int main(int argc, char const *argv[]) {
 
     // Simulate diffusion & intercalation
     VtkOutput sim_output("elongation");
-    for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
+    for (auto time_step = 0; time_step <= N_TIME_STEPS/SKIP_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
         links.memcpyDeviceToHost();
         links.set_n(bolls.get_n()*LINKS_P_CELL);
         type.memcpyDeviceToHost();
 
         std::thread calculation([&] {
-            proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X,
-                bolls.d_n, links.d_state);
-            bolls.build_lattice(R_LINK);
-            update_links<<<(links.get_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
-                bolls.d_X, bolls.get_n(), links.d_link, links.d_state);
-            thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
-            thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_n(), 0);
-            bolls.step(DELTA_T, intercalation);
+            for (auto i = 0; i < SKIP_STEPS; i++) {
+                proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X,
+                    bolls.d_n, links.d_state);
+                bolls.build_lattice(R_LINK);
+                update_links<<<(links.get_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
+                    bolls.d_X, bolls.get_n(), links.d_link, links.d_state);
+                thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
+                thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_n(), 0);
+                bolls.step(DELTA_T, intercalation);
+            }
         });
 
         sim_output.write_positions(bolls);
