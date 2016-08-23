@@ -1,5 +1,5 @@
-// Write Vtk legacy files, see http://www.vtk.org/wp-content/uploads/
-// 2015/04/file-formats.pdf
+// Print status and write Vtk legacy files, see http://www.vtk.org/wp-content/
+// uploads/2015/04/file-formats.pdf
 #pragma once
 
 #include <time.h>
@@ -23,12 +23,13 @@ struct Property;
 
 class VtkOutput {
 public:
+    // Files are stored as output/base_name_###.vtk
     VtkOutput(std::string base_name);
     ~VtkOutput(void);
-    // Write x, z, and y component of Pt, has to be written first
+    // Write x, y, and z component of Pt; has to be written first
     template<typename Pt, int N_MAX, template<typename, int> class Solver>
     void write_positions(Solution<Pt, N_MAX, Solver>& bolls);
-    // Write links, see protrusions.cuh, if written has to be second
+    // Write links, see protrusions.cuh; if written has to be second
     template<int N_LINKS_MAX>
     void write_protrusions(Protrusions<N_LINKS_MAX>& links);
     // Write further components of Pt
