@@ -18,41 +18,43 @@ class Protrusions {
 public:
     Link *h_link = (Link*)malloc(N_LINKS*sizeof(Link));
     Link *d_link;
+    int *h_n = (int*)malloc(sizeof(int));
+    int *d_n;
     curandState *d_state;
     float strength;
-    Protrusions (float strength = 1.f/5) {
+    Protrusions (float s = 1.f/5, int n = N_LINKS) {
         cudaMalloc(&d_link, N_LINKS*sizeof(Link));
+        cudaMalloc(&d_n, sizeof(int));
         cudaMalloc(&d_state, N_LINKS*sizeof(curandState));
         for (auto i = 0; i < N_LINKS; i++) {
             h_link[i].a = 0;
             h_link[i].b = 0;
         }
+        *h_n = n;
         memcpyHostToDevice();
         setup_rand_states<<<(N_LINKS + 32 - 1)/32, 32>>>(d_state, N_LINKS);
-        set_strength(strength);
+        strength = s;
     }
-    void set_strength(float strength) {
-        mStrength = strength;
-    }
-    float get_strength() {
-        return mStrength;
-    }
-    void set_n(int n) {
+    void set_d_n(int n) {
         assert(n <= N_LINKS);
-        mN = n;
+        cudaMemcpy(d_n, &n, sizeof(int), cudaMemcpyHostToDevice);
     }
-    int get_n() {
-        return mN;
+    int get_d_n() {
+        int n;
+        cudaMemcpy(&n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
+        assert(n <= N_LINKS);
+        return n;
     }
     void memcpyHostToDevice() {
+        assert(*h_n <= N_LINKS);
         cudaMemcpy(d_link, h_link, N_LINKS*sizeof(Link), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice);
     }
     void memcpyDeviceToHost() {
         cudaMemcpy(h_link, d_link, N_LINKS*sizeof(Link), cudaMemcpyDeviceToHost);
+        cudaMemcpy(h_n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
+        assert(*h_n <= N_LINKS);
     }
-private:
-    float mStrength;
-    int mN = N_LINKS;
 };
 
 
@@ -80,6 +82,6 @@ __global__ void link_force(const Pt* __restrict__ d_X, Pt* d_dX,
 // see http://stackoverflow.com/questions/37924781/. I prefer binding a seperate function.
 template<int N_LINKS, typename Pt = float3>
 void link_forces(Protrusions<N_LINKS>& links, const Pt* __restrict__ d_X, Pt* d_dX) {
-    link_force<<<(links.get_n() + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link,
-        links.get_n(), links.get_strength());
+    link_force<<<(links.get_d_n() + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link,
+        links.get_d_n(), links.strength);
 }

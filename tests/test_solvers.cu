@@ -26,7 +26,7 @@ Solution<float3, N_MAX, LatticeSolver> latt;
 
 
 const char* test_n2n_tetrahedron() {
-    n2n.set_n(4);
+    *n2n.h_n = 4;
     uniform_sphere(L_0, n2n);
     auto com_i = center_of_mass(n2n);
     for (auto i = 0; i < 500; i++) {
@@ -49,7 +49,7 @@ const char* test_n2n_tetrahedron() {
 }
 
 const char* test_latt_tetrahedron() {
-    latt.set_n(4);
+    *latt.h_n = 4;
     uniform_sphere(L_0, latt);
     auto com_i = center_of_mass(latt);
     for (auto i = 0; i < 500; i++) {
@@ -74,8 +74,8 @@ const char* test_latt_tetrahedron() {
 
 
 const char* test_compare_methods() {
-    n2n.set_n(N_MAX);
-    latt.set_n(N_MAX);
+    *n2n.h_n = N_MAX;
+    *latt.h_n = N_MAX;
     uniform_sphere(0.733333, n2n);
     for (auto i = 0; i < N_MAX; i++) {
         latt.h_X[i].x = n2n.h_X[i].x;

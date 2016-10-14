@@ -8,8 +8,8 @@ class Solution;
 // Distribute bolls uniformly random in circle
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 void uniform_circle(float mean_distance, Solution<Pt, N_MAX, Solver>& bolls) {
-    auto r_max = pow(bolls.get_n()/0.9069, 1./2)*mean_distance/2;  // Circle packing
-    for (auto i = 0; i < bolls.get_n(); i++) {
+    auto r_max = pow(*bolls.h_n/0.9069, 1./2)*mean_distance/2;  // Circle packing
+    for (auto i = 0; i < *bolls.h_n; i++) {
         auto r = r_max*pow(rand()/(RAND_MAX + 1.), 1./2);
         auto phi = rand()/(RAND_MAX + 1.)*2*M_PI;
         bolls.h_X[i].x = 0;
@@ -22,8 +22,8 @@ void uniform_circle(float mean_distance, Solution<Pt, N_MAX, Solver>& bolls) {
 // Distribute bolls uniformly random in sphere
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 void uniform_sphere(float mean_distance, Solution<Pt, N_MAX, Solver>& bolls) {
-    auto r_max = pow(bolls.get_n()/0.64, 1./3)*mean_distance/2;  // Sphere packing
-    for (auto i = 0; i < bolls.get_n(); i++) {
+    auto r_max = pow(*bolls.h_n/0.64, 1./3)*mean_distance/2;  // Sphere packing
+    for (auto i = 0; i < *bolls.h_n; i++) {
         auto r = r_max*pow(rand()/(RAND_MAX + 1.), 1./3);
         auto theta = rand()/(RAND_MAX + 1.)*2*M_PI;
         auto phi = acos(2.*rand()/(RAND_MAX + 1.) - 1);

@@ -81,7 +81,7 @@ void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& bolls) {
     mPDataStarted = false;
     mTimeStep += 1;
 
-    mN_cells = bolls.get_n();
+    mN_cells = *bolls.h_n;
     assert(mN_cells <= N_MAX);
 
     mCurrentPath = "output/" + mBASE_NAME + "_" + std::to_string(mTimeStep)
@@ -108,9 +108,8 @@ void VtkOutput::write_protrusions(Protrusions<N_LINKS_MAX>& links) {
     std::ofstream file(mCurrentPath, std::ios_base::app);
     assert(file.is_open());
 
-    auto n_links = links.get_n();
-    file << "\nLINES " << n_links << " " << 3*n_links << "\n";
-    for (auto i = 0; i < n_links; i++)
+    file << "\nLINES " << *links.h_n << " " << 3**links.h_n << "\n";
+    for (auto i = 0; i < *links.h_n; i++)
         file << "2 " << links.h_link[i].a << " " << links.h_link[i].b << "\n";
 }
 
@@ -120,7 +119,6 @@ void VtkOutput::write_field(Solution<Pt, N_MAX, Solver>& bolls,
     std::ofstream file(mCurrentPath, std::ios_base::app);
     assert(file.is_open());
 
-    auto mN_cells = bolls.get_n();
     if (!mPDataStarted) {
         file << "\nPOINT_DATA " << mN_cells << "\n";
         mPDataStarted = true;
@@ -136,7 +134,6 @@ void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& bolls) {
     std::ofstream file(mCurrentPath, std::ios_base::app);
     assert(file.is_open());
 
-    auto mN_cells = bolls.get_n();
     if (!mPDataStarted) {
         file << "\nPOINT_DATA " << mN_cells << "\n";
         mPDataStarted = true;

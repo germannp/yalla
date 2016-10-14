@@ -87,11 +87,10 @@ __global__ void proliferate(float rate, float mean_distance, pocell* d_X, int* d
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<pocell, N_MAX, LatticeSolver> bolls;
-    bolls.set_n(N_0);
+    Solution<pocell, N_MAX, LatticeSolver> bolls(N_0);
     uniform_sphere(MEAN_DIST, bolls);
     Property<N_MAX, CELL_TYPES> type;
-    for (auto i = 0; i < bolls.get_n(); i++) type.h_prop[i] = MESENCHYME;
+    for (auto i = 0; i < N_0; i++) type.h_prop[i] = MESENCHYME;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     type.memcpyHostToDevice();
     Property<N_MAX, int> n_mes_nbs;
@@ -104,14 +103,14 @@ int main(int argc, char const *argv[]) {
 
     // Relax
     for (auto time_step = 0; time_step <= 500; time_step++) {
-        thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
+        thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + N_0, 0);
         bolls.step(DELTA_T);
     }
 
     // Find epithelium
     bolls.memcpyDeviceToHost();
     n_mes_nbs.memcpyDeviceToHost();
-    for (auto i = 0; i < bolls.get_n(); i++) {
+    for (auto i = 0; i < N_0; i++) {
         if (n_mes_nbs.h_prop[i] < 12*2) {  // 2nd order solver
             type.h_prop[i] = EPITHELIUM;
             auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x + bolls.h_X[i].y*bolls.h_X[i].y
@@ -131,10 +130,10 @@ int main(int argc, char const *argv[]) {
     for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
         type.memcpyDeviceToHost();
-        thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
-        thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_n(), 0);
+        thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
+        thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
         bolls.step(DELTA_T);
-        proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(RATE*(time_step > 100),
+        proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(RATE*(time_step > 100),
             MEAN_DIST, bolls.d_X, bolls.d_n, d_state);
         sim_output.write_positions(bolls);
         sim_output.write_property(type);

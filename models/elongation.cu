@@ -13,7 +13,7 @@
 #include "../lib/vtk.cuh"
 
 
-const auto N_CELLS_0 = 5000;
+const auto N_0 = 5000;
 const auto N_MAX = 61000;
 const auto R_MAX = 1;
 const auto R_LINK = 1.5;
@@ -68,9 +68,10 @@ __device__ lbcell pairwise_interaction(lbcell Xi, lbcell Xj, int i, int j) {
 
 
 __global__ void update_links(const Lattice<N_MAX>* __restrict__ d_lattice,
-        const lbcell* __restrict d_X, int n_cells, Link* d_link, curandState* d_state) {
+        const lbcell* __restrict d_X, int n_cells, int n_links, Link* d_link,
+        curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells*LINKS_P_CELL) return;
+    if (i >= n_links) return;
 
     auto j = static_cast<int>(curand_uniform(&d_state[i])*n_cells);
     auto rand_cube = d_lattice->d_cube_id[j]
@@ -127,12 +128,11 @@ __global__ void proliferate(float rate, float mean_distance, lbcell* d_X, int* d
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<lbcell, N_MAX, LatticeSolver> bolls;
-    bolls.set_n(N_CELLS_0);
+    Solution<lbcell, N_MAX, LatticeSolver> bolls(N_0);
     uniform_sphere(0.733333, bolls);
     Property<N_MAX, CELL_TYPES> type;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
-    for (auto i = 0; i < bolls.get_n(); i++) {
+    for (auto i = 0; i < N_0; i++) {
         bolls.h_X[i].x = fabs(bolls.h_X[i].x);
         bolls.h_X[i].y = bolls.h_X[i].y/1.5;
         bolls.h_X[i].w = 0;
@@ -144,21 +144,21 @@ int main(int argc, char const *argv[]) {
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     Property<N_MAX, int> n_epi_nbs;
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
-    Protrusions<static_cast<int>(N_MAX*LINKS_P_CELL)> links(LINK_STRENGTH);
+    Protrusions<static_cast<int>(N_MAX*LINKS_P_CELL)> links(LINK_STRENGTH, N_0*LINKS_P_CELL);
     auto intercalation = std::bind(
         link_forces<static_cast<int>(N_MAX*LINKS_P_CELL), lbcell>,
         links, std::placeholders::_1, std::placeholders::_2);
 
     // Relax
     for (auto time_step = 0; time_step <= 200; time_step++) {
-        thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
+        thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + N_0, 0);
         bolls.step(DELTA_T);
     }
 
     // Find epithelium
     bolls.memcpyDeviceToHost();
     n_mes_nbs.memcpyDeviceToHost();
-    for (auto i = 0; i < bolls.get_n(); i++) {
+    for (auto i = 0; i < N_0; i++) {
         if (n_mes_nbs.h_prop[i] < 12*2 and bolls.h_X[i].x > 0) {  // 2nd order solver
             type.h_prop[i] = EPITHELIUM;
             auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x
@@ -180,18 +180,18 @@ int main(int argc, char const *argv[]) {
     for (auto time_step = 0; time_step <= N_TIME_STEPS/SKIP_STEPS; time_step++) {
         bolls.memcpyDeviceToHost();
         links.memcpyDeviceToHost();
-        links.set_n(bolls.get_n()*LINKS_P_CELL);
         type.memcpyDeviceToHost();
 
         std::thread calculation([&] {
             for (auto i = 0; i < SKIP_STEPS; i++) {
-                proliferate<<<(bolls.get_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X,
+                proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X,
                     bolls.d_n, links.d_state);
+                links.set_d_n(bolls.get_d_n()*LINKS_P_CELL);
                 bolls.build_lattice(R_LINK);
-                update_links<<<(links.get_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
-                    bolls.d_X, bolls.get_n(), links.d_link, links.d_state);
-                thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_n(), 0);
-                thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_n(), 0);
+                update_links<<<(links.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
+                    bolls.d_X, bolls.get_d_n(), links.get_d_n(), links.d_link, links.d_state);
+                thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
+                thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
                 bolls.step(DELTA_T, intercalation);
             }
         });
