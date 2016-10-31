@@ -7,6 +7,8 @@
 #include <thrust/sort.h>
 #include <thrust/execution_policy.h>
 
+#include "cudebug.cuh"
+
 
 // A function Pt pairwise_interaction(Pt Xi, Pt Xj, int i, int j) defining the
 // interaction between each pair of points of type Pt (e.g. float3, see dtypes.cuh)
@@ -57,13 +59,6 @@ public:
 
 
 // Integration templates
-#ifdef __APPLE__
-#define D_ASSERT(predicate) if (!(predicate)) printf("(%s:%d) Device assertion failed!\n", \
-    __FILE__, __LINE__)
-#else
-#define D_ASSERT(predicate) assert(predicate)
-#endif
-
 template<typename Pt> __global__ void euler_step(int n_cells, float delta_t,
         const Pt* __restrict__ d_X0, Pt* d_X, const Pt* __restrict__ d_dX) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
