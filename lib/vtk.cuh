@@ -69,7 +69,7 @@ VtkOutput::~VtkOutput() {
         std::cout << duration/60 << "m " << duration % 60 << "s";
     else
         std::cout << duration/60/60 << "h " << duration % 60*60 << "m";
-    std::cout << " taken.\n";
+    std::cout << " taken.        \n";  // Overwrite everything
 }
 
 
