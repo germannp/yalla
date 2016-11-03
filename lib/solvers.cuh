@@ -24,7 +24,7 @@ void none(const Pt* __restrict__ d_X, Pt* d_dX) {}
 
 // Solution<Pt, N_MAX, Solver> combines a method, Solver, with a point type, Pt.
 // It stores the solutions on the host and specifies how the solution on the
-// device can be accessed and how new steps are calculated. However all the GPU
+// device can be accessed and how new steps are computed. However all the GPU
 // action is happening in the Solver classes.
 template<typename Pt, int N_MAX, template<typename, int> class Solver>
 class Solution: public Solver<Pt, N_MAX> {
@@ -105,7 +105,7 @@ protected:
 
 // Calculate d_dX one thread per point, to TILE_SIZE other points at a time
 template<typename Pt>
-__global__ void calculate_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX) {
+__global__ void compute_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX) {
     auto d_cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
 
     __shared__ Pt shX[TILE_SIZE];
@@ -136,13 +136,13 @@ void N2nSolver<Pt, N_MAX>::step(float delta_t, GenericForces<Pt> genforce) {
     auto n = get_d_n();
 
     // 1st step
-    calculate_n2n_dX<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(  // ceil int div.
+    compute_n2n_dX<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(  // ceil int div.
         n, d_X, d_dX);
     genforce(d_X, d_dX);
     euler_step<<<(n + 32 - 1)/32, 32>>>(n, delta_t, d_X, d_X1, d_dX);
 
     // 2nd step
-    calculate_n2n_dX<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
+    compute_n2n_dX<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
         n, d_X1, d_dX1);
     genforce(d_X1, d_dX1);
     heun_step<<<(n + 32 - 1)/32, 32>>>(n, delta_t, d_X, d_dX, d_dX1);
@@ -257,7 +257,7 @@ void LatticeSolver<Pt, N_MAX>::build_lattice(const Pt* __restrict__ d_X, float c
 
 // Integration
 template<typename Pt, int N_MAX>
-__global__ void calculate_lattice_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
+__global__ void compute_lattice_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
         const Lattice<N_MAX>* __restrict__ d_lattice) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
@@ -282,13 +282,13 @@ void LatticeSolver<Pt, N_MAX>::step(float delta_t, GenericForces<Pt> genforce) {
 
     // 1st step
     build_lattice(d_X);
-    calculate_lattice_dX<<<(n + 64 - 1)/64, 64>>>(n, d_X, d_dX, d_lattice);
+    compute_lattice_dX<<<(n + 64 - 1)/64, 64>>>(n, d_X, d_dX, d_lattice);
     genforce(d_X, d_dX);
     euler_step<<<(n + 64 - 1)/64, 64>>>(n, delta_t, d_X, d_X1, d_dX);
 
     // 2nd step
     build_lattice(d_X1);
-    calculate_lattice_dX<<<(n + 64 - 1)/64, 64>>>(n, d_X1, d_dX1, d_lattice);
+    compute_lattice_dX<<<(n + 64 - 1)/64, 64>>>(n, d_X1, d_dX1, d_lattice);
     genforce(d_X1, d_dX1);
     heun_step<<<(n + 64 - 1)/64, 64>>>(n, delta_t, d_X, d_dX, d_dX1);
 }
