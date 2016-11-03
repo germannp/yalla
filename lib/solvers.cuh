@@ -152,7 +152,7 @@ void N2nSolver<Pt, N_MAX>::step(float delta_t, GenericForces<Pt> genforce) {
 // Solver implementation with sorting based lattice for limited pairwise_interaction,
 // after http://docs.nvidia.com/cuda/samples/5_Simulations/particles/doc/particles.pdf
 const auto CUBE_SIZE = 1.f;
-const auto LATTICE_SIZE = 50u;
+const auto LATTICE_SIZE = 50;
 const auto N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
 template<int N_MAX>struct Lattice {
@@ -226,7 +226,7 @@ __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ d_X,
         (floor(d_X[i].y/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE +
         (floor(d_X[i].z/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE*LATTICE_SIZE);
     D_ASSERT(id >= 0);
-    D_ASSERT(id <= N_CUBES);
+    D_ASSERT(id < N_CUBES);
     d_lattice->d_cube_id[i] = id;
     d_lattice->d_cell_id[i] = i;
 }
