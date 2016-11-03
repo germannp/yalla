@@ -37,8 +37,8 @@ __global__ void update_links(const float3* __restrict__ d_X, Link* d_link,
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= N_LINKS) return;
 
-    auto j = static_cast<int>(curand_uniform(&d_state[i])*N_CELLS);
-    auto k = static_cast<int>(curand_uniform(&d_state[i])*N_CELLS);
+    auto j = min(static_cast<int>(curand_uniform(&d_state[i])*N_CELLS), N_CELLS - 1);
+    auto k = min(static_cast<int>(curand_uniform(&d_state[i])*N_CELLS), N_CELLS - 1);
     auto r = d_X[j] - d_X[k];
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if ((fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {

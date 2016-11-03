@@ -73,7 +73,8 @@ __global__ void update_links(const Lattice<N_MAX>* __restrict__ d_lattice,
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_links) return;
 
-    auto j = static_cast<int>(curand_uniform(&d_state[i])*n_cells);
+    auto j = min(static_cast<int>(curand_uniform(&d_state[i])*n_cells),
+        n_cells - 1);  // curand_uniform includes 1.0!
     auto rand_cube = d_lattice->d_cube_id[j]
         +  static_cast<int>(curand_uniform(&d_state[i])*3) - 1
         + (static_cast<int>(curand_uniform(&d_state[i])*3) - 1)*LATTICE_SIZE
@@ -82,7 +83,9 @@ __global__ void update_links(const Lattice<N_MAX>* __restrict__ d_lattice,
     if (cells_in_cube < 1) return;
 
     auto k = d_lattice->d_cube_start[rand_cube]
-        + static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube);
+        + min(static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube), cells_in_cube - 1);
+    D_ASSERT(d_lattice->d_cell_id[j] >= 0); D_ASSERT(d_lattice->d_cell_id[j] < n_cells);
+    D_ASSERT(d_lattice->d_cell_id[k] >= 0); D_ASSERT(d_lattice->d_cell_id[k] < n_cells);
     auto r = d_X[d_lattice->d_cell_id[j]] - d_X[d_lattice->d_cell_id[k]];
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if ((j != k) and (d_type[d_lattice->d_cell_id[j]] == MESENCHYME)

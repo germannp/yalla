@@ -49,8 +49,8 @@ __global__ void update_links(const float3* __restrict__ d_X, Link* d_link,
         if (r > 0.75) return;
     }
 
-    auto new_j = static_cast<int>(curand_uniform(&d_state[i])*N_CELLS);
-    auto new_k = static_cast<int>(curand_uniform(&d_state[i])*N_CELLS);
+    auto new_j = min(static_cast<int>(curand_uniform(&d_state[i])*N_CELLS), N_CELLS - 1);
+    auto new_k = min(static_cast<int>(curand_uniform(&d_state[i])*N_CELLS), N_CELLS - 1);
     if (new_j == new_k) return;
 
     auto dx = d_X[new_j] - d_X[new_k];
