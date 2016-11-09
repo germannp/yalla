@@ -16,65 +16,65 @@
 
 // Optional a generic force with the following signature can be passed:
 template<typename Pt>
-using GenericForces = std::function<void (const Pt* __restrict__ d_X, Pt* d_dX)>;
+using Generic_forces = std::function<void (const Pt* __restrict__ d_X, Pt* d_dX)>;
 
 template<typename Pt>
 void none(const Pt* __restrict__ d_X, Pt* d_dX) {}
 
 
-// Solution<Pt, N_MAX, Solver> combines a method, Solver, with a point type, Pt.
+// Solution<Pt, n_max, Solver> combines a method, Solver, with a point type, Pt.
 // It stores the solutions on the host and specifies how the solution on the
 // device can be accessed and how new steps are computed. However all the GPU
 // action is happening in the Solver classes.
-template<typename Pt, int N_MAX, template<typename, int> class Solver>
-class Solution: public Solver<Pt, N_MAX> {
+template<typename Pt, int n_max, template<typename, int> class Solver>
+class Solution: public Solver<Pt, n_max> {
 public:
-    Pt *h_X = (Pt*)malloc(N_MAX*sizeof(Pt));  // Current solution on host
-    Pt *d_X = Solver<Pt, N_MAX>::d_X;         // Solution on device (GPU)
+    Pt *h_X = (Pt*)malloc(n_max*sizeof(Pt));  // Current solution on host
+    Pt *d_X = Solver<Pt, n_max>::d_X;         // Solution on device (GPU)
     int *h_n = (int*)malloc(sizeof(int));     // Number of bolls
-    int *d_n = Solver<Pt, N_MAX>::d_n;
-    Solution(int n = N_MAX) {
-        *h_n = n;
+    int *d_n = Solver<Pt, n_max>::d_n;
+    Solution(int n_0 = n_max) {
+        *h_n = n_0;
     }
-    void memcpyHostToDevice() {
-        assert(*h_n <= N_MAX);
-        cudaMemcpy(d_X, h_X, N_MAX*sizeof(Pt), cudaMemcpyHostToDevice);
+    void copy_to_device() {
+        assert(*h_n <= n_max);
+        cudaMemcpy(d_X, h_X, n_max*sizeof(Pt), cudaMemcpyHostToDevice);
         cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice);
     }
-    void memcpyDeviceToHost() {
-        cudaMemcpy(h_X, d_X, N_MAX*sizeof(Pt), cudaMemcpyDeviceToHost);
+    void copy_to_host() {
+        cudaMemcpy(h_X, d_X, n_max*sizeof(Pt), cudaMemcpyDeviceToHost);
         cudaMemcpy(h_n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
-        assert(*h_n <= N_MAX);
+        assert(*h_n <= n_max);
     }
     int get_d_n() {
-        return Solver<Pt, N_MAX>::get_d_n();
+        return Solver<Pt, n_max>::get_d_n();
     }
-    void step(float delta_t) {
-        return Solver<Pt, N_MAX>::step(delta_t, none<Pt>);
+    void take_step(float dt) {
+        return Solver<Pt, n_max>::take_step(dt, none<Pt>);
     }
-    void step(float delta_t, GenericForces<Pt> genforce) {
-        return Solver<Pt, N_MAX>::step(delta_t, genforce);
+    void take_step(float dt, Generic_forces<Pt> gen_forces) {
+        return Solver<Pt, n_max>::take_step(dt, gen_forces);
     }
 };
 
 
 // Integration templates
-template<typename Pt> __global__ void euler_step(int n_cells, float delta_t,
+template<typename Pt> __global__ void euler_step(int n_cells, float dt,
         const Pt* __restrict__ d_X0, Pt* d_X, const Pt* __restrict__ d_dX) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
     D_ASSERT(d_dX[i].x == d_dX[i].x);  // For NaN f != f
-    d_X[i] = d_X0[i] + d_dX[i]*delta_t;
+    d_X[i] = d_X0[i] + d_dX[i]*dt;
 }
 
-template<typename Pt> __global__ void heun_step(int n_cells, float delta_t,
+template<typename Pt> __global__ void heun_step(int n_cells, float dt,
         Pt* d_X, const Pt* __restrict__ d_dX, const Pt* __restrict__ d_dX1) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
     D_ASSERT(d_dX1[i].x == d_dX1[i].x);
-    d_X[i] += (d_dX[i] + d_dX1[i])*0.5*delta_t;
+    d_X[i] += (d_dX[i] + d_dX1[i])*0.5*dt;
 }
 
 
@@ -82,25 +82,25 @@ template<typename Pt> __global__ void heun_step(int n_cells, float delta_t,
 // http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html.
 const auto TILE_SIZE = 32;
 
-template<typename Pt, int N_MAX>class N2nSolver {
+template<typename Pt, int n_max>class N2n_solver {
 protected:
     Pt *d_X, *d_dX, *d_X1, *d_dX1;
     int *d_n;
-    N2nSolver() {
-        cudaMalloc(&d_X, N_MAX*sizeof(Pt));
-        cudaMalloc(&d_dX, N_MAX*sizeof(Pt));
-        cudaMalloc(&d_X1, N_MAX*sizeof(Pt));
-        cudaMalloc(&d_dX1, N_MAX*sizeof(Pt));
+    N2n_solver() {
+        cudaMalloc(&d_X, n_max*sizeof(Pt));
+        cudaMalloc(&d_dX, n_max*sizeof(Pt));
+        cudaMalloc(&d_X1, n_max*sizeof(Pt));
+        cudaMalloc(&d_dX1, n_max*sizeof(Pt));
 
         cudaMalloc(&d_n, sizeof(int));
     }
     int get_d_n() {
         int n;
         cudaMemcpy(&n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
-        assert(n <= N_MAX);
+        assert(n <= n_max);
         return n;
     }
-    void step(float delta_t, GenericForces<Pt> genforce);
+    void take_step(float dt, Generic_forces<Pt> gen_forces);
 };
 
 // Calculate d_dX one thread per point, to TILE_SIZE other points at a time
@@ -131,21 +131,21 @@ __global__ void compute_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX
     }
 }
 
-template<typename Pt, int N_MAX>
-void N2nSolver<Pt, N_MAX>::step(float delta_t, GenericForces<Pt> genforce) {
+template<typename Pt, int n_max>
+void N2n_solver<Pt, n_max>::take_step(float dt, Generic_forces<Pt> gen_forces) {
     auto n = get_d_n();
 
     // 1st step
     compute_n2n_dX<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(  // ceil int div.
         n, d_X, d_dX);
-    genforce(d_X, d_dX);
-    euler_step<<<(n + 32 - 1)/32, 32>>>(n, delta_t, d_X, d_X1, d_dX);
+    gen_forces(d_X, d_dX);
+    euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_X1, d_dX);
 
     // 2nd step
     compute_n2n_dX<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
         n, d_X1, d_dX1);
-    genforce(d_X1, d_dX1);
-    heun_step<<<(n + 32 - 1)/32, 32>>>(n, delta_t, d_X, d_dX, d_dX1);
+    gen_forces(d_X1, d_dX1);
+    heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_dX, d_dX1);
 }
 
 
@@ -155,37 +155,37 @@ const auto CUBE_SIZE = 1.f;
 const auto LATTICE_SIZE = 50;
 const auto N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
-template<int N_MAX>struct Lattice {
+template<int n_max>struct Lattice {
 public:
     int *d_cube_id, *d_cell_id, *d_cube_start, *d_cube_end;
     Lattice() {
-        cudaMalloc(&d_cube_id, N_MAX*sizeof(int));
-        cudaMalloc(&d_cell_id, N_MAX*sizeof(int));
+        cudaMalloc(&d_cube_id, n_max*sizeof(int));
+        cudaMalloc(&d_cell_id, n_max*sizeof(int));
         cudaMalloc(&d_cube_start, N_CUBES*sizeof(int));
         cudaMalloc(&d_cube_end, N_CUBES*sizeof(int));
     }
 };
 
-__constant__ int d_moore_nhood[27];  // Yes, this is a waste if no LatticeSolver is used
+__constant__ int d_moore_nhood[27];  // Yes, this is a waste if no Lattice_solver is used
 
-template<typename Pt, int N_MAX>class LatticeSolver {
+template<typename Pt, int n_max>class Lattice_solver {
 public:
-    Lattice<N_MAX> lattice;
-    Lattice<N_MAX> *d_lattice;
+    Lattice<n_max> lattice;
+    Lattice<n_max> *d_lattice;
     void build_lattice(float cube_size) {
         build_lattice(d_X, cube_size);
     };
 protected:
     Pt *d_X, *d_dX, *d_X1, *d_dX1;
     int *d_n;
-    LatticeSolver() {
-        cudaMalloc(&d_X, N_MAX*sizeof(Pt));
-        cudaMalloc(&d_dX, N_MAX*sizeof(Pt));
-        cudaMalloc(&d_X1, N_MAX*sizeof(Pt));
-        cudaMalloc(&d_dX1, N_MAX*sizeof(Pt));
+    Lattice_solver() {
+        cudaMalloc(&d_X, n_max*sizeof(Pt));
+        cudaMalloc(&d_dX, n_max*sizeof(Pt));
+        cudaMalloc(&d_X1, n_max*sizeof(Pt));
+        cudaMalloc(&d_dX1, n_max*sizeof(Pt));
 
-        cudaMalloc(&d_lattice, sizeof(Lattice<N_MAX>));
-        cudaMemcpy(d_lattice, &lattice, sizeof(Lattice<N_MAX>), cudaMemcpyHostToDevice);
+        cudaMalloc(&d_lattice, sizeof(Lattice<n_max>));
+        cudaMemcpy(d_lattice, &lattice, sizeof(Lattice<n_max>), cudaMemcpyHostToDevice);
 
         cudaMalloc(&d_n, sizeof(int));
 
@@ -206,18 +206,18 @@ protected:
     int get_d_n() {
         int n;
         cudaMemcpy(&n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
-        assert(n <= N_MAX);
+        assert(n <= n_max);
         return n;
     }
-    void step(float delta_t, GenericForces<Pt> genforce);
+    void take_step(float dt, Generic_forces<Pt> gen_forces);
     void build_lattice(const Pt* __restrict__ d_X, float cube_size = CUBE_SIZE);
 };
 
 
 // Build lattice
-template<typename Pt, int N_MAX>
+template<typename Pt, int n_max>
 __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ d_X,
-        Lattice<N_MAX>* d_lattice, float cube_size) {
+        Lattice<n_max>* d_lattice, float cube_size) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
@@ -231,8 +231,8 @@ __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ d_X,
     d_lattice->d_cell_id[i] = i;
 }
 
-template<int N_MAX>
-__global__ void compute_cube_start_and_end(int n_cells, Lattice<N_MAX>* d_lattice) {
+template<int n_max>
+__global__ void compute_cube_start_and_end(int n_cells, Lattice<n_max>* d_lattice) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
@@ -243,8 +243,8 @@ __global__ void compute_cube_start_and_end(int n_cells, Lattice<N_MAX>* d_lattic
     if (cube != next) d_lattice->d_cube_end[cube] = i;
 }
 
-template<typename Pt, int N_MAX>
-void LatticeSolver<Pt, N_MAX>::build_lattice(const Pt* __restrict__ d_X, float cube_size) {
+template<typename Pt, int n_max>
+void Lattice_solver<Pt, n_max>::build_lattice(const Pt* __restrict__ d_X, float cube_size) {
     auto n = get_d_n();
     compute_cube_ids<<<(n + 32 - 1)/32, 32>>>(n, d_X, d_lattice, cube_size);
     thrust::fill(thrust::device, lattice.d_cube_start, lattice.d_cube_start + N_CUBES, -1);
@@ -256,9 +256,9 @@ void LatticeSolver<Pt, N_MAX>::build_lattice(const Pt* __restrict__ d_X, float c
 
 
 // Integration
-template<typename Pt, int N_MAX>
+template<typename Pt, int n_max>
 __global__ void compute_lattice_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
-        const Lattice<N_MAX>* __restrict__ d_lattice) {
+        const Lattice<n_max>* __restrict__ d_lattice) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
@@ -275,20 +275,20 @@ __global__ void compute_lattice_dX(int n_cells, const Pt* __restrict__ d_X, Pt* 
     d_dX[d_lattice->d_cell_id[i]] = F;
 }
 
-template<typename Pt, int N_MAX>
-void LatticeSolver<Pt, N_MAX>::step(float delta_t, GenericForces<Pt> genforce) {
+template<typename Pt, int n_max>
+void Lattice_solver<Pt, n_max>::take_step(float dt, Generic_forces<Pt> gen_forces) {
     assert(LATTICE_SIZE % 2 == 0);  // Needed?
     auto n = get_d_n();
 
     // 1st step
     build_lattice(d_X);
     compute_lattice_dX<<<(n + 64 - 1)/64, 64>>>(n, d_X, d_dX, d_lattice);
-    genforce(d_X, d_dX);
-    euler_step<<<(n + 64 - 1)/64, 64>>>(n, delta_t, d_X, d_X1, d_dX);
+    gen_forces(d_X, d_dX);
+    euler_step<<<(n + 64 - 1)/64, 64>>>(n, dt, d_X, d_X1, d_dX);
 
     // 2nd step
     build_lattice(d_X1);
     compute_lattice_dX<<<(n + 64 - 1)/64, 64>>>(n, d_X1, d_dX1, d_lattice);
-    genforce(d_X1, d_dX1);
-    heun_step<<<(n + 64 - 1)/64, 64>>>(n, delta_t, d_X, d_dX, d_dX1);
+    gen_forces(d_X1, d_dX1);
+    heun_step<<<(n + 64 - 1)/64, 64>>>(n, dt, d_X, d_dX, d_dX1);
 }

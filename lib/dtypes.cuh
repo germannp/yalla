@@ -65,7 +65,7 @@ struct Pt { \
     _MAP3, _MAP2, _MAP1, _MAP0)(MACRO, __VA_ARGS__)
 
 // Polarized cell
-MAKE_PT(pocell, x, y, z, phi, theta);
+MAKE_PT(Po_cell, x, y, z, phi, theta);
 
 
 // Generalize += and *= to +, -=, -, *, /= and /

@@ -26,11 +26,11 @@
 auto tests_run = 0;
 
 
-template<typename Pt, int N_MAX, template<typename, int> class Solver>
+template<typename Pt, int n_max, template<typename, int> class Solver>
 class Solution;
 
-template<typename Pt, int N_MAX, template<typename, int> class Solver>
-float3 center_of_mass(Solution<Pt, N_MAX, Solver>& bolls) {
+template<typename Pt, int n_max, template<typename, int> class Solver>
+float3 center_of_mass(Solution<Pt, n_max, Solver>& bolls) {
     float3 com {0};
     for (auto i = 0; i < *bolls.h_n; i++) {
         com.x += bolls.h_X[i].x/ *bolls.h_n;

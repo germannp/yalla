@@ -2,12 +2,12 @@
 #pragma once
 
 
-template<typename Pt, int N_MAX, template<typename, int> class Solver>
+template<typename Pt, int n_max, template<typename, int> class Solver>
 class Solution;
 
 // Distribute bolls uniformly random in circle
-template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void uniform_circle(float mean_distance, Solution<Pt, N_MAX, Solver>& bolls) {
+template<typename Pt, int n_max, template<typename, int> class Solver>
+void uniform_circle(float mean_distance, Solution<Pt, n_max, Solver>& bolls) {
     auto r_max = pow(*bolls.h_n/0.9069, 1./2)*mean_distance/2;  // Circle packing
     for (auto i = 0; i < *bolls.h_n; i++) {
         auto r = r_max*pow(rand()/(RAND_MAX + 1.), 1./2);
@@ -16,12 +16,12 @@ void uniform_circle(float mean_distance, Solution<Pt, N_MAX, Solver>& bolls) {
         bolls.h_X[i].y = r*sin(phi);
         bolls.h_X[i].z = r*cos(phi);
     }
-    bolls.memcpyHostToDevice();
+    bolls.copy_to_device();
 }
 
 // Distribute bolls uniformly random in sphere
-template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void uniform_sphere(float mean_distance, Solution<Pt, N_MAX, Solver>& bolls) {
+template<typename Pt, int n_max, template<typename, int> class Solver>
+void uniform_sphere(float mean_distance, Solution<Pt, n_max, Solver>& bolls) {
     auto r_max = pow(*bolls.h_n/0.64, 1./3)*mean_distance/2;  // Sphere packing
     for (auto i = 0; i < *bolls.h_n; i++) {
         auto r = r_max*pow(rand()/(RAND_MAX + 1.), 1./3);
@@ -31,5 +31,5 @@ void uniform_sphere(float mean_distance, Solution<Pt, N_MAX, Solver>& bolls) {
         bolls.h_X[i].y = r*cos(theta)*sin(phi);
         bolls.h_X[i].z = r*cos(phi);
     }
-    bolls.memcpyHostToDevice();
+    bolls.copy_to_device();
 }

@@ -5,23 +5,23 @@
 #include "../lib/epithelium.cuh"
 
 
-const auto R_MAX = 1;
-const auto R_MIN = 0.6;
-const auto N_CELLS = 250;
-const auto N_TIME_STEPS = 100;
-const auto DELTA_T = 0.1;
+const auto r_max = 1;
+const auto r_min = 0.6;
+const auto n_cells = 250;
+const auto n_time_steps = 100;
+const auto dt = 0.1;
 
 
-// Cubic potential plus k*(n_i . r_ij/r)^2/2 for all r_ij <= R_MAX
-__device__ pocell pairwise_interaction(pocell Xi, pocell Xj, int i, int j) {
-    pocell dF {0};
+// Cubic potential plus k*(n_i . r_ij/r)^2/2 for all r_ij <= r_max
+__device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
+    Po_cell dF {0};
     if (i == j) return dF;
 
     auto r = Xi - Xj;
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if (dist > R_MAX) return dF;
+    if (dist > r_max) return dF;
 
-    auto F = 2*(R_MIN - dist)*(R_MAX - dist) + powf(R_MAX - dist, 2);
+    auto F = 2*(r_min - dist)*(r_max - dist) + powf(r_max - dist, 2);
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
@@ -35,21 +35,21 @@ __device__ pocell pairwise_interaction(pocell Xi, pocell Xj, int i, int j) {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<pocell, N_CELLS, LatticeSolver> bolls;
+    Solution<Po_cell, n_cells, Lattice_solver> bolls;
     uniform_sphere(0.733333, bolls);
-    for (auto i = 0; i < N_CELLS; i++) {
+    for (auto i = 0; i < n_cells; i++) {
         auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x + bolls.h_X[i].y*bolls.h_X[i].y
             + bolls.h_X[i].z*bolls.h_X[i].z);
         bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x) + rand()/(RAND_MAX + 1.)*0.5;
         bolls.h_X[i].theta = acosf(bolls.h_X[i].z/dist) + rand()/(RAND_MAX + 1.)*0.5;
     }
-    bolls.memcpyHostToDevice();
+    bolls.copy_to_device();
 
     // Integrate cell positions
-    VtkOutput output("epithelium");
-    for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        bolls.memcpyDeviceToHost();
-        bolls.step(DELTA_T);
+    Vtk_output output("epithelium");
+    for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
+        bolls.copy_to_host();
+        bolls.take_step(dt);
         output.write_positions(bolls);
         output.write_polarity(bolls);
     }

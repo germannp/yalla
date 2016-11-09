@@ -8,12 +8,12 @@
 #include "../lib/vtk.cuh"
 
 
-const auto R_MAX = 1.f;
-const auto R_MIN = 0.5f;
-const auto N_CELLS = 500u;
-const auto N_LINKS = 250u;
-const auto N_TIME_STEPS = 1000u;
-const auto DELTA_T = 0.2f;
+const auto r_max = 1.f;
+const auto r_min = 0.5f;
+const auto n_cells = 500u;
+const auto n_links = 250u;
+const auto n_time_steps = 1000u;
+const auto dt = 0.2f;
 
 
 __device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
@@ -22,9 +22,9 @@ __device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
 
     auto r = Xi - Xj;
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if (dist > R_MAX) return dF;
+    if (dist > r_max) return dF;
 
-    auto F = 2*(R_MIN - dist)*(R_MAX - dist) + (R_MAX - dist)*(R_MAX - dist);
+    auto F = 2*(r_min - dist)*(r_max - dist) + (r_max - dist)*(r_max - dist);
     dF = r*F/dist;
     return dF;
 }
@@ -35,10 +35,10 @@ __device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
 __global__ void update_links(const float3* __restrict__ d_X, Link* d_link,
         curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= N_LINKS) return;
+    if (i >= n_links) return;
 
-    auto j = min(static_cast<int>(curand_uniform(&d_state[i])*N_CELLS), N_CELLS - 1);
-    auto k = min(static_cast<int>(curand_uniform(&d_state[i])*N_CELLS), N_CELLS - 1);
+    auto j = min(static_cast<int>(curand_uniform(&d_state[i])*n_cells), n_cells - 1);
+    auto k = min(static_cast<int>(curand_uniform(&d_state[i])*n_cells), n_cells - 1);
     auto r = d_X[j] - d_X[k];
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     if ((fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
@@ -50,15 +50,15 @@ __global__ void update_links(const float3* __restrict__ d_X, Link* d_link,
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<float3, N_CELLS, LatticeSolver> bolls;
-    uniform_sphere(R_MIN, bolls);
-    Protrusions<N_LINKS> links;
-    auto intercalation = std::bind(link_forces<N_LINKS>, links,
+    Solution<float3, n_cells, Lattice_solver> bolls;
+    uniform_sphere(r_min, bolls);
+    Protrusions<n_links> links;
+    auto intercalation = std::bind(link_forces<n_links>, links,
         std::placeholders::_1, std::placeholders::_2);
     int i = 0;
-    while (i < N_LINKS) {
-        auto j = static_cast<int>(rand()/(RAND_MAX + 1.)*N_CELLS);
-        auto k = static_cast<int>(rand()/(RAND_MAX + 1.)*N_CELLS);
+    while (i < n_links) {
+        auto j = static_cast<int>(rand()/(RAND_MAX + 1.)*n_cells);
+        auto k = static_cast<int>(rand()/(RAND_MAX + 1.)*n_cells);
         auto r = bolls.h_X[j] - bolls.h_X[k];
         auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
         if ((fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
@@ -67,15 +67,15 @@ int main(int argc, char const *argv[]) {
             i++;
         }
     }
-    links.memcpyHostToDevice();
+    links.copy_to_device();
 
     // Integrate cell positions
-    VtkOutput output("intercalation");
-    for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        bolls.memcpyDeviceToHost();
-        links.memcpyDeviceToHost();
-        update_links<<<(N_LINKS + 32 - 1)/32, 32>>>(bolls.d_X, links.d_link, links.d_state);
-        bolls.step(DELTA_T, intercalation);
+    Vtk_output output("intercalation");
+    for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
+        bolls.copy_to_host();
+        links.copy_to_host();
+        update_links<<<(n_links + 32 - 1)/32, 32>>>(bolls.d_X, links.d_link, links.d_state);
+        bolls.take_step(dt, intercalation);
         output.write_positions(bolls);
         output.write_protrusions(links);
     }

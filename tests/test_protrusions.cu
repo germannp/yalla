@@ -14,7 +14,7 @@ __device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
 
 
 const char* square_of_four() {
-    Solution<float3, 4, N2nSolver> bolls;
+    Solution<float3, 4, N2n_solver> bolls;
     Protrusions<4> links;
     auto forces = std::bind(link_forces<4>, links,
         std::placeholders::_1, std::placeholders::_2);
@@ -23,19 +23,19 @@ const char* square_of_four() {
     bolls.h_X[1].x = 1;  bolls.h_X[1].y = -1; bolls.h_X[1].z = 0;
     bolls.h_X[2].x = -1; bolls.h_X[2].y = -1; bolls.h_X[2].z = 0;
     bolls.h_X[3].x = -1; bolls.h_X[3].y = 1;  bolls.h_X[3].z = 0;
-    bolls.memcpyHostToDevice();
+    bolls.copy_to_device();
     links.h_link[0].a = 0; links.h_link[0].b = 1;
     links.h_link[1].a = 1; links.h_link[1].b = 2;
     links.h_link[2].a = 2; links.h_link[2].b = 3;
     links.h_link[3].a = 3; links.h_link[3].b = 0;
-    links.memcpyHostToDevice();
+    links.copy_to_device();
 
     auto com_i = center_of_mass(bolls);
     for (auto i = 0; i < 500; i++) {
-        bolls.step(0.1, forces);
+        bolls.take_step(0.1, forces);
     }
 
-    bolls.memcpyDeviceToHost();
+    bolls.copy_to_host();
     auto com_f = center_of_mass(bolls);
     MU_ASSERT("Momentum in square", MU_ISCLOSE(com_i.x, com_f.x));
     MU_ASSERT("Momentum in square", MU_ISCLOSE(com_i.y, com_f.y));

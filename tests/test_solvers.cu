@@ -3,7 +3,7 @@
 #include "minunit.cuh"
 
 
-const auto N_MAX = 1000;
+const auto n_max = 1000;
 const auto L_0 = 0.5;
 
 
@@ -21,8 +21,8 @@ __device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
 
 #include "../lib/solvers.cuh"
 
-Solution<float3, N_MAX, N2nSolver> n2n;
-Solution<float3, N_MAX, LatticeSolver> latt;
+Solution<float3, n_max, N2n_solver> n2n;
+Solution<float3, n_max, Lattice_solver> latt;
 
 
 const char* test_n2n_tetrahedron() {
@@ -30,10 +30,10 @@ const char* test_n2n_tetrahedron() {
     uniform_sphere(L_0, n2n);
     auto com_i = center_of_mass(n2n);
     for (auto i = 0; i < 500; i++) {
-        n2n.step(0.1);
+        n2n.take_step(0.1);
     }
 
-    n2n.memcpyDeviceToHost();
+    n2n.copy_to_host();
     for (auto i = 1; i < 4; i++) {
         auto r = n2n.h_X[0] - n2n.h_X[i];
         auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
@@ -53,10 +53,10 @@ const char* test_latt_tetrahedron() {
     uniform_sphere(L_0, latt);
     auto com_i = center_of_mass(latt);
     for (auto i = 0; i < 500; i++) {
-        latt.step(0.1);
+        latt.take_step(0.1);
     }
 
-    latt.memcpyDeviceToHost();
+    latt.copy_to_host();
     for (auto i = 1; i < 4; i++) {
         auto r = float3{latt.h_X[0].x - latt.h_X[i].x, latt.h_X[0].y - latt.h_X[i].y,
             latt.h_X[0].z - latt.h_X[i].z};
@@ -74,21 +74,21 @@ const char* test_latt_tetrahedron() {
 
 
 const char* test_compare_methods() {
-    *n2n.h_n = N_MAX;
-    *latt.h_n = N_MAX;
+    *n2n.h_n = n_max;
+    *latt.h_n = n_max;
     uniform_sphere(0.733333, n2n);
-    for (auto i = 0; i < N_MAX; i++) {
+    for (auto i = 0; i < n_max; i++) {
         latt.h_X[i].x = n2n.h_X[i].x;
         latt.h_X[i].y = n2n.h_X[i].y;
         latt.h_X[i].z = n2n.h_X[i].z;
     }
-    latt.memcpyHostToDevice();
-    n2n.step(0.5);
-    latt.step(0.5);
+    latt.copy_to_device();
+    n2n.take_step(0.5);
+    latt.take_step(0.5);
 
-    n2n.memcpyDeviceToHost();
-    latt.memcpyDeviceToHost();
-    for (auto i = 0; i < N_MAX; i++) {
+    n2n.copy_to_host();
+    latt.copy_to_host();
+    for (auto i = 0; i < n_max; i++) {
         MU_ASSERT("Methods disagree", MU_ISCLOSE(n2n.h_X[i].x, latt.h_X[i].x));
         MU_ASSERT("Methods disagree", MU_ISCLOSE(n2n.h_X[i].y, latt.h_X[i].y));
         MU_ASSERT("Methods disagree", MU_ISCLOSE(n2n.h_X[i].z, latt.h_X[i].z));
@@ -111,19 +111,19 @@ void push_genforce(const float3* __restrict__ d_X, float3* d_dX) {
 
 const char* test_generic_forces() {
     n2n.h_X[0] = float3{0, 0, 0};
-    n2n.memcpyHostToDevice();
-    n2n.step(1, push_genforce);
+    n2n.copy_to_device();
+    n2n.take_step(1, push_genforce);
 
-    n2n.memcpyDeviceToHost();
+    n2n.copy_to_host();
     MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n.h_X[0].x, 1));
     MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n.h_X[0].y, 0));
     MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n.h_X[0].z, 0));
 
     latt.h_X[0] = float3{0, 0, 0};
-    latt.memcpyHostToDevice();
-    latt.step(1, push_genforce);
+    latt.copy_to_device();
+    latt.take_step(1, push_genforce);
 
-    latt.memcpyDeviceToHost();
+    latt.copy_to_host();
     MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt.h_X[0].x, 1));
     MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt.h_X[0].y, 0));
     MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt.h_X[0].z, 0));
@@ -132,8 +132,8 @@ const char* test_generic_forces() {
 }
 
 
-template<int N_MAX>
-__global__ void single_lattice(const Lattice<N_MAX>* __restrict__ d_lattice) {
+template<int n_max>
+__global__ void single_lattice(const Lattice<n_max>* __restrict__ d_lattice) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= 1000) return;
 
@@ -143,8 +143,8 @@ __global__ void single_lattice(const Lattice<N_MAX>* __restrict__ d_lattice) {
     D_ASSERT(d_lattice->d_cube_id[i] == expected_cube);
 }
 
-template<int N_MAX>
-__global__ void double_lattice(const Lattice<N_MAX>* __restrict__ d_lattice) {
+template<int n_max>
+__global__ void double_lattice(const Lattice<n_max>* __restrict__ d_lattice) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= 1000 - 8) return;
 
@@ -161,7 +161,7 @@ const char* test_lattice_spacing() {
             }
         }
     }
-    latt.memcpyHostToDevice();
+    latt.copy_to_device();
 
     latt.build_lattice(1);
     single_lattice<<<256, 4>>>(latt.d_lattice);

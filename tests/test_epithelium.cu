@@ -3,8 +3,8 @@
 #include "minunit.cuh"
 
 
-__device__ pocell pairwise_interaction(pocell Xi, pocell Xj, int i, int j) {
-    pocell dF {0};
+__device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
+    Po_cell dF {0};
     if (i == j) return dF;
 
     auto r = Xi - Xj;
@@ -22,7 +22,7 @@ __device__ pocell pairwise_interaction(pocell Xi, pocell Xj, int i, int j) {
 
 #include "../lib/solvers.cuh"
 
-Solution<pocell, 4, N2nSolver> bolls;
+Solution<Po_cell, 4, N2n_solver> bolls;
 
 const char* test_line_of_four() {
     for (auto i = 0; i < 4; i++) {
@@ -32,13 +32,13 @@ const char* test_line_of_four() {
         bolls.h_X[i].phi = (i - 0.5)*M_PI/3;
         bolls.h_X[i].theta = M_PI/2;
     }
-    bolls.memcpyHostToDevice();
+    bolls.copy_to_device();
     auto com_i = center_of_mass(bolls);
     for (auto i = 0; i < 500; i++) {
-        bolls.step(0.5);
+        bolls.take_step(0.5);
     }
 
-    bolls.memcpyDeviceToHost();
+    bolls.copy_to_host();
     for (auto i = 1; i < 4; i++) {
         auto prod = sinf(bolls.h_X[0].theta)*sinf(bolls.h_X[i].theta)*cosf(bolls.h_X[0].phi - bolls.h_X[i].phi)
             + cosf(bolls.h_X[0].theta)*cosf(bolls.h_X[i].theta);

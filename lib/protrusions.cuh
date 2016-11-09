@@ -13,47 +13,47 @@ __global__ void setup_rand_states(curandState* d_state, int n_states) {
 
 struct Link { int a, b; };
 
-template<int N_LINKS>
+template<int n_links>
 class Protrusions {
 public:
-    Link *h_link = (Link*)malloc(N_LINKS*sizeof(Link));
+    Link *h_link = (Link*)malloc(n_links*sizeof(Link));
     Link *d_link;
     int *h_n = (int*)malloc(sizeof(int));
     int *d_n;
     curandState *d_state;
     float strength;
-    Protrusions (float s = 1.f/5, int n = N_LINKS) {
-        cudaMalloc(&d_link, N_LINKS*sizeof(Link));
+    Protrusions (float s = 1.f/5, int n_0 = n_links) {
+        cudaMalloc(&d_link, n_links*sizeof(Link));
         cudaMalloc(&d_n, sizeof(int));
-        cudaMalloc(&d_state, N_LINKS*sizeof(curandState));
-        for (auto i = 0; i < N_LINKS; i++) {
+        cudaMalloc(&d_state, n_links*sizeof(curandState));
+        for (auto i = 0; i < n_links; i++) {
             h_link[i].a = 0;
             h_link[i].b = 0;
         }
-        *h_n = n;
-        memcpyHostToDevice();
-        setup_rand_states<<<(N_LINKS + 32 - 1)/32, 32>>>(d_state, N_LINKS);
+        *h_n = n_0;
+        copy_to_device();
+        setup_rand_states<<<(n_links + 32 - 1)/32, 32>>>(d_state, n_links);
         strength = s;
     }
     void set_d_n(int n) {
-        assert(n <= N_LINKS);
+        assert(n <= n_links);
         cudaMemcpy(d_n, &n, sizeof(int), cudaMemcpyHostToDevice);
     }
     int get_d_n() {
         int n;
         cudaMemcpy(&n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
-        assert(n <= N_LINKS);
+        assert(n <= n_links);
         return n;
     }
-    void memcpyHostToDevice() {
-        assert(*h_n <= N_LINKS);
-        cudaMemcpy(d_link, h_link, N_LINKS*sizeof(Link), cudaMemcpyHostToDevice);
+    void copy_to_device() {
+        assert(*h_n <= n_links);
+        cudaMemcpy(d_link, h_link, n_links*sizeof(Link), cudaMemcpyHostToDevice);
         cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice);
     }
-    void memcpyDeviceToHost() {
-        cudaMemcpy(h_link, d_link, N_LINKS*sizeof(Link), cudaMemcpyDeviceToHost);
+    void copy_to_host() {
+        cudaMemcpy(h_link, d_link, n_links*sizeof(Link), cudaMemcpyDeviceToHost);
         cudaMemcpy(h_n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
-        assert(*h_n <= N_LINKS);
+        assert(*h_n <= n_links);
     }
 };
 
@@ -80,8 +80,8 @@ __global__ void link_force(const Pt* __restrict__ d_X, Pt* d_dX,
 
 // Passing pointers to non-static members needs some std::bind (or std::mem_func),
 // see http://stackoverflow.com/questions/37924781/. I prefer binding a seperate function.
-template<int N_LINKS, typename Pt = float3>
-void link_forces(Protrusions<N_LINKS>& links, const Pt* __restrict__ d_X, Pt* d_dX) {
+template<int n_links, typename Pt = float3>
+void link_forces(Protrusions<n_links>& links, const Pt* __restrict__ d_X, Pt* d_dX) {
     link_force<<<(links.get_d_n() + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link,
         links.get_d_n(), links.strength);
 }

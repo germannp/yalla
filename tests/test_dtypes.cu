@@ -36,19 +36,19 @@ const char* test_float4() {
 }
 
 
-MAKE_PT(myfloat3, x, y, z);
+MAKE_PT(My_float3, x, y, z);
 
 const char* test_make_pt() {
-    myfloat3 x {1, 2, 3};
-    myfloat3 y {5, 4, 3};
+    My_float3 x {1, 2, 3};
+    My_float3 y {5, 4, 3};
 
-    MU_ASSERT("+= myfloat3 myfloat3, x component", (x += y).x == 1 + 5);
-    MU_ASSERT("+= myfloat3 myfloat3, y component", (x += y).y == 2 + 4 + 4);
-    MU_ASSERT("+= myfloat3 myfloat3, z component", (x += y).z == 3 + 3 + 3 + 3);
+    MU_ASSERT("+= My_float3 My_float3, x component", (x += y).x == 1 + 5);
+    MU_ASSERT("+= My_float3 My_float3, y component", (x += y).y == 2 + 4 + 4);
+    MU_ASSERT("+= My_float3 My_float3, z component", (x += y).z == 3 + 3 + 3 + 3);
 
-    MU_ASSERT("*= myfloat3 float, x component", (y *= 2).x == 5*2);
-    MU_ASSERT("*= myfloat3 float, y component", (y *= 2).y == 4*2*2);
-    MU_ASSERT("*= myfloat3 float, z component", (y *= 2).z == 3*2*2*2);
+    MU_ASSERT("*= My_float3 float, x component", (y *= 2).x == 5*2);
+    MU_ASSERT("*= My_float3 float, y component", (y *= 2).y == 4*2*2);
+    MU_ASSERT("*= My_float3 float, z component", (y *= 2).z == 3*2*2*2);
 
     return NULL;
 }

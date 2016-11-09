@@ -11,58 +11,58 @@
 #include <iomanip>
 
 
-template<typename Pt, int N_MAX, template<typename, int> class Solver>
+template<typename Pt, int n_max, template<typename, int> class Solver>
 class Solution;
 
-template<int N_LINKS_MAX>
+template<int n_links>
 class Protrusions;
 
-template<int N_MAX, typename Prop>
+template<int n_max, typename Prop>
 struct Property;
 
 
-class VtkOutput {
+class Vtk_output {
 public:
     // Files are stored as output/base_name_###.vtk
-    VtkOutput(std::string base_name);
-    ~VtkOutput(void);
+    Vtk_output(std::string base_name);
+    ~Vtk_output(void);
     // Write x, y, and z component of Pt; has to be written first
-    template<typename Pt, int N_MAX, template<typename, int> class Solver>
-    void write_positions(Solution<Pt, N_MAX, Solver>& bolls);
+    template<typename Pt, int n_max, template<typename, int> class Solver>
+    void write_positions(Solution<Pt, n_max, Solver>& bolls);
     // Write links, see protrusions.cuh; if written has to be second
-    template<int N_LINKS_MAX>
-    void write_protrusions(Protrusions<N_LINKS_MAX>& links);
+    template<int n_links>
+    void write_protrusions(Protrusions<n_links>& links);
     // Write further components of Pt
-    template<typename Pt, int N_MAX, template<typename, int> class Solver>
-    void write_field(Solution<Pt, N_MAX, Solver>& bolls,
+    template<typename Pt, int n_max, template<typename, int> class Solver>
+    void write_field(Solution<Pt, n_max, Solver>& bolls,
         const char* data_name = "w", float Pt::*field = &Pt::w);
     // Write polarity from phi and theta of Pt, see epithelium.cuh
-    template<typename Pt, int N_MAX, template<typename, int> class Solver>
-    void write_polarity(Solution<Pt, N_MAX, Solver>& bolls);
+    template<typename Pt, int n_max, template<typename, int> class Solver>
+    void write_polarity(Solution<Pt, n_max, Solver>& bolls);
     // Write not integrated property, see property.cuh
-    template<int N_MAX, typename Prop>
-    void write_property(Property<N_MAX, Prop>& property);
+    template<int n_max, typename Prop>
+    void write_property(Property<n_max, Prop>& property);
 
 protected:
-    int mN_cells;
-    int mTimeStep = 0;
-    std::string mBASE_NAME;
-    std::string mCurrentPath;
-    bool mPDataStarted;
-    time_t mStart;
+    int n_cells;
+    int time_step = 0;
+    std::string base_name;
+    std::string current_path;
+    bool point_data_started;
+    time_t t_0;
 };
 
 
-VtkOutput::VtkOutput(std::string base_name) {
-    mBASE_NAME = base_name;
+Vtk_output::Vtk_output(std::string name) {
+    base_name = name;
     mkdir("output", 755);
-    time(&mStart);
+    time(&t_0);
 }
 
-VtkOutput::~VtkOutput() {
-    auto end = time(NULL);
-    auto duration = end - mStart;
-    std::cout << "Integrating " << mBASE_NAME << ", ";
+Vtk_output::~Vtk_output() {
+    auto t_f = time(NULL);
+    auto duration = t_f - t_0;
+    std::cout << "Integrating " << base_name << ", ";
     if (duration < 60)
         std::cout << duration << " seconds";
     else if (duration < 60*60)
@@ -73,39 +73,39 @@ VtkOutput::~VtkOutput() {
 }
 
 
-template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void VtkOutput::write_positions(Solution<Pt, N_MAX, Solver>& bolls) {
-    std::cout << "Integrating " << mBASE_NAME << ", ";
-    std::cout << mTimeStep << " steps done\r";
+template<typename Pt, int n_max, template<typename, int> class Solver>
+void Vtk_output::write_positions(Solution<Pt, n_max, Solver>& bolls) {
+    std::cout << "Integrating " << base_name << ", ";
+    std::cout << time_step << " steps done\r";
     std::cout.flush();
-    mPDataStarted = false;
-    mTimeStep += 1;
+    point_data_started = false;
+    time_step += 1;
 
-    mN_cells = *bolls.h_n;
-    assert(mN_cells <= N_MAX);
+    n_cells = *bolls.h_n;
+    assert(n_cells <= n_max);
 
-    mCurrentPath = "output/" + mBASE_NAME + "_" + std::to_string(mTimeStep)
+    current_path = "output/" + base_name + "_" + std::to_string(time_step)
         + ".vtk";
-    std::ofstream file(mCurrentPath);
+    std::ofstream file(current_path);
     assert(file.is_open());
 
     file << "# vtk DataFile Version 3.0\n";
-    file << mBASE_NAME << "\n";
+    file << base_name << "\n";
     file << "ASCII\n";
     file << "DATASET POLYDATA\n";
 
-    file << "\nPOINTS " << mN_cells << " float\n";
-    for (auto i = 0; i < mN_cells; i++)
+    file << "\nPOINTS " << n_cells << " float\n";
+    for (auto i = 0; i < n_cells; i++)
         file << bolls.h_X[i].x << " " << bolls.h_X[i].y << " " << bolls.h_X[i].z << "\n";
 
-    file << "\nVERTICES " << mN_cells << " " << 2*mN_cells << "\n";
-    for (auto i = 0; i < mN_cells; i++)
+    file << "\nVERTICES " << n_cells << " " << 2*n_cells << "\n";
+    for (auto i = 0; i < n_cells; i++)
         file << "1 " << i << "\n";
 }
 
-template<int N_LINKS_MAX>
-void VtkOutput::write_protrusions(Protrusions<N_LINKS_MAX>& links) {
-    std::ofstream file(mCurrentPath, std::ios_base::app);
+template<int n_links>
+void Vtk_output::write_protrusions(Protrusions<n_links>& links) {
+    std::ofstream file(current_path, std::ios_base::app);
     assert(file.is_open());
 
     file << "\nLINES " << *links.h_n << " " << 3**links.h_n << "\n";
@@ -113,33 +113,33 @@ void VtkOutput::write_protrusions(Protrusions<N_LINKS_MAX>& links) {
         file << "2 " << links.h_link[i].a << " " << links.h_link[i].b << "\n";
 }
 
-template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void VtkOutput::write_field(Solution<Pt, N_MAX, Solver>& bolls,
+template<typename Pt, int n_max, template<typename, int> class Solver>
+void Vtk_output::write_field(Solution<Pt, n_max, Solver>& bolls,
         const char* data_name, float Pt::*field) {
-    std::ofstream file(mCurrentPath, std::ios_base::app);
+    std::ofstream file(current_path, std::ios_base::app);
     assert(file.is_open());
 
-    if (!mPDataStarted) {
-        file << "\nPOINT_DATA " << mN_cells << "\n";
-        mPDataStarted = true;
+    if (!point_data_started) {
+        file << "\nPOINT_DATA " << n_cells << "\n";
+        point_data_started = true;
     }
     file << "SCALARS " << data_name << " float\n";
     file << "LOOKUP_TABLE default\n";
-    for (auto i = 0; i < mN_cells; i++)
+    for (auto i = 0; i < n_cells; i++)
         file << bolls.h_X[i].*field << "\n";
 }
 
-template<typename Pt, int N_MAX, template<typename, int> class Solver>
-void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& bolls) {
-    std::ofstream file(mCurrentPath, std::ios_base::app);
+template<typename Pt, int n_max, template<typename, int> class Solver>
+void Vtk_output::write_polarity(Solution<Pt, n_max, Solver>& bolls) {
+    std::ofstream file(current_path, std::ios_base::app);
     assert(file.is_open());
 
-    if (!mPDataStarted) {
-        file << "\nPOINT_DATA " << mN_cells << "\n";
-        mPDataStarted = true;
+    if (!point_data_started) {
+        file << "\nPOINT_DATA " << n_cells << "\n";
+        point_data_started = true;
     }
     file << "NORMALS polarity float\n";
-    for (auto i = 0; i < mN_cells; i++) {
+    for (auto i = 0; i < n_cells; i++) {
         float3 n {0};
         if ((bolls.h_X[i].phi != 0) and (bolls.h_X[i].theta != 0)) {
             n.x = sinf(bolls.h_X[i].theta)*cosf(bolls.h_X[i].phi);
@@ -150,17 +150,17 @@ void VtkOutput::write_polarity(Solution<Pt, N_MAX, Solver>& bolls) {
     }
 }
 
-template<int N_MAX, typename Prop>
-void VtkOutput::write_property(Property<N_MAX, Prop>& property) {
-    std::ofstream file(mCurrentPath, std::ios_base::app);
+template<int n_max, typename Prop>
+void Vtk_output::write_property(Property<n_max, Prop>& property) {
+    std::ofstream file(current_path, std::ios_base::app);
     assert(file.is_open());
 
-    if (!mPDataStarted) {
-        file << "\nPOINT_DATA " << mN_cells << "\n";
-        mPDataStarted = true;
+    if (!point_data_started) {
+        file << "\nPOINT_DATA " << n_cells << "\n";
+        point_data_started = true;
     }
     file << "SCALARS " << property.name << " int\n";
     file << "LOOKUP_TABLE default\n";
-    for (auto i = 0; i < mN_cells; i++)
+    for (auto i = 0; i < n_cells; i++)
         file << property.h_prop[i] << "\n";
 }

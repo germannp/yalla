@@ -5,9 +5,9 @@
 
 
 const auto L_0 = 0.5f;  // Relaxed spring length
-const auto N_CELLS = 800u;
-const auto N_TIME_STEPS = 100u;
-const auto DELTA_T = 0.001f;
+const auto n_cells = 800u;
+const auto n_time_steps = 100u;
+const auto dt = 0.001f;
 
 
 __device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
@@ -25,14 +25,14 @@ __device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
 
 int main(int argc, const char* argv[]) {
     // Prepare initial state
-    Solution<float3, N_CELLS, N2nSolver> bolls;
+    Solution<float3, n_cells, N2n_solver> bolls;
     uniform_sphere(L_0, bolls);
 
     // Integrate positions
-    VtkOutput output("springs");
-    for (auto time_step = 0; time_step <= N_TIME_STEPS; time_step++) {
-        bolls.memcpyDeviceToHost();
-        bolls.step(DELTA_T);            // Ordering to start writing during calculation,
+    Vtk_output output("springs");
+    for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
+        bolls.copy_to_host();
+        bolls.take_step(dt);       // Ordering to start writing during calculation,
         output.write_positions(bolls);  // use thread for full concurency.
     }
 
