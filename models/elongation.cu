@@ -179,7 +179,7 @@ int main(int argc, char const *argv[]) {
     bolls.take_step(dt);  // Relax epithelium before proliferate
 
     // Simulate diffusion & intercalation
-    Vtk_output sim_output("elongation");
+    Vtk_output output("elongation");
     for (auto time_step = 0; time_step <= n_time_steps/skip_steps; time_step++) {
         bolls.copy_to_host();
         links.copy_to_host();
@@ -199,11 +199,11 @@ int main(int argc, char const *argv[]) {
             }
         });
 
-        sim_output.write_positions(bolls);
-        sim_output.write_protrusions(links);
-        sim_output.write_property(type);
-        // sim_output.write_polarity(bolls);
-        sim_output.write_field(bolls, "Wnt");
+        output.write_positions(bolls);
+        output.write_protrusions(links);
+        output.write_property(type);
+        // output.write_polarity(bolls);
+        output.write_field(bolls, "Wnt");
 
         calculation.join();
     }
