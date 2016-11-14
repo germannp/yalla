@@ -8,7 +8,7 @@
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/protrusions.cuh"
-#include "../lib/epithelium.cuh"
+#include "../lib/polarity.cuh"
 #include "../lib/property.cuh"
 #include "../lib/vtk.cuh"
 

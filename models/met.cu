@@ -2,7 +2,7 @@
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/vtk.cuh"
-#include "../lib/epithelium.cuh"
+#include "../lib/polarity.cuh"
 
 
 const auto r_max = 1;

@@ -1,5 +1,5 @@
 #include "../lib/dtypes.cuh"
-#include "../lib/epithelium.cuh"
+#include "../lib/polarity.cuh"
 #include "minunit.cuh"
 
 

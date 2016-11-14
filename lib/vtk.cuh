@@ -36,7 +36,7 @@ public:
     template<typename Pt, int n_max, template<typename, int> class Solver>
     void write_field(Solution<Pt, n_max, Solver>& bolls,
         const char* data_name = "w", float Pt::*field = &Pt::w);
-    // Write polarity from phi and theta of Pt, see epithelium.cuh
+    // Write polarity from phi and theta of Pt, see polarity.cuh
     template<typename Pt, int n_max, template<typename, int> class Solver>
     void write_polarity(Solution<Pt, n_max, Solver>& bolls);
     // Write not integrated property, see property.cuh
