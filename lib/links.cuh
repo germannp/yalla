@@ -1,4 +1,4 @@
-// Protrusions as constant forces between linked Pts
+// Links between bolls, to simulate protrusions, ...
 #pragma once
 
 #include <assert.h>
@@ -14,7 +14,7 @@ __global__ void setup_rand_states(curandState* d_state, int n_states) {
 struct Link { int a, b; };
 
 template<int n_links>
-class Protrusions {
+class Links {
 public:
     Link *h_link = (Link*)malloc(n_links*sizeof(Link));
     Link *d_link;
@@ -22,7 +22,7 @@ public:
     int *d_n;
     curandState *d_state;
     float strength;
-    Protrusions (float s = 1.f/5, int n_0 = n_links) {
+    Links (float s = 1.f/5, int n_0 = n_links) {
         cudaMalloc(&d_link, n_links*sizeof(Link));
         cudaMalloc(&d_n, sizeof(int));
         cudaMalloc(&d_state, n_links*sizeof(curandState));
@@ -81,7 +81,7 @@ __global__ void link_force(const Pt* __restrict__ d_X, Pt* d_dX,
 // Passing pointers to non-static members needs some std::bind (or std::mem_func),
 // see http://stackoverflow.com/questions/37924781/. I prefer binding a seperate function.
 template<int n_links, typename Pt = float3>
-void link_forces(Protrusions<n_links>& links, const Pt* __restrict__ d_X, Pt* d_dX) {
+void link_forces(Links<n_links>& links, const Pt* __restrict__ d_X, Pt* d_dX) {
     link_force<<<(links.get_d_n() + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link,
         links.get_d_n(), links.strength);
 }

@@ -6,7 +6,7 @@
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/property.cuh"
-#include "../lib/protrusions.cuh"
+#include "../lib/links.cuh"
 #include "../lib/vtk.cuh"
 #include "../lib/polarity.cuh"
 

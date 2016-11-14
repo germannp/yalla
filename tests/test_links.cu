@@ -1,7 +1,7 @@
 #include <functional>
 
 #include "../lib/dtypes.cuh"
-#include "../lib/protrusions.cuh"
+#include "../lib/links.cuh"
 #include "minunit.cuh"
 
 
@@ -15,7 +15,7 @@ __device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
 
 const char* square_of_four() {
     Solution<float3, 4, N2n_solver> bolls;
-    Protrusions<4> links;
+    Links<4> links;
     auto forces = std::bind(link_forces<4>, links,
         std::placeholders::_1, std::placeholders::_2);
 

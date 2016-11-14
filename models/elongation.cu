@@ -7,7 +7,7 @@
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
-#include "../lib/protrusions.cuh"
+#include "../lib/links.cuh"
 #include "../lib/polarity.cuh"
 #include "../lib/property.cuh"
 #include "../lib/vtk.cuh"
@@ -147,7 +147,7 @@ int main(int argc, char const *argv[]) {
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     Property<n_max, int> n_epi_nbs;
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
-    Protrusions<static_cast<int>(n_max*links_per_cell)> links(link_strength, n_0*links_per_cell);
+    Links<static_cast<int>(n_max*links_per_cell)> links(link_strength, n_0*links_per_cell);
     auto intercalation = std::bind(
         link_forces<static_cast<int>(n_max*links_per_cell), Lb_cell>,
         links, std::placeholders::_1, std::placeholders::_2);
@@ -200,7 +200,7 @@ int main(int argc, char const *argv[]) {
         });
 
         output.write_positions(bolls);
-        output.write_protrusions(links);
+        output.write_links(links);
         output.write_property(type);
         // output.write_polarity(bolls);
         output.write_field(bolls, "Wnt");

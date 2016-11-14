@@ -4,7 +4,7 @@
 
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
-#include "../lib/protrusions.cuh"
+#include "../lib/links.cuh"
 #include "../lib/vtk.cuh"
 
 
@@ -52,7 +52,7 @@ int main(int argc, char const *argv[]) {
     // Prepare initial state
     Solution<float3, n_cells, Lattice_solver> bolls;
     uniform_sphere(r_min, bolls);
-    Protrusions<n_links> links;
+    Links<n_links> links;
     auto intercalation = std::bind(link_forces<n_links>, links,
         std::placeholders::_1, std::placeholders::_2);
     int i = 0;
@@ -77,7 +77,7 @@ int main(int argc, char const *argv[]) {
         update_links<<<(n_links + 32 - 1)/32, 32>>>(bolls.d_X, links.d_link, links.d_state);
         bolls.take_step(dt, intercalation);
         output.write_positions(bolls);
-        output.write_protrusions(links);
+        output.write_links(links);
     }
 
     return 0;

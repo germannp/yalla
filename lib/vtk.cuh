@@ -15,7 +15,7 @@ template<typename Pt, int n_max, template<typename, int> class Solver>
 class Solution;
 
 template<int n_links>
-class Protrusions;
+class Links;
 
 template<int n_max, typename Prop>
 struct Property;
@@ -29,9 +29,9 @@ public:
     // Write x, y, and z component of Pt; has to be written first
     template<typename Pt, int n_max, template<typename, int> class Solver>
     void write_positions(Solution<Pt, n_max, Solver>& bolls);
-    // Write links, see protrusions.cuh; if written has to be second
+    // Write links, see links.cuh; if written has to be second
     template<int n_links>
-    void write_protrusions(Protrusions<n_links>& links);
+    void write_links(Links<n_links>& links);
     // Write further components of Pt
     template<typename Pt, int n_max, template<typename, int> class Solver>
     void write_field(Solution<Pt, n_max, Solver>& bolls,
@@ -104,7 +104,7 @@ void Vtk_output::write_positions(Solution<Pt, n_max, Solver>& bolls) {
 }
 
 template<int n_links>
-void Vtk_output::write_protrusions(Protrusions<n_links>& links) {
+void Vtk_output::write_links(Links<n_links>& links) {
     std::ofstream file(current_path, std::ios_base::app);
     assert(file.is_open());
 
