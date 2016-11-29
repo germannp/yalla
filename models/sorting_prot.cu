@@ -67,7 +67,7 @@ int main(int argc, char const *argv[]) {
     Solution<float3, n_cells, Lattice_solver> bolls;
     uniform_sphere(r_min, bolls);
     Links<n_links> links;
-    auto prot_forces = std::bind(link_forces<n_links>, links,
+    auto prot_forces = std::bind(linear_force<n_links>, links,
         std::placeholders::_1, std::placeholders::_2);
     Property<n_cells> type;
     for (auto i = 0; i < n_cells; i++) {
