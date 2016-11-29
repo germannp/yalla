@@ -60,7 +60,7 @@ __device__ Lb_cell pairwise_interaction(Lb_cell Xi, Lb_cell Xj, int i, int j) {
 
     if (d_type[i] == mesenchyme or d_type[j] == mesenchyme) return dF;
 
-    dF += polarity_force(Xi, Xj)*0.2;
+    dF += rigidity_force(Xi, Xj)*0.2;
     return dF;
 }
 

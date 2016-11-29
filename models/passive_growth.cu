@@ -48,7 +48,7 @@ __device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
 
     if (d_type[i] == mesenchyme or d_type[j] == mesenchyme) return dF;
 
-    dF += polarity_force(Xi, Xj)*0.2;
+    dF += rigidity_force(Xi, Xj)*0.2;
     return dF;
 }
 

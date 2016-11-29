@@ -16,7 +16,7 @@ __device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
 
-    dF += polarity_force(Xi, Xj)*0.2;
+    dF += rigidity_force(Xi, Xj)*0.2;
     return dF;
 }
 
