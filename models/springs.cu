@@ -32,7 +32,7 @@ int main(int argc, const char* argv[]) {
     Vtk_output output("springs");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
-        bolls.take_step(dt);       // Ordering to start writing during calculation,
+        bolls.take_step(dt);            // Ordering to start writing during calculation,
         output.write_positions(bolls);  // use thread for full concurency.
     }
 
