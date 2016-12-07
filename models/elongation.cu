@@ -5,6 +5,7 @@
 #include <thrust/fill.h>
 #include <thrust/execution_policy.h>
 
+#include "../lib/cudebug.cuh"
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/links.cuh"
