@@ -87,13 +87,14 @@ __global__ void update_links(const Lattice<n_max>* __restrict__ d_lattice,
         + min(static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube), cells_in_cube - 1);
     D_ASSERT(d_lattice->d_cell_id[j] >= 0); D_ASSERT(d_lattice->d_cell_id[j] < n_cells);
     D_ASSERT(d_lattice->d_cell_id[k] >= 0); D_ASSERT(d_lattice->d_cell_id[k] < n_cells);
+    if (j == k) return;
+
     auto r = d_X[d_lattice->d_cell_id[j]] - d_X[d_lattice->d_cell_id[k]];
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if ((j != k) and (d_type[d_lattice->d_cell_id[j]] == mesenchyme)
-            and (d_type[d_lattice->d_cell_id[k]] == mesenchyme)
-            and (dist < r_link)
-            and (fabs(r.w/(d_X[d_lattice->d_cell_id[j]].w + d_X[d_lattice->d_cell_id[k]].w)) > 0.2)) {
-            // and (fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
+    auto both_mesenchyme = (d_type[d_lattice->d_cell_id[j]] == mesenchyme)
+            and (d_type[d_lattice->d_cell_id[k]] == mesenchyme);
+    auto along_w = fabs(r.w/(d_X[d_lattice->d_cell_id[j]].w + d_X[d_lattice->d_cell_id[k]].w)) > 0.2;
+    if (both_mesenchyme and (dist < r_link) and along_w) {
         d_link[i].a = d_lattice->d_cell_id[j];
         d_link[i].b = d_lattice->d_cell_id[k];
     }

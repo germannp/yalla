@@ -39,9 +39,11 @@ __global__ void update_links(const float3* __restrict__ d_X, Link* d_link,
 
     auto j = min(static_cast<int>(curand_uniform(&d_state[i])*n_cells), n_cells - 1);
     auto k = min(static_cast<int>(curand_uniform(&d_state[i])*n_cells), n_cells - 1);
+    if (j == k) return;
+
     auto r = d_X[j] - d_X[k];
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if ((fabs(r.x/dist) < 0.2) and (j != k) and (dist < 2)) {
+    if ((fabs(r.x/dist) < 0.2) and (dist < 2)) {
         d_link[i].a = j;
         d_link[i].b = k;
     }
