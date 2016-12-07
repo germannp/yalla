@@ -17,9 +17,9 @@
 const auto n_0 = 5000;
 const auto n_max = 61000;
 const auto r_max = 1;
-const auto r_link = 1.5;
-const auto links_per_cell = 1.f;  // Must be >= 1 as rand states used to proliferate
-const auto link_strength = 0.5;
+const auto r_protrusion = 1.5;
+const auto protrusions_per_cell = 1.f;  // Must be >= 1 as rand states used to proliferate
+const auto protrusion_strength = 0.5;
 const auto n_time_steps = 500;
 const auto skip_steps = 5;
 const auto dt = 0.2;
@@ -68,11 +68,11 @@ __device__ Lb_cell pairwise_interaction(Lb_cell Xi, Lb_cell Xj, int i, int j) {
 #include "../lib/solvers.cuh"
 
 
-__global__ void update_links(const Lattice<n_max>* __restrict__ d_lattice,
-        const Lb_cell* __restrict d_X, int n_cells, int n_links, Link* d_link,
+__global__ void update_protrusions(const Lattice<n_max>* __restrict__ d_lattice,
+        const Lb_cell* __restrict d_X, int n_cells, int n_protrusions, Link* d_link,
         curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_links) return;
+    if (i >= n_protrusions) return;
 
     auto j = min(static_cast<int>(curand_uniform(&d_state[i])*n_cells),
         n_cells - 1);  // curand_uniform includes 1.0!
@@ -94,7 +94,7 @@ __global__ void update_links(const Lattice<n_max>* __restrict__ d_lattice,
     auto both_mesenchyme = (d_type[d_lattice->d_cell_id[j]] == mesenchyme)
             and (d_type[d_lattice->d_cell_id[k]] == mesenchyme);
     auto along_w = fabs(r.w/(d_X[d_lattice->d_cell_id[j]].w + d_X[d_lattice->d_cell_id[k]].w)) > 0.2;
-    if (both_mesenchyme and (dist < r_link) and along_w) {
+    if (both_mesenchyme and (dist < r_protrusion) and along_w) {
         d_link[i].a = d_lattice->d_cell_id[j];
         d_link[i].b = d_lattice->d_cell_id[k];
     }
@@ -149,10 +149,11 @@ int main(int argc, char const *argv[]) {
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     Property<n_max, int> n_epi_nbs;
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
-    Links<static_cast<int>(n_max*links_per_cell)> links(link_strength, n_0*links_per_cell);
+    Links<static_cast<int>(n_max*protrusions_per_cell)> protrusions(protrusion_strength,
+        n_0*protrusions_per_cell);
     auto intercalation = std::bind(
-        linear_force<static_cast<int>(n_max*links_per_cell), Lb_cell>,
-        links, std::placeholders::_1, std::placeholders::_2);
+        linear_force<static_cast<int>(n_max*protrusions_per_cell), Lb_cell>,
+        protrusions, std::placeholders::_1, std::placeholders::_2);
 
     // Relax
     for (auto time_step = 0; time_step <= 200; time_step++) {
@@ -184,17 +185,18 @@ int main(int argc, char const *argv[]) {
     Vtk_output output("elongation");
     for (auto time_step = 0; time_step <= n_time_steps/skip_steps; time_step++) {
         bolls.copy_to_host();
-        links.copy_to_host();
+        protrusions.copy_to_host();
         type.copy_to_host();
 
         std::thread calculation([&] {
             for (auto i = 0; i < skip_steps; i++) {
                 proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X,
-                    bolls.d_n, links.d_state);
-                links.set_d_n(bolls.get_d_n()*links_per_cell);
-                bolls.build_lattice(r_link);
-                update_links<<<(links.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
-                    bolls.d_X, bolls.get_d_n(), links.get_d_n(), links.d_link, links.d_state);
+                    bolls.d_n, protrusions.d_state);
+                protrusions.set_d_n(bolls.get_d_n()*protrusions_per_cell);
+                bolls.build_lattice(r_protrusion);
+                update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
+                    bolls.d_X, bolls.get_d_n(), protrusions.get_d_n(), protrusions.d_link,
+                    protrusions.d_state);
                 thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
                 thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
                 bolls.take_step(dt, intercalation);
@@ -202,7 +204,7 @@ int main(int argc, char const *argv[]) {
         });
 
         output.write_positions(bolls);
-        output.write_links(links);
+        output.write_links(protrusions);
         output.write_property(type);
         // output.write_polarity(bolls);
         output.write_field(bolls, "Wnt");

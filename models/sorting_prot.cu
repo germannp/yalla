@@ -12,7 +12,7 @@
 const auto r_max = 1.f;
 const auto r_min = 0.5f;
 const auto n_cells = 200u;
-const auto n_links = n_cells*5;
+const auto n_protrusions = n_cells*5;
 const auto n_time_steps = 300u;
 const auto dt = 0.05;
 
@@ -33,10 +33,10 @@ __device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
 #include "../lib/solvers.cuh"
 
 
-__global__ void update_links(const float3* __restrict__ d_X, Link* d_link,
+__global__ void update_protrusions(const float3* __restrict__ d_X, Link* d_link,
         curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_links) return;
+    if (i >= n_protrusions) return;
 
     auto r = curand_uniform(&d_state[i]);
     auto j = d_link[i].a;
@@ -66,8 +66,8 @@ int main(int argc, char const *argv[]) {
     // Prepare initial state
     Solution<float3, n_cells, Lattice_solver> bolls;
     uniform_sphere(r_min, bolls);
-    Links<n_links> links;
-    auto prot_forces = std::bind(linear_force<n_links>, links,
+    Links<n_protrusions> protrusions;
+    auto prot_forces = std::bind(linear_force<n_protrusions>, protrusions,
         std::placeholders::_1, std::placeholders::_2);
     Property<n_cells> type;
     for (auto i = 0; i < n_cells; i++) {
@@ -78,11 +78,12 @@ int main(int argc, char const *argv[]) {
     Vtk_output output("sorting");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
-        links.copy_to_host();
-        update_links<<<(n_links + 32 - 1)/32, 32>>>(bolls.d_X, links.d_link, links.d_state);
+        protrusions.copy_to_host();
+        update_protrusions<<<(n_protrusions + 32 - 1)/32, 32>>>(bolls.d_X, protrusions.d_link,
+            protrusions.d_state);
         bolls.take_step(dt, prot_forces);
         output.write_positions(bolls);
-        output.write_links(links);
+        output.write_links(protrusions);
         output.write_property(type);
     }
 
