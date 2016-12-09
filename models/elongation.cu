@@ -23,9 +23,9 @@ const auto protrusion_strength = 0.5;
 const auto n_time_steps = 500;
 const auto skip_steps = 5;
 const auto dt = 0.2;
-enum Cell_types {mesenchyme, epithelium};
+enum Cell_types {mesenchyme, epithelium, aer};
 
-MAKE_PT(Lb_cell, x, y, z, w, phi, theta);
+MAKE_PT(Lb_cell, x, y, z, w, f, phi, theta);
 
 
 __device__ Cell_types* d_type;
@@ -37,6 +37,7 @@ __device__ Lb_cell pairwise_interaction(Lb_cell Xi, Lb_cell Xj, int i, int j) {
     if (i == j) {
         // D_ASSERT(Xi.w >= 0);
         dF.w = (d_type[i] > mesenchyme) - 0.01*Xi.w;
+        dF.f = (d_type[i] == aer) - 0.01*Xi.f;
         return dF;
     }
 
@@ -55,6 +56,7 @@ __device__ Lb_cell pairwise_interaction(Lb_cell Xi, Lb_cell Xj, int i, int j) {
     dF.z = r.z*F/dist;
     auto D = dist < r_max ? 0.1 : 0;
     dF.w = - r.w*D;
+    dF.f = - r.f*D;
 
     if (d_type[j] == mesenchyme) d_mes_nbs[i] += 1;
     else d_epi_nbs[i] += 1;
@@ -94,7 +96,8 @@ __global__ void update_protrusions(const Lattice<n_max>* __restrict__ d_lattice,
     auto both_mesenchyme = (d_type[d_lattice->d_cell_id[j]] == mesenchyme)
             and (d_type[d_lattice->d_cell_id[k]] == mesenchyme);
     auto along_w = fabs(r.w/(d_X[d_lattice->d_cell_id[j]].w + d_X[d_lattice->d_cell_id[k]].w)) > 0.2;
-    if (both_mesenchyme and (dist < r_protrusion) and along_w) {
+    auto high_f = (d_X[d_lattice->d_cell_id[j]].f + d_X[d_lattice->d_cell_id[k]].f) > 0.2;
+    if (both_mesenchyme and (dist < r_protrusion) and (along_w or high_f)) {
         d_link[i].a = d_lattice->d_cell_id[j];
         d_link[i].b = d_lattice->d_cell_id[k];
     }
@@ -111,10 +114,10 @@ __global__ void proliferate(float rate, float mean_distance, Lb_cell* d_X,
         case mesenchyme: {
             auto r = curand_uniform(&d_state[i]);
             if (r > rate) return;
+            break;
         }
-        case epithelium: {
+        default:
             if (d_epi_nbs[i] > d_mes_nbs[i]) return;
-        }
     }
 
     auto n = atomicAdd(d_n_cells, 1);
@@ -166,7 +169,10 @@ int main(int argc, char const *argv[]) {
     n_mes_nbs.copy_to_host();
     for (auto i = 0; i < n_0; i++) {
         if (n_mes_nbs.h_prop[i] < 12*2 and bolls.h_X[i].x > 0) {  // 2nd order solver
-            type.h_prop[i] = epithelium;
+            if (fabs(bolls.h_X[i].y) < 0.75 and bolls.h_X[i].x > 3)
+                type.h_prop[i] = aer;
+            else
+                type.h_prop[i] = epithelium;
             auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x
                 + bolls.h_X[i].y*bolls.h_X[i].y + bolls.h_X[i].z*bolls.h_X[i].z);
             bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x);
@@ -176,6 +182,7 @@ int main(int argc, char const *argv[]) {
             bolls.h_X[i].theta = 0;
         }
         bolls.h_X[i].w = 0;
+        bolls.h_X[i].f = 0;
     }
     bolls.copy_to_device();
     type.copy_to_device();
@@ -208,6 +215,7 @@ int main(int argc, char const *argv[]) {
         output.write_property(type);
         // output.write_polarity(bolls);
         output.write_field(bolls, "Wnt");
+        output.write_field(bolls, "Fgf", &Lb_cell::f);
 
         calculation.join();
     }
