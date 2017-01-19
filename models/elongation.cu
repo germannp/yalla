@@ -1,4 +1,5 @@
 // Simulate elongation of semisphere
+#include <stdio.h>
 #include <thread>
 #include <functional>
 #include <curand_kernel.h>
@@ -18,7 +19,7 @@ const auto n_0 = 5000;
 const auto n_max = 61000;
 const auto r_max = 1;
 const auto r_protrusion = 1.5;
-const auto protrusions_per_cell = 1.f;  // Must be >= 1 as rand states used to proliferate
+const auto prots_per_cell = 1;
 const auto protrusion_strength = 0.5;
 const auto n_time_steps = 500;
 const auto skip_steps = 5;
@@ -71,21 +72,19 @@ __device__ Lb_cell pairwise_interaction(Lb_cell Xi, Lb_cell Xj, int i, int j) {
 
 
 __global__ void update_protrusions(const Lattice<n_max>* __restrict__ d_lattice,
-        const Lb_cell* __restrict d_X, int n_cells, int n_protrusions, Link* d_link,
-        curandState* d_state) {
+        const Lb_cell* __restrict d_X, int n_cells, Link* d_link, curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_protrusions) return;
+    if (i >= n_cells*prots_per_cell) return;
 
-    auto j = min(static_cast<int>(curand_uniform(&d_state[i])*n_cells),
-        n_cells - 1);  // curand_uniform includes 1.0!
-    auto rand_cube = d_lattice->d_cube_id[j]
+    auto j = static_cast<int>((i + 0.5)/prots_per_cell);
+    auto rand_nb_cube = d_lattice->d_cube_id[j]
         +  static_cast<int>(curand_uniform(&d_state[i])*3) - 1
         + (static_cast<int>(curand_uniform(&d_state[i])*3) - 1)*LATTICE_SIZE
         + (static_cast<int>(curand_uniform(&d_state[i])*3) - 1)*LATTICE_SIZE*LATTICE_SIZE;
-    auto cells_in_cube = d_lattice->d_cube_end[rand_cube] - d_lattice->d_cube_start[rand_cube];
+    auto cells_in_cube = d_lattice->d_cube_end[rand_nb_cube] - d_lattice->d_cube_start[rand_nb_cube];
     if (cells_in_cube < 1) return;
 
-    auto k = d_lattice->d_cube_start[rand_cube]
+    auto k = d_lattice->d_cube_start[rand_nb_cube]
         + min(static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube), cells_in_cube - 1);
     D_ASSERT(d_lattice->d_cell_id[j] >= 0); D_ASSERT(d_lattice->d_cell_id[j] < n_cells);
     D_ASSERT(d_lattice->d_cell_id[k] >= 0); D_ASSERT(d_lattice->d_cell_id[k] < n_cells);
@@ -94,12 +93,12 @@ __global__ void update_protrusions(const Lattice<n_max>* __restrict__ d_lattice,
     auto r = d_X[d_lattice->d_cell_id[j]] - d_X[d_lattice->d_cell_id[k]];
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
     auto both_mesenchyme = (d_type[d_lattice->d_cell_id[j]] == mesenchyme)
-            and (d_type[d_lattice->d_cell_id[k]] == mesenchyme);
+        and (d_type[d_lattice->d_cell_id[k]] == mesenchyme);
     auto along_w = fabs(r.w/(d_X[d_lattice->d_cell_id[j]].w + d_X[d_lattice->d_cell_id[k]].w)) > 0.2;
     auto high_f = (d_X[d_lattice->d_cell_id[j]].f + d_X[d_lattice->d_cell_id[k]].f) > 0.2;
     if (both_mesenchyme and (dist < r_protrusion) and (along_w or high_f)) {
-        d_link[i].a = d_lattice->d_cell_id[j];
-        d_link[i].b = d_lattice->d_cell_id[k];
+        d_link[d_lattice->d_cell_id[j]*prots_per_cell + i%prots_per_cell].a = d_lattice->d_cell_id[j];
+        d_link[d_lattice->d_cell_id[j]*prots_per_cell + i%prots_per_cell].b = d_lattice->d_cell_id[k];
     }
 }
 
@@ -152,11 +151,16 @@ int main(int argc, char const *argv[]) {
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     Property<n_max, int> n_epi_nbs;
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
-    Links<static_cast<int>(n_max*protrusions_per_cell)> protrusions(protrusion_strength,
-        n_0*protrusions_per_cell);
+    Links<static_cast<int>(n_max*prots_per_cell)> protrusions(protrusion_strength,
+        n_0*prots_per_cell);
     auto intercalation = std::bind(
-        linear_force<static_cast<int>(n_max*protrusions_per_cell), Lb_cell>,
+        linear_force<static_cast<int>(n_max*prots_per_cell), Lb_cell>,
         protrusions, std::placeholders::_1, std::placeholders::_2);
+    for (auto i = 0; i < n_max*prots_per_cell; i++) {
+        protrusions.h_link[i].a = static_cast<int>((i + 0.5)/prots_per_cell);
+        protrusions.h_link[i].b = static_cast<int>((i + 0.5)/prots_per_cell);
+    }
+    protrusions.copy_to_device();
 
     // Relax
     for (auto time_step = 0; time_step <= 200; time_step++) {
@@ -199,11 +203,10 @@ int main(int argc, char const *argv[]) {
             for (auto i = 0; i < skip_steps; i++) {
                 proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X,
                     bolls.d_n, protrusions.d_state);
-                protrusions.set_d_n(bolls.get_d_n()*protrusions_per_cell);
+                protrusions.set_d_n(bolls.get_d_n()*prots_per_cell);
                 bolls.build_lattice(r_protrusion);
                 update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
-                    bolls.d_X, bolls.get_d_n(), protrusions.get_d_n(), protrusions.d_link,
-                    protrusions.d_state);
+                    bolls.d_X, bolls.get_d_n(), protrusions.d_link, protrusions.d_state);
                 thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
                 thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
                 bolls.take_step(dt, intercalation);
