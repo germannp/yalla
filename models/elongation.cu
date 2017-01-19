@@ -82,21 +82,22 @@ __global__ void update_protrusions(const Lattice<n_max>* __restrict__ d_lattice,
     auto cells_in_cube = d_lattice->d_cube_end[rand_nb_cube] - d_lattice->d_cube_start[rand_nb_cube];
     if (cells_in_cube < 1) return;
 
-    auto k = d_lattice->d_cube_start[rand_nb_cube]
-        + min(static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube), cells_in_cube - 1);
-    D_ASSERT(d_lattice->d_cell_id[j] >= 0); D_ASSERT(d_lattice->d_cell_id[j] < n_cells);
-    D_ASSERT(d_lattice->d_cell_id[k] >= 0); D_ASSERT(d_lattice->d_cell_id[k] < n_cells);
-    if (j == k) return;
+    auto cell_a = d_lattice->d_cell_id[j];
+    auto cell_b = d_lattice->d_cell_id[d_lattice->d_cube_start[rand_nb_cube]
+        + min(static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube), cells_in_cube - 1)];
+    D_ASSERT(cell_a >= 0); D_ASSERT(cell_a < n_cells);
+    D_ASSERT(cell_b >= 0); D_ASSERT(cell_b < n_cells);
+    if (cell_a == cell_b) return;
 
-    auto r = d_X[d_lattice->d_cell_id[j]] - d_X[d_lattice->d_cell_id[k]];
+    auto r = d_X[cell_a] - d_X[cell_b];
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    auto both_mesenchyme = (d_type[d_lattice->d_cell_id[j]] == mesenchyme)
-        and (d_type[d_lattice->d_cell_id[k]] == mesenchyme);
-    auto along_w = fabs(r.w/(d_X[d_lattice->d_cell_id[j]].w + d_X[d_lattice->d_cell_id[k]].w)) > 0.2;
-    auto high_f = (d_X[d_lattice->d_cell_id[j]].f + d_X[d_lattice->d_cell_id[k]].f) > 0.2;
+    auto both_mesenchyme = (d_type[cell_a] == mesenchyme)
+        and (d_type[cell_b] == mesenchyme);
+    auto along_w = fabs(r.w/(d_X[cell_a].w + d_X[cell_b].w)) > 0.2;
+    auto high_f = (d_X[cell_a].f + d_X[cell_b].f) > 0.2;
     if (both_mesenchyme and (dist < r_protrusion) and (along_w or high_f)) {
-        d_link[d_lattice->d_cell_id[j]*prots_per_cell + i%prots_per_cell].a = d_lattice->d_cell_id[j];
-        d_link[d_lattice->d_cell_id[j]*prots_per_cell + i%prots_per_cell].b = d_lattice->d_cell_id[k];
+        d_link[cell_a*prots_per_cell + i%prots_per_cell].a = cell_a;
+        d_link[cell_a*prots_per_cell + i%prots_per_cell].b = cell_b;
     }
 }
 
