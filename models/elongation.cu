@@ -78,9 +78,7 @@ __global__ void update_protrusions(const Lattice<n_max>* __restrict__ d_lattice,
 
     auto j = static_cast<int>((i + 0.5)/prots_per_cell);
     auto rand_nb_cube = d_lattice->d_cube_id[j]
-        +  static_cast<int>(curand_uniform(&d_state[i])*3) - 1
-        + (static_cast<int>(curand_uniform(&d_state[i])*3) - 1)*LATTICE_SIZE
-        + (static_cast<int>(curand_uniform(&d_state[i])*3) - 1)*LATTICE_SIZE*LATTICE_SIZE;
+        + d_moore_nhood[min(static_cast<int>(curand_uniform(&d_state[i])*27), 26)];
     auto cells_in_cube = d_lattice->d_cube_end[rand_nb_cube] - d_lattice->d_cube_start[rand_nb_cube];
     if (cells_in_cube < 1) return;
 
