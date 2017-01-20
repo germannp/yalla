@@ -106,28 +106,28 @@ protected:
 // Calculate d_dX one thread per point, to TILE_SIZE other points at a time
 template<typename Pt>
 __global__ void compute_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX) {
-    auto d_cell_idx = blockIdx.x*blockDim.x + threadIdx.x;
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
 
     __shared__ Pt shX[TILE_SIZE];
-    auto Xi = d_X[d_cell_idx];
-    Pt Fi {0};
 
+    Pt Fi {0};
     for (auto tile_start = 0; tile_start < n_cells; tile_start += TILE_SIZE) {
-        auto other_d_cell_idx = tile_start + threadIdx.x;
-        if (other_d_cell_idx < n_cells) {
-            shX[threadIdx.x] = d_X[other_d_cell_idx];
+        auto j = tile_start + threadIdx.x;
+        if (j < n_cells) {
+            shX[threadIdx.x] = d_X[j];
         }
         __syncthreads();
-        for (auto i = 0; i < TILE_SIZE; i++) {
-            auto other_d_cell_idx = tile_start + i;
-            if ((d_cell_idx < n_cells) and (other_d_cell_idx < n_cells)) {
-                Fi += pairwise_interaction(Xi, shX[i], d_cell_idx, other_d_cell_idx);
+
+        for (auto k = 0; k < TILE_SIZE; k++) {
+            auto j = tile_start + k;
+            if ((i < n_cells) and (j < n_cells)) {
+                Fi += pairwise_interaction(d_X[i], shX[k], i, j);
             }
         }
     }
 
-    if (d_cell_idx < n_cells) {
-        d_dX[d_cell_idx] = Fi;
+    if (i < n_cells) {
+        d_dX[i] = Fi;
     }
 }
 
