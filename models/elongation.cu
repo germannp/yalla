@@ -89,15 +89,18 @@ __global__ void update_protrusions(const Lattice<n_max>* __restrict__ d_lattice,
     D_ASSERT(cell_b >= 0); D_ASSERT(cell_b < n_cells);
     if (cell_a == cell_b) return;
 
+    if ((d_type[cell_a] != mesenchyme) or (d_type[cell_b] != mesenchyme)) return;
+
     auto r = d_X[cell_a] - d_X[cell_b];
     auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    auto both_mesenchyme = (d_type[cell_a] == mesenchyme) and (d_type[cell_b] == mesenchyme);
+    if (dist > r_protrusion) return;
+
     auto along_w = fabs(r.w/(d_X[cell_a].w + d_X[cell_b].w)) > 0.2;
     auto high_f = (d_X[cell_a].f + d_X[cell_b].f) > 0.2;
-    if (both_mesenchyme and (dist < r_protrusion) and (along_w or high_f)) {
-        d_link[cell_a*prots_per_cell + i%prots_per_cell].a = cell_a;
-        d_link[cell_a*prots_per_cell + i%prots_per_cell].b = cell_b;
-    }
+    if (not along_w and not high_f) return;
+
+    d_link[cell_a*prots_per_cell + i%prots_per_cell].a = cell_a;
+    d_link[cell_a*prots_per_cell + i%prots_per_cell].b = cell_b;
 }
 
 
