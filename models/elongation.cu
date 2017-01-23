@@ -82,25 +82,29 @@ __global__ void update_protrusions(const Lattice<n_max>* __restrict__ d_lattice,
     auto cells_in_cube = d_lattice->d_cube_end[rand_nb_cube] - d_lattice->d_cube_start[rand_nb_cube];
     if (cells_in_cube < 1) return;
 
-    auto cell_a = d_lattice->d_cell_id[j];
-    auto cell_b = d_lattice->d_cell_id[d_lattice->d_cube_start[rand_nb_cube]
+    auto a = d_lattice->d_cell_id[j];
+    auto b = d_lattice->d_cell_id[d_lattice->d_cube_start[rand_nb_cube]
         + min(static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube), cells_in_cube - 1)];
-    D_ASSERT(cell_a >= 0); D_ASSERT(cell_a < n_cells);
-    D_ASSERT(cell_b >= 0); D_ASSERT(cell_b < n_cells);
-    if (cell_a == cell_b) return;
+    D_ASSERT(a >= 0); D_ASSERT(a < n_cells);
+    D_ASSERT(b >= 0); D_ASSERT(b < n_cells);
+    if (a == b) return;
 
-    if ((d_type[cell_a] != mesenchyme) or (d_type[cell_b] != mesenchyme)) return;
+    if ((d_type[a] != mesenchyme) or (d_type[b] != mesenchyme)) return;
 
-    auto r = d_X[cell_a] - d_X[cell_b];
-    auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
-    if (dist > r_protrusion) return;
+    auto new_r = d_X[a] - d_X[b];
+    auto new_dist = sqrtf(new_r.x*new_r.x + new_r.y*new_r.y + new_r.z*new_r.z);
+    if (new_dist > r_protrusion) return;
 
-    auto along_w = fabs(r.w/(d_X[cell_a].w + d_X[cell_b].w)) > 0.2;
-    auto high_f = (d_X[cell_a].f + d_X[cell_b].f) > 0.2;
-    if (not along_w and not high_f) return;
+    auto link = &d_link[a*prots_per_cell + i%prots_per_cell];
+    auto not_initialized = link->a == link->b;
+    auto old_r = d_X[link->a] - d_X[link->b];
+    auto old_dist = sqrtf(old_r.x*old_r.x + old_r.y*old_r.y + old_r.z*old_r.z);
+    auto more_along_w = fabs(new_r.w/new_dist) > fabs(old_r.w/old_dist);
+    auto high_f = (d_X[a].f + d_X[b].f) > 0.2;
+    if (not (not_initialized or more_along_w or high_f)) return;
 
-    d_link[cell_a*prots_per_cell + i%prots_per_cell].a = cell_a;
-    d_link[cell_a*prots_per_cell + i%prots_per_cell].b = cell_b;
+    link->a = a;
+    link->b = b;
 }
 
 
