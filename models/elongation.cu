@@ -99,12 +99,13 @@ __global__ void update_protrusions(const Lattice<n_max>* __restrict__ d_lattice,
     auto not_initialized = link->a == link->b;
     auto old_r = d_X[link->a] - d_X[link->b];
     auto old_dist = sqrtf(old_r.x*old_r.x + old_r.y*old_r.y + old_r.z*old_r.z);
-    auto more_along_w = fabs(new_r.w/new_dist) > fabs(old_r.w/old_dist);
+    auto noise = curand_uniform(&d_state[i])*0.25;
+    auto more_along_w = fabs(new_r.w/new_dist) > fabs(old_r.w/old_dist) + noise;
     auto high_f = (d_X[a].f + d_X[b].f) > 0.2;
-    if (not (not_initialized or more_along_w or high_f)) return;
-
-    link->a = a;
-    link->b = b;
+    if (not_initialized or more_along_w or high_f) {
+        link->a = a;
+        link->b = b;
+    }
 }
 
 
