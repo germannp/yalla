@@ -133,6 +133,8 @@ __global__ void proliferate(float rate, float mean_distance, Lb_cell* d_X,
     d_X[n].z = d_X[i].z + mean_distance/4*cosf(theta);
     d_X[n].w = d_X[i].w/2;
     d_X[i].w = d_X[i].w/2;
+    d_X[n].f = d_X[i].f/2;
+    d_X[i].f = d_X[i].f/2;
     d_X[n].phi = d_X[i].phi;
     d_X[n].theta = d_X[i].theta;
     d_type[n] = d_type[i];
