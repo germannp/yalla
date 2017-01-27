@@ -164,11 +164,6 @@ int main(int argc, char const *argv[]) {
     auto intercalation = std::bind(
         linear_force<static_cast<int>(n_max*prots_per_cell), Lb_cell>,
         protrusions, std::placeholders::_1, std::placeholders::_2);
-    for (auto i = 0; i < n_max*prots_per_cell; i++) {
-        protrusions.h_link[i].a = static_cast<int>((i + 0.5)/prots_per_cell);
-        protrusions.h_link[i].b = static_cast<int>((i + 0.5)/prots_per_cell);
-    }
-    protrusions.copy_to_device();
 
     // Relax
     for (auto time_step = 0; time_step <= 200; time_step++) {
