@@ -44,7 +44,7 @@ public:
     void write_property(Property<n_max, Prop>& property);
 
 protected:
-    int n_cells;
+    int n_bolls;
     int time_step = 0;
     std::string base_name;
     std::string current_path;
@@ -69,20 +69,20 @@ Vtk_output::~Vtk_output() {
         std::cout << duration/60 << "m " << duration % 60 << "s";
     else
         std::cout << duration/60/60 << "h " << duration % 60*60 << "m";
-    std::cout << " taken.        \n";  // Overwrite everything
+    std::cout << " taken (" << n_bolls << " bolls).        \n";  // Overwrite everything
 }
 
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
 void Vtk_output::write_positions(Solution<Pt, n_max, Solver>& bolls) {
     std::cout << "Integrating " << base_name << ", ";
-    std::cout << time_step << " steps done\r";
+    std::cout << time_step << " steps done (" << n_bolls << " bolls)        \r";
     std::cout.flush();
     point_data_started = false;
     time_step += 1;
 
-    n_cells = *bolls.h_n;
-    assert(n_cells <= n_max);
+    n_bolls = *bolls.h_n;
+    assert(n_bolls <= n_max);
 
     current_path = "output/" + base_name + "_" + std::to_string(time_step)
         + ".vtk";
@@ -94,12 +94,12 @@ void Vtk_output::write_positions(Solution<Pt, n_max, Solver>& bolls) {
     file << "ASCII\n";
     file << "DATASET POLYDATA\n";
 
-    file << "\nPOINTS " << n_cells << " float\n";
-    for (auto i = 0; i < n_cells; i++)
+    file << "\nPOINTS " << n_bolls << " float\n";
+    for (auto i = 0; i < n_bolls; i++)
         file << bolls.h_X[i].x << " " << bolls.h_X[i].y << " " << bolls.h_X[i].z << "\n";
 
-    file << "\nVERTICES " << n_cells << " " << 2*n_cells << "\n";
-    for (auto i = 0; i < n_cells; i++)
+    file << "\nVERTICES " << n_bolls << " " << 2*n_bolls << "\n";
+    for (auto i = 0; i < n_bolls; i++)
         file << "1 " << i << "\n";
 }
 
@@ -120,12 +120,12 @@ void Vtk_output::write_field(Solution<Pt, n_max, Solver>& bolls,
     assert(file.is_open());
 
     if (!point_data_started) {
-        file << "\nPOINT_DATA " << n_cells << "\n";
+        file << "\nPOINT_DATA " << n_bolls << "\n";
         point_data_started = true;
     }
     file << "SCALARS " << data_name << " float\n";
     file << "LOOKUP_TABLE default\n";
-    for (auto i = 0; i < n_cells; i++)
+    for (auto i = 0; i < n_bolls; i++)
         file << bolls.h_X[i].*field << "\n";
 }
 
@@ -135,11 +135,11 @@ void Vtk_output::write_polarity(Solution<Pt, n_max, Solver>& bolls) {
     assert(file.is_open());
 
     if (!point_data_started) {
-        file << "\nPOINT_DATA " << n_cells << "\n";
+        file << "\nPOINT_DATA " << n_bolls << "\n";
         point_data_started = true;
     }
     file << "NORMALS polarity float\n";
-    for (auto i = 0; i < n_cells; i++) {
+    for (auto i = 0; i < n_bolls; i++) {
         float3 n {0};
         if ((bolls.h_X[i].phi != 0) and (bolls.h_X[i].theta != 0)) {
             n.x = sinf(bolls.h_X[i].theta)*cosf(bolls.h_X[i].phi);
@@ -156,11 +156,11 @@ void Vtk_output::write_property(Property<n_max, Prop>& property) {
     assert(file.is_open());
 
     if (!point_data_started) {
-        file << "\nPOINT_DATA " << n_cells << "\n";
+        file << "\nPOINT_DATA " << n_bolls << "\n";
         point_data_started = true;
     }
     file << "SCALARS " << property.name << " int\n";
     file << "LOOKUP_TABLE default\n";
-    for (auto i = 0; i < n_cells; i++)
+    for (auto i = 0; i < n_bolls; i++)
         file << property.h_prop[i] << "\n";
 }
