@@ -26,12 +26,8 @@ public:
         cudaMalloc(&d_link, n_links*sizeof(Link));
         cudaMalloc(&d_n, sizeof(int));
         cudaMalloc(&d_state, n_links*sizeof(curandState));
-        for (auto i = 0; i < n_links; i++) {
-            h_link[i].a = 0;
-            h_link[i].b = 0;
-        }
         *h_n = n_0;
-        copy_to_device();
+        reset();
         setup_rand_states<<<(n_links + 32 - 1)/32, 32>>>(d_state, n_links);
         strength = s;
     }
@@ -44,6 +40,13 @@ public:
         cudaMemcpy(&n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
         assert(n <= n_links);
         return n;
+    }
+    void reset() {
+        for (auto i = 0; i < n_links; i++) {
+            h_link[i].a = 0;
+            h_link[i].b = 0;
+        }
+        copy_to_device();
     }
     void copy_to_device() {
         assert(*h_n <= n_links);
