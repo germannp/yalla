@@ -75,14 +75,14 @@ Vtk_output::~Vtk_output() {
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
 void Vtk_output::write_positions(Solution<Pt, n_max, Solver>& bolls) {
+    n_bolls = *bolls.h_n;
+    assert(n_bolls <= n_max);
+
     std::cout << "Integrating " << base_name << ", ";
     std::cout << time_step << " steps done (" << n_bolls << " bolls)        \r";
     std::cout.flush();
     point_data_started = false;
     time_step += 1;
-
-    n_bolls = *bolls.h_n;
-    assert(n_bolls <= n_max);
 
     current_path = "output/" + base_name + "_" + std::to_string(time_step)
         + ".vtk";
