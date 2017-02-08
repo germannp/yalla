@@ -1,4 +1,5 @@
 // Simulate elongation of semisphere
+#include <math.h>
 #include <stdio.h>
 #include <thread>
 #include <functional>
@@ -15,15 +16,16 @@
 #include "../lib/vtk.cuh"
 
 
-const auto n_0 = 5000;
-const auto n_max = 61000;
-const auto r_max = 1;
-const auto r_protrusion = 1.5;
+const auto n_0 = 15000;
+const auto n_max = 65000;
+const auto r_max = 1.f;
+const auto r_protrusion = 1.5f;
+const auto protrusion_strength = 0.1f;
 const auto prots_per_cell = 1;
-const auto protrusion_strength = 0.5;
-const auto n_time_steps = 500;
-const auto skip_steps = 5;
-const auto dt = 0.2;
+const auto n_time_steps = 1000*50;
+const auto skip_steps = 5*50;
+const auto proliferation_rate = 1.386/n_time_steps;  // log(fold-change: 4) = 1.386
+const auto dt = 0.2f;
 enum Cell_types {mesenchyme, epithelium, aer};
 
 MAKE_PT(Lb_cell, x, y, z, w, f, phi, theta);
@@ -99,9 +101,9 @@ __global__ void update_protrusions(const Lattice<n_max>* __restrict__ d_lattice,
     auto not_initialized = link->a == link->b;
     auto old_r = d_X[link->a] - d_X[link->b];
     auto old_dist = sqrtf(old_r.x*old_r.x + old_r.y*old_r.y + old_r.z*old_r.z);
-    auto noise = curand_uniform(&d_state[i])*0.25;
-    auto more_along_w = fabs(new_r.w/new_dist) > fabs(old_r.w/old_dist) + noise;
-    auto high_f = (d_X[a].f + d_X[b].f) > 0.2;
+    auto noise = curand_uniform(&d_state[i]);
+    auto more_along_w = fabs(new_r.w/new_dist) > fabs(old_r.w/old_dist)*(1.f - noise);
+    auto high_f = (d_X[a].f + d_X[b].f) > 1;
     if (not_initialized or more_along_w or high_f) {
         link->a = a;
         link->b = b;
@@ -109,16 +111,16 @@ __global__ void update_protrusions(const Lattice<n_max>* __restrict__ d_lattice,
 }
 
 
-__global__ void proliferate(float rate, float mean_distance, Lb_cell* d_X,
-        int* d_n_cells, curandState* d_state) {
-    D_ASSERT(*d_n_cells*rate <= n_max);
+__global__ void proliferate(float mean_distance, Lb_cell* d_X, int* d_n_cells,
+        curandState* d_state) {
+    D_ASSERT(*d_n_cells*proliferation_rate <= n_max);
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= *d_n_cells*(1 - rate)) return;  // Dividing new cells is problematic!
+    if (i >= *d_n_cells*(1 - proliferation_rate)) return;  // Dividing new cells is problematic!
 
     switch (d_type[i]) {
         case mesenchyme: {
             auto r = curand_uniform(&d_state[i]);
-            if (r > rate) return;
+            if (r > proliferation_rate) return;
             break;
         }
         default:
@@ -167,8 +169,11 @@ int main(int argc, char const *argv[]) {
 
     // Relax
     for (auto time_step = 0; time_step <= 200; time_step++) {
+        bolls.build_lattice(r_protrusion);
+        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
+            bolls.d_X, bolls.get_d_n(), protrusions.d_link, protrusions.d_state);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
-        bolls.take_step(dt);
+        bolls.take_step(dt, intercalation);
     }
 
     // Find epithelium
@@ -193,7 +198,8 @@ int main(int argc, char const *argv[]) {
     }
     bolls.copy_to_device();
     type.copy_to_device();
-    bolls.take_step(dt);  // Relax epithelium before proliferate
+    protrusions.reset();
+    bolls.take_step(dt, intercalation);  // Relax epithelium before proliferate
 
     // Simulate diffusion & intercalation
     Vtk_output output("elongation");
@@ -204,7 +210,7 @@ int main(int argc, char const *argv[]) {
 
         std::thread calculation([&] {
             for (auto i = 0; i < skip_steps; i++) {
-                proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(0.005, 0.733333, bolls.d_X,
+                proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(0.733333, bolls.d_X,
                     bolls.d_n, protrusions.d_state);
                 protrusions.set_d_n(bolls.get_d_n()*prots_per_cell);
                 bolls.build_lattice(r_protrusion);
