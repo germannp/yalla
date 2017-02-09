@@ -2,8 +2,9 @@
 #pragma once
 
 
-// Calculate force from the potential U = (n_i . r_ij/r)^2/2 for points Pt with
-// polarity, i.e. a unit vector n specified by Pt.phi and Pt.theta.
+// Calculate force from the potential U = - (n_i . r_ij/r)^2/2 for points Pt
+// with polarity, i.e. a unit vector n specified by -pi < Pt.phi <= pi and 
+// 0 <= Pt.theta <= pi.
 template<typename Pt> __device__ Pt rigidity_force(Pt Xi, Pt Xj) {
     Pt dF {0};
     float3 r {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
