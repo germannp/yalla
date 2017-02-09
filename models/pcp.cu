@@ -12,7 +12,7 @@ const auto n_time_steps = 100;
 const auto dt = 0.1;
 
 
-// Cubic potential plus k*(n_i . n_j)^2/2 for all r_ij <= r_max
+// Cubic potential plus - (n_i . n_j) for all r_ij <= r_max
 __device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
     Po_cell dF {0};
     if (i == j) return dF;
