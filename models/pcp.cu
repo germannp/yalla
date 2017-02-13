@@ -27,7 +27,7 @@ __device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
     dF.z = r.z*F/dist;
 
     // n1 . n2 = sin(t1)*sin(t2)*cos(p1 - p2) + cos(t1)*cos(t2)
-    dF.phi = sinf(Xi.theta)*sinf(Xj.theta)*sinf(Xi.phi - Xj.phi);
+    dF.phi = - sinf(Xi.theta)*sinf(Xj.theta)*sinf(Xi.phi - Xj.phi);
     dF.theta = cosf(Xi.theta)*sinf(Xj.theta)*cosf(Xi.phi - Xj.phi) -
         sinf(Xi.theta)*cosf(Xj.theta);
 
