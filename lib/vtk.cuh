@@ -141,7 +141,7 @@ void Vtk_output::write_polarity(Solution<Pt, n_max, Solver>& bolls) {
     file << "NORMALS polarity float\n";
     for (auto i = 0; i < n_bolls; i++) {
         float3 n {0};
-        if ((bolls.h_X[i].phi != 0) and (bolls.h_X[i].theta != 0)) {
+        if ((bolls.h_X[i].phi != 0) or (bolls.h_X[i].theta != 0)) {
             n.x = sinf(bolls.h_X[i].theta)*cosf(bolls.h_X[i].phi);
             n.y = sinf(bolls.h_X[i].theta)*sinf(bolls.h_X[i].phi);
             n.z = cosf(bolls.h_X[i].theta);
