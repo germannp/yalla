@@ -20,7 +20,7 @@ template<typename Pt> __device__ Pt rigidity_force(Pt Xi, Pt Xj) {
     // n1 . n2 = sin(t1)*sin(t2)*cos(p1 - p2) + cos(t1)*cos(t2)
     auto r_phi = atan2(r.y, r.x);
     auto r_theta = acosf(r.z/dist);
-    dF.phi = prodi*(sinf(Xi.theta)*sinf(r_theta)*sinf(Xi.phi - r_phi));
+    dF.phi = prodi*(sinf(r_theta)*sinf(Xi.phi - r_phi));
     dF.theta = - prodi*(cosf(Xi.theta)*sinf(r_theta)*cosf(Xi.phi - r_phi) -
         sinf(Xi.theta)*cosf(r_theta));
 
