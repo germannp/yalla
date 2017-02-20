@@ -28,8 +28,8 @@ __device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
 
     // n1 . n2 = sin(t1)*sin(t2)*cos(p1 - p2) + cos(t1)*cos(t2)
     auto sin_Xi_theta = sinf(Xi.theta);
-    if (fabs(sin_Xi_theta) < 1e-10) dF.phi = 0;
-    else dF.phi = - sinf(Xj.theta)*sinf(Xi.phi - Xj.phi)/sin_Xi_theta;
+    if (fabs(sin_Xi_theta) > 1e-10)
+        dF.phi = - sinf(Xj.theta)*sinf(Xi.phi - Xj.phi)/sin_Xi_theta;
     dF.theta = cosf(Xi.theta)*sinf(Xj.theta)*cosf(Xi.phi - Xj.phi) -
         sinf(Xi.theta)*cosf(Xj.theta);
 
