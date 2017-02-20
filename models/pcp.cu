@@ -27,7 +27,9 @@ __device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
     dF.z = r.z*F/dist;
 
     // n1 . n2 = sin(t1)*sin(t2)*cos(p1 - p2) + cos(t1)*cos(t2)
-    dF.phi = - sinf(Xj.theta)*sinf(Xi.phi - Xj.phi);
+    auto sin_Xi_theta = sinf(Xi.theta);
+    if (fabs(sin_Xi_theta) < 1e-10) dF.phi = 0;
+    else dF.phi = - sinf(Xj.theta)*sinf(Xi.phi - Xj.phi)/sin_Xi_theta;
     dF.theta = cosf(Xi.theta)*sinf(Xj.theta)*cosf(Xi.phi - Xj.phi) -
         sinf(Xi.theta)*cosf(Xj.theta);
 
@@ -42,8 +44,8 @@ int main(int argc, char const *argv[]) {
     Solution<Po_cell, n_cells, Lattice_solver> bolls;
     uniform_sphere(0.5, bolls);
     for (auto i = 0; i < n_cells; i++) {
-        bolls.h_X[i].phi = 2*M_PI*rand()/(RAND_MAX + 1.);
-        bolls.h_X[i].theta = M_PI*rand()/(RAND_MAX + 1.);
+        bolls.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
+        bolls.h_X[i].theta = acos(2.*rand()/(RAND_MAX + 1.) - 1.);
     }
     bolls.copy_to_device();
 
