@@ -1,20 +1,22 @@
-// Simulate planer cell polarity
+// Simulate planer cell polarity aligned by gradient
 #include "../lib/dtypes.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/vtk.cuh"
-#include "../lib/polarity.cuh"
 
 
 const auto r_max = 1;
 const auto r_min = 0.6;
-const auto n_cells = 250;
-const auto n_time_steps = 100;
+const auto D = 0.5f;
+const auto n_cells = 50;
+const auto n_time_steps = 300;
 const auto dt = 0.1;
 
+MAKE_PT(Po_cell4, x, y, z, w, phi, theta);
 
-// Cubic potential plus - (n_i . n_j) for all r_ij <= r_max
-__device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
-    Po_cell dF {0};
+
+// Cubic potential plus Heisenberg biased by w
+__device__ Po_cell4 pairwise_interaction(Po_cell4 Xi, Po_cell4 Xj, int i, int j) {
+    Po_cell4 dF {0};
     if (i == j) return dF;
 
     auto r = Xi - Xj;
@@ -25,13 +27,22 @@ __device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
+    dF.w = i == 0 ? 0 : -r.w*D;
 
-    // n1 . n2 = sin(t1)*sin(t2)*cos(p1 - p2) + cos(t1)*cos(t2)
+    // Heisenberg potential U = - (n_i . n_j)
     auto sin_Xi_theta = sinf(Xi.theta);
     if (fabs(sin_Xi_theta) > 1e-10)
         dF.phi = - sinf(Xj.theta)*sinf(Xi.phi - Xj.phi)/sin_Xi_theta;
     dF.theta = cosf(Xi.theta)*sinf(Xj.theta)*cosf(Xi.phi - Xj.phi) -
         sinf(Xi.theta)*cosf(Xj.theta);
+
+    // U = - Xj.w*(n_i . r_ij/r) to bias along w
+    auto r_phi = atan2(-r.y, -r.x);
+    auto r_theta = acosf(-r.z/dist);
+    if (fabs(sin_Xi_theta) > 1e-10)
+        dF.phi += - Xj.w*sinf(r_theta)*sinf(Xi.phi - r_phi)/sin_Xi_theta;
+    dF.theta += Xj.w*(cosf(Xi.theta)*sinf(r_theta)*cosf(Xi.phi - r_phi) -
+        sinf(Xi.theta)*cosf(r_theta));
 
     return dF;
 }
@@ -41,9 +52,10 @@ __device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Lattice_solver> bolls;
+    Solution<Po_cell4, n_cells, Lattice_solver> bolls;
     uniform_sphere(0.5, bolls);
     for (auto i = 0; i < n_cells; i++) {
+        bolls.h_X[i].w = (i == 0);
         bolls.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
         bolls.h_X[i].theta = acos(2.*rand()/(RAND_MAX + 1.) - 1.);
     }
@@ -55,6 +67,7 @@ int main(int argc, char const *argv[]) {
         bolls.copy_to_host();
         bolls.take_step(dt);
         output.write_positions(bolls);
+        output.write_field(bolls);
         output.write_polarity(bolls);
     }
 
