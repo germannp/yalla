@@ -45,7 +45,7 @@ __device__ Lb_cell pairwise_interaction(Lb_cell Xi, Lb_cell Xj, int i, int j) {
     }
 
     auto r = Xi - Xj;
-    auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    auto dist = norm3df(r.x, r.y, r.z);
     if (dist > r_max) return dF;
 
     float F;
@@ -94,13 +94,13 @@ __global__ void update_protrusions(const Lattice<n_max>* __restrict__ d_lattice,
     if ((d_type[a] != mesenchyme) or (d_type[b] != mesenchyme)) return;
 
     auto new_r = d_X[a] - d_X[b];
-    auto new_dist = sqrtf(new_r.x*new_r.x + new_r.y*new_r.y + new_r.z*new_r.z);
+    auto new_dist = norm3df(new_r.x, new_r.y, new_r.z);
     if (new_dist > r_protrusion) return;
 
     auto link = &d_link[a*prots_per_cell + i%prots_per_cell];
     auto not_initialized = link->a == link->b;
     auto old_r = d_X[link->a] - d_X[link->b];
-    auto old_dist = sqrtf(old_r.x*old_r.x + old_r.y*old_r.y + old_r.z*old_r.z);
+    auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
     auto noise = curand_uniform(&d_state[i]);
     auto more_along_w = fabs(new_r.w/new_dist) > fabs(old_r.w/old_dist)*(1.f - noise);
     auto high_f = (d_X[a].f + d_X[b].f) > 1;

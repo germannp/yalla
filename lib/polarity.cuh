@@ -8,7 +8,7 @@
 template<typename Pt> __device__ Pt rigidity_force(Pt Xi, Pt Xj) {
     Pt dF {0};
     float3 r {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
-    auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    auto dist = norm3df(r.x, r.y, r.z);
 
     float3 ni {sinf(Xi.theta)*cosf(Xi.phi), sinf(Xi.theta)*sinf(Xi.phi),
         cosf(Xi.theta)};

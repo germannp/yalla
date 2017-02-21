@@ -18,7 +18,7 @@ __device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
     if (i == j) return dF;
 
     auto r = Xi - Xj;
-    auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    auto dist = norm3df(r.x, r.y, r.z);
     if (dist > r_max) return dF;
 
     auto F = 2*(r_min - dist)*(r_max - dist) + powf(r_max - dist, 2);

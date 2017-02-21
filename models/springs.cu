@@ -15,7 +15,7 @@ __device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
     if (i == j) return dF;
 
     auto r = Xi - Xj;
-    auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    auto dist = norm3df(r.x, r.y, r.z);
     dF = r*(L_0 - dist)/dist;  // Spring force
     return dF;
 }

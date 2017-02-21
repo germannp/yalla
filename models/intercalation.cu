@@ -21,7 +21,7 @@ __device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
     if (i == j) return dF;
 
     auto r = Xi - Xj;
-    auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    auto dist = norm3df(r.x, r.y, r.z);
     if (dist > r_max) return dF;
 
     auto F = 2*(r_min - dist)*(r_max - dist) + (r_max - dist)*(r_max - dist);
@@ -42,7 +42,7 @@ __global__ void update_protrusions(const float3* __restrict__ d_X, Link* d_link,
     if (j == k) return;
 
     auto r = d_X[j] - d_X[k];
-    auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    auto dist = norm3df(r.x, r.y, r.z);
     if ((fabs(r.x/dist) < 0.2) and (dist < 2)) {
         d_link[i].a = j;
         d_link[i].b = k;

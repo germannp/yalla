@@ -72,7 +72,7 @@ __global__ void link_force(const Pt* __restrict__ d_X, Pt* d_dX,
     if (j == k) return;
 
     auto r = d_X[j] - d_X[k];
-    auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
+    auto dist = norm3df(r.x, r.y, r.z);
     atomicAdd(&d_dX[j].x, -strength*r.x/dist);
     atomicAdd(&d_dX[j].y, -strength*r.y/dist);
     atomicAdd(&d_dX[j].z, -strength*r.z/dist);
