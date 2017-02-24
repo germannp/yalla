@@ -1,5 +1,7 @@
 // Minimalistic testing framework ripped off "Learn C the Hard Way", that took
 // it from http://www.jera.com/techinfo/jtns/jtn002.html with a dash of NumPy :-)
+#pragma once
+
 #include <stdio.h>
 #include <assert.h>
 
