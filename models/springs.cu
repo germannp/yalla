@@ -1,5 +1,6 @@
 // Integrate N-body problem with springs between all bodies
 #include "../lib/dtypes.cuh"
+#include "../lib/solvers.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/vtk.cuh"
 
@@ -10,17 +11,15 @@ const auto n_time_steps = 100u;
 const auto dt = 0.001f;
 
 
-__device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 spring_force(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
     if (i == j) return dF;
 
     auto r = Xi - Xj;
     auto dist = norm3df(r.x, r.y, r.z);
-    dF = r*(L_0 - dist)/dist;  // Spring force
+    dF = r*(L_0 - dist)/dist;
     return dF;
 }
-
-#include "../lib/solvers.cuh"  // pairwise_interaction must be defined before
 
 
 int main(int argc, const char* argv[]) {
@@ -32,8 +31,8 @@ int main(int argc, const char* argv[]) {
     Vtk_output output("springs");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
-        bolls.take_step(dt);            // Ordering to start writing during calculation,
-        output.write_positions(bolls);  // use thread for full concurency.
+        bolls.take_step<spring_force>(dt);  // Ordering to write during calculation,
+        output.write_positions(bolls);      // use thread for full concurency.
     }
 
     return 0;

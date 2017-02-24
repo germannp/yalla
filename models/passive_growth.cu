@@ -4,6 +4,7 @@
 #include <thrust/execution_policy.h>
 
 #include "../lib/dtypes.cuh"
+#include "../lib/solvers.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/property.cuh"
 #include "../lib/links.cuh"
@@ -25,7 +26,7 @@ __device__ Cell_types* d_type;
 __device__ int* d_mes_nbs;  // number of mesenchymal neighbours
 __device__ int* d_epi_nbs;
 
-__device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
+__device__ Po_cell relu_w_epithelium(Po_cell Xi, Po_cell Xj, int i, int j) {
     Po_cell dF {0};
     if (i == j) return dF;
 
@@ -51,8 +52,6 @@ __device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
     dF += rigidity_force(Xi, Xj)*0.2;
     return dF;
 }
-
-#include "../lib/solvers.cuh"
 
 
 __global__ void proliferate(float rate, float mean_distance, Po_cell* d_X, int* d_n_cells,
@@ -104,7 +103,7 @@ int main(int argc, char const *argv[]) {
     // Relax
     for (auto time_step = 0; time_step <= 500; time_step++) {
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
-        bolls.take_step(dt);
+        bolls.take_step<relu_w_epithelium>(dt);
     }
 
     // Find epithelium
@@ -132,7 +131,7 @@ int main(int argc, char const *argv[]) {
         type.copy_to_host();
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
-        bolls.take_step(dt);
+        bolls.take_step<relu_w_epithelium>(dt);
         proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(prolif_rate*(time_step > 100),
             mean_dist, bolls.d_X, bolls.d_n, d_state);
         sim_output.write_positions(bolls);

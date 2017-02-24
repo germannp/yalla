@@ -1,5 +1,6 @@
 // Simulate cell sorting by forces strength
 #include "../lib/dtypes.cuh"
+#include "../lib/solvers.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/property.cuh"
 #include "../lib/vtk.cuh"
@@ -12,7 +13,7 @@ const auto n_time_steps = 300u;
 const auto dt = 0.05;
 
 
-__device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 differential_adhesion(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
     if (i == j) return dF;
 
@@ -25,8 +26,6 @@ __device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
     dF = strength*r*F/dist;
     return dF;
 }
-
-#include "../lib/solvers.cuh"
 
 
 int main(int argc, char const *argv[]) {
@@ -42,7 +41,7 @@ int main(int argc, char const *argv[]) {
     Vtk_output output("sorting");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
-        bolls.take_step(dt);
+        bolls.take_step<differential_adhesion>(dt);
         output.write_positions(bolls);
         output.write_property(type);
     }

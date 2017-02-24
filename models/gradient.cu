@@ -1,17 +1,20 @@
 // Simulate gradient formation
 #include "../lib/dtypes.cuh"
+#include "../lib/solvers.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/vtk.cuh"
 
 
 const auto r_max = 1;
 const auto r_min = 0.6;
+const auto D = 10;
+const auto strength = 100;
 const auto n_cells = 100;
 const auto n_time_steps = 200;
 const auto dt = 0.005;
 
 
-__device__ float4 pairwise_interaction(float4 Xi, float4 Xj, int i, int j) {
+__device__ float4 clipped_cubic_w_gradient(float4 Xi, float4 Xj, int i, int j) {
     float4 dF {0};
     if (i == j) return dF;
 
@@ -19,19 +22,13 @@ __device__ float4 pairwise_interaction(float4 Xi, float4 Xj, int i, int j) {
     auto dist = norm3df(r.x, r.y, r.z);
     if (dist > r_max) return dF;
 
-    auto n = 2;
-    auto D = 10;
-    auto strength = 100;
-    auto F = strength*n*(r_min - dist)*powf(r_max - dist, n - 1)
-        + strength*powf(r_max - dist, n);
+    auto F = strength*(2*(r_min - dist)*(r_max - dist) + powf(r_max - dist, 2));
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
     dF.w = i == 0 ? 0 : -r.w*D;
     return dF;
 }
-
-#include "../lib/solvers.cuh"
 
 
 int main(int argc, char const *argv[]) {
@@ -47,7 +44,7 @@ int main(int argc, char const *argv[]) {
     Vtk_output output("gradient");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
-        bolls.take_step(dt);
+        bolls.take_step<clipped_cubic_w_gradient>(dt);
         output.write_positions(bolls);
         output.write_field(bolls);
     }

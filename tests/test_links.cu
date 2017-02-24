@@ -1,16 +1,15 @@
 #include <functional>
 
 #include "../lib/dtypes.cuh"
+#include "../lib/solvers.cuh"
 #include "../lib/links.cuh"
 #include "minunit.cuh"
 
 
-__device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 no_pw_int(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
     return dF;
 }
-
-#include "../lib/solvers.cuh"
 
 
 const char* square_of_four() {
@@ -32,7 +31,7 @@ const char* square_of_four() {
 
     auto com_i = center_of_mass(bolls);
     for (auto i = 0; i < 500; i++) {
-        bolls.take_step(0.1, forces);
+        bolls.take_step<no_pw_int>(0.1, forces);
     }
 
     bolls.copy_to_host();

@@ -9,6 +9,7 @@
 
 #include "../lib/cudebug.cuh"
 #include "../lib/dtypes.cuh"
+#include "../lib/solvers.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/links.cuh"
 #include "../lib/polarity.cuh"
@@ -35,7 +36,7 @@ __device__ Cell_types* d_type;
 __device__ int* d_mes_nbs;  // number of mesenchymal neighbours
 __device__ int* d_epi_nbs;
 
-__device__ Lb_cell pairwise_interaction(Lb_cell Xi, Lb_cell Xj, int i, int j) {
+__device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell Xj, int i, int j) {
     Lb_cell dF {0};
     if (i == j) {
         // D_ASSERT(Xi.w >= 0);
@@ -69,8 +70,6 @@ __device__ Lb_cell pairwise_interaction(Lb_cell Xi, Lb_cell Xj, int i, int j) {
     dF += rigidity_force(Xi, Xj)*0.2;
     return dF;
 }
-
-#include "../lib/solvers.cuh"
 
 
 __global__ void update_protrusions(const Lattice<n_max>* __restrict__ d_lattice,
@@ -173,7 +172,7 @@ int main(int argc, char const *argv[]) {
         update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
             bolls.d_X, bolls.get_d_n(), protrusions.d_link, protrusions.d_state);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
-        bolls.take_step(dt, intercalation);
+        bolls.take_step<lb_force>(dt, intercalation);
     }
 
     // Find epithelium
@@ -199,7 +198,7 @@ int main(int argc, char const *argv[]) {
     bolls.copy_to_device();
     type.copy_to_device();
     protrusions.reset();
-    bolls.take_step(dt, intercalation);  // Relax epithelium before proliferate
+    bolls.take_step<lb_force>(dt, intercalation);  // Relax epithelium before proliferate
 
     // Simulate diffusion & intercalation
     Vtk_output output("elongation");
@@ -218,7 +217,7 @@ int main(int argc, char const *argv[]) {
                     bolls.d_X, bolls.get_d_n(), protrusions.d_link, protrusions.d_state);
                 thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
                 thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
-                bolls.take_step(dt, intercalation);
+                bolls.take_step<lb_force>(dt, intercalation);
             }
         });
 

@@ -10,16 +10,16 @@
 #include "cudebug.cuh"
 
 
-// A function Pt pairwise_interaction(Pt Xi, Pt Xj, int i, int j) defining the
-// interaction between each pair of points of type Pt (e.g. float3, see dtypes.cuh)
-// must be defined before #including this file to allow inlining in kernels.
+// Interactions must be specified either between two points of type Pt (e.g. float3,
+// see dtypes.cuh) or generally with the following signatures:
+template<typename Pt>
+using Pairwise_interaction = Pt (Pt Xi, Pt Xj, int i, int j);
 
-// Optional a generic force with the following signature can be passed:
 template<typename Pt>
 using Generic_forces = std::function<void (const Pt* __restrict__ d_X, Pt* d_dX)>;
 
 template<typename Pt>
-void none(const Pt* __restrict__ d_X, Pt* d_dX) {}
+void no_gen_forces(const Pt* __restrict__ d_X, Pt* d_dX) {}
 
 
 // Solution<Pt, n_max, Solver> combines a method, Solver, with a point type, Pt.
@@ -49,11 +49,9 @@ public:
     int get_d_n() {
         return Solver<Pt, n_max>::get_d_n();
     }
-    void take_step(float dt) {
-        return Solver<Pt, n_max>::take_step(dt, none<Pt>);
-    }
-    void take_step(float dt, Generic_forces<Pt> gen_forces) {
-        return Solver<Pt, n_max>::take_step(dt, gen_forces);
+    template<Pairwise_interaction<Pt> pw_int>
+    void take_step(float dt, Generic_forces<Pt> gen_forces = no_gen_forces<Pt>) {
+        return Solver<Pt, n_max>::template take_step<pw_int>(dt, gen_forces);
     }
 };
 
@@ -100,11 +98,12 @@ protected:
         assert(n <= n_max);
         return n;
     }
+    template<Pairwise_interaction<Pt> pw_int>
     void take_step(float dt, Generic_forces<Pt> gen_forces);
 };
 
 // Calculate d_dX one thread per point, to TILE_SIZE other points at a time
-template<typename Pt>
+template<typename Pt, Pairwise_interaction<Pt> pw_int>
 __global__ void compute_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
 
@@ -121,7 +120,7 @@ __global__ void compute_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX
         for (auto k = 0; k < TILE_SIZE; k++) {
             auto j = tile_start + k;
             if ((i < n_cells) and (j < n_cells)) {
-                Fi += pairwise_interaction(d_X[i], shX[k], i, j);
+                Fi += pw_int(d_X[i], shX[k], i, j);
             }
         }
     }
@@ -132,17 +131,18 @@ __global__ void compute_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX
 }
 
 template<typename Pt, int n_max>
+template<Pairwise_interaction<Pt> pw_int>
 void N2n_solver<Pt, n_max>::take_step(float dt, Generic_forces<Pt> gen_forces) {
     auto n = get_d_n();
 
     // 1st step
-    compute_n2n_dX<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(  // ceil int div.
+    compute_n2n_dX<Pt, pw_int><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(  // ceil int div.
         n, d_X, d_dX);
     gen_forces(d_X, d_dX);
     euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_X1, d_dX);
 
     // 2nd step
-    compute_n2n_dX<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
+    compute_n2n_dX<Pt, pw_int><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
         n, d_X1, d_dX1);
     gen_forces(d_X1, d_dX1);
     heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_dX, d_dX1);
@@ -209,6 +209,7 @@ protected:
         assert(n <= n_max);
         return n;
     }
+    template<Pairwise_interaction<Pt> pw_int>
     void take_step(float dt, Generic_forces<Pt> gen_forces);
     void build_lattice(const Pt* __restrict__ d_X, float cube_size = CUBE_SIZE);
 };
@@ -256,7 +257,7 @@ void Lattice_solver<Pt, n_max>::build_lattice(const Pt* __restrict__ d_X, float 
 
 
 // Integration
-template<typename Pt, int n_max>
+template<typename Pt, int n_max, Pairwise_interaction<Pt> pw_int>
 __global__ void compute_lattice_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
         const Lattice<n_max>* __restrict__ d_lattice) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
@@ -268,27 +269,27 @@ __global__ void compute_lattice_dX(int n_cells, const Pt* __restrict__ d_X, Pt* 
         auto cube = d_lattice->d_cube_id[i] + d_moore_nhood[j];
         for (auto k = d_lattice->d_cube_start[cube]; k <= d_lattice->d_cube_end[cube]; k++) {
             auto Xj = d_X[d_lattice->d_cell_id[k]];
-            F += pairwise_interaction(Xi, Xj,
-                d_lattice->d_cell_id[i], d_lattice->d_cell_id[k]);
+            F += pw_int(Xi, Xj, d_lattice->d_cell_id[i], d_lattice->d_cell_id[k]);
         }
     }
     d_dX[d_lattice->d_cell_id[i]] = F;
 }
 
 template<typename Pt, int n_max>
+template<Pairwise_interaction<Pt> pw_int>
 void Lattice_solver<Pt, n_max>::take_step(float dt, Generic_forces<Pt> gen_forces) {
     assert(LATTICE_SIZE % 2 == 0);  // Needed?
     auto n = get_d_n();
 
     // 1st step
     build_lattice(d_X);
-    compute_lattice_dX<<<(n + 64 - 1)/64, 64>>>(n, d_X, d_dX, d_lattice);
+    compute_lattice_dX<Pt, n_max, pw_int><<<(n + 64 - 1)/64, 64>>>(n, d_X, d_dX, d_lattice);
     gen_forces(d_X, d_dX);
     euler_step<<<(n + 64 - 1)/64, 64>>>(n, dt, d_X, d_X1, d_dX);
 
     // 2nd step
     build_lattice(d_X1);
-    compute_lattice_dX<<<(n + 64 - 1)/64, 64>>>(n, d_X1, d_dX1, d_lattice);
+    compute_lattice_dX<Pt, n_max, pw_int><<<(n + 64 - 1)/64, 64>>>(n, d_X1, d_dX1, d_lattice);
     gen_forces(d_X1, d_dX1);
     heun_step<<<(n + 64 - 1)/64, 64>>>(n, dt, d_X, d_dX, d_dX1);
 }

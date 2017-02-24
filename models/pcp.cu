@@ -1,5 +1,6 @@
 // Simulate planer cell polarity aligned by gradient
 #include "../lib/dtypes.cuh"
+#include "../lib/solvers.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/vtk.cuh"
 
@@ -14,8 +15,7 @@ const auto dt = 0.1;
 MAKE_PT(Po_cell4, x, y, z, w, phi, theta);
 
 
-// Cubic potential plus Heisenberg biased by w
-__device__ Po_cell4 pairwise_interaction(Po_cell4 Xi, Po_cell4 Xj, int i, int j) {
+__device__ Po_cell4 biased_heisenberg(Po_cell4 Xi, Po_cell4 Xj, int i, int j) {
     Po_cell4 dF {0};
     if (i == j) return dF;
 
@@ -47,8 +47,6 @@ __device__ Po_cell4 pairwise_interaction(Po_cell4 Xi, Po_cell4 Xj, int i, int j)
     return dF;
 }
 
-#include "../lib/solvers.cuh"
-
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
@@ -65,7 +63,7 @@ int main(int argc, char const *argv[]) {
     Vtk_output output("pcp");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
-        bolls.take_step(dt);
+        bolls.take_step<biased_heisenberg>(dt);
         output.write_positions(bolls);
         output.write_field(bolls);
         output.write_polarity(bolls);

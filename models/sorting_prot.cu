@@ -3,6 +3,7 @@
 #include <curand_kernel.h>
 
 #include "../lib/dtypes.cuh"
+#include "../lib/solvers.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/links.cuh"
 #include "../lib/property.cuh"
@@ -17,7 +18,7 @@ const auto n_time_steps = 300u;
 const auto dt = 0.05;
 
 
-__device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
     if (i == j) return dF;
 
@@ -29,8 +30,6 @@ __device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
     dF = r*F/dist;
     return dF;
 }
-
-#include "../lib/solvers.cuh"
 
 
 __global__ void update_protrusions(const float3* __restrict__ d_X, Link* d_link,
@@ -81,7 +80,7 @@ int main(int argc, char const *argv[]) {
         protrusions.copy_to_host();
         update_protrusions<<<(n_protrusions + 32 - 1)/32, 32>>>(bolls.d_X, protrusions.d_link,
             protrusions.d_state);
-        bolls.take_step(dt, prot_forces);
+        bolls.take_step<clipped_cubic>(dt, prot_forces);
         output.write_positions(bolls);
         output.write_links(protrusions);
         output.write_property(type);

@@ -1,4 +1,5 @@
 #include "../lib/dtypes.cuh"
+#include "../lib/solvers.cuh"
 #include "../lib/inits.cuh"
 #include "minunit.cuh"
 
@@ -7,7 +8,7 @@ const auto n_max = 1000;
 const auto L_0 = 0.5;
 
 
-__device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 spring_force(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
     if (i == j) return dF;
 
@@ -15,11 +16,10 @@ __device__ float3 pairwise_interaction(float3 Xi, float3 Xj, int i, int j) {
     auto dist = norm3df(r.x, r.y, r.z);
     if (dist > 1) return dF;
 
-    dF = r*(L_0 - dist)/dist;  // Spring force
+    dF = r*(L_0 - dist)/dist;
     return dF;
 }
 
-#include "../lib/solvers.cuh"
 
 Solution<float3, n_max, N2n_solver> n2n;
 Solution<float3, n_max, Lattice_solver> latt;
@@ -30,7 +30,7 @@ const char* test_n2n_tetrahedron() {
     uniform_sphere(L_0, n2n);
     auto com_i = center_of_mass(n2n);
     for (auto i = 0; i < 500; i++) {
-        n2n.take_step(0.1);
+        n2n.take_step<spring_force>(0.1);
     }
 
     n2n.copy_to_host();
@@ -53,7 +53,7 @@ const char* test_latt_tetrahedron() {
     uniform_sphere(L_0, latt);
     auto com_i = center_of_mass(latt);
     for (auto i = 0; i < 500; i++) {
-        latt.take_step(0.1);
+        latt.take_step<spring_force>(0.1);
     }
 
     latt.copy_to_host();
@@ -83,8 +83,8 @@ const char* test_compare_methods() {
         latt.h_X[i].z = n2n.h_X[i].z;
     }
     latt.copy_to_device();
-    n2n.take_step(0.5);
-    latt.take_step(0.5);
+    n2n.take_step<spring_force>(0.5);
+    latt.take_step<spring_force>(0.5);
 
     n2n.copy_to_host();
     latt.copy_to_host();
@@ -112,7 +112,7 @@ void push_genforce(const float3* __restrict__ d_X, float3* d_dX) {
 const char* test_generic_forces() {
     n2n.h_X[0] = float3{0, 0, 0};
     n2n.copy_to_device();
-    n2n.take_step(1, push_genforce);
+    n2n.take_step<spring_force>(1, push_genforce);
 
     n2n.copy_to_host();
     MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n.h_X[0].x, 1));
@@ -121,7 +121,7 @@ const char* test_generic_forces() {
 
     latt.h_X[0] = float3{0, 0, 0};
     latt.copy_to_device();
-    latt.take_step(1, push_genforce);
+    latt.take_step<spring_force>(1, push_genforce);
 
     latt.copy_to_host();
     MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt.h_X[0].x, 1));

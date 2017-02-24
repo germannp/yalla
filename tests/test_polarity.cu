@@ -1,9 +1,10 @@
 #include "../lib/dtypes.cuh"
+#include "../lib/solvers.cuh"
 #include "../lib/polarity.cuh"
 #include "minunit.cuh"
 
 
-__device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
+__device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell Xj, int i, int j) {
     Po_cell dF {0};
     if (i == j) return dF;
 
@@ -20,7 +21,6 @@ __device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
     return dF;
 }
 
-#include "../lib/solvers.cuh"
 
 Solution<Po_cell, 4, N2n_solver> bolls;
 
@@ -35,7 +35,7 @@ const char* test_line_of_four() {
     bolls.copy_to_device();
     auto com_i = center_of_mass(bolls);
     for (auto i = 0; i < 500; i++) {
-        bolls.take_step(0.5);
+        bolls.take_step<rigid_cubic_force>(0.5);
     }
 
     bolls.copy_to_host();

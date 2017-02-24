@@ -1,5 +1,6 @@
 // Simulate a mesenchyme-to-epithelium transition
 #include "../lib/dtypes.cuh"
+#include "../lib/solvers.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/vtk.cuh"
 #include "../lib/polarity.cuh"
@@ -13,7 +14,7 @@ const auto dt = 0.1;
 
 
 // Cubic potential plus k*(n_i . r_ij/r)^2/2 for all r_ij <= r_max
-__device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
+__device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell Xj, int i, int j) {
     Po_cell dF {0};
     if (i == j) return dF;
 
@@ -29,8 +30,6 @@ __device__ Po_cell pairwise_interaction(Po_cell Xi, Po_cell Xj, int i, int j) {
     dF += rigidity_force(Xi, Xj)*0.2;
     return dF;
 }
-
-#include "../lib/solvers.cuh"
 
 
 int main(int argc, char const *argv[]) {
@@ -49,7 +48,7 @@ int main(int argc, char const *argv[]) {
     Vtk_output output("epithelium");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
-        bolls.take_step(dt);
+        bolls.take_step<rigid_cubic_force>(dt);
         output.write_positions(bolls);
         output.write_polarity(bolls);
     }
