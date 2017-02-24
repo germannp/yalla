@@ -10,11 +10,12 @@
 #include "cudebug.cuh"
 
 
-// Interactions must be specified either between two points of type Pt (e.g. float3,
-// see dtypes.cuh) or generally with the following signatures:
+// Interactions must be specified between two points of type Pt (e.g. float3,
+// see dtypes.cuh) with the following signature:
 template<typename Pt>
 using Pairwise_interaction = Pt (Pt Xi, Pt Xj, int i, int j);
 
+// In addition a generic force can be passed optionally:
 template<typename Pt>
 using Generic_forces = std::function<void (const Pt* __restrict__ d_X, Pt* d_dX)>;
 
