@@ -4,9 +4,41 @@
 #include "minunit.cuh"
 
 
+MAKE_PT(descht, x);
+
+__device__ descht oscillator(descht Xi, descht Xj, int i, int j) {
+    descht dF {0};
+    if (i == j) return dF;
+
+    if (i == 0) return Xj;
+
+    return -Xj;
+}
+
+Solution<descht, 2, N2n_solver> oscillation;
+
+const char* test_oscillation() {
+    oscillation.h_X[0].x = 1;
+    oscillation.h_X[1].x = 0;
+    oscillation.copy_to_device();
+
+    auto n_steps = 100;
+    for (auto i = 0; i < n_steps; i++) {
+        oscillation.take_step<oscillator>(2*M_PI/n_steps);
+        oscillation.copy_to_host();
+        MU_ASSERT("Oscillator off circle", MU_ISCLOSE(
+            powf(oscillation.h_X[0].x, 2) + powf(oscillation.h_X[1].x, 2), 1));
+    }
+    oscillation.copy_to_host();
+    MU_ASSERT("Oscillator final cosine", MU_ISCLOSE(oscillation.h_X[0].x, 1));
+    // The sine is substantially less precise ;-)
+
+    return NULL;
+}
+
+
 const auto n_max = 1000;
 const auto L_0 = 0.5;
-
 
 __device__ float3 spring_force(float3 Xi, float3 Xj, int i, int j) {
     float3 dF {0};
@@ -20,10 +52,8 @@ __device__ float3 spring_force(float3 Xi, float3 Xj, int i, int j) {
     return dF;
 }
 
-
 Solution<float3, n_max, N2n_solver> n2n;
 Solution<float3, n_max, Lattice_solver> latt;
-
 
 const char* test_n2n_tetrahedron() {
     *n2n.h_n = 4;
@@ -71,7 +101,6 @@ const char* test_latt_tetrahedron() {
 
     return NULL;
 }
-
 
 const char* test_compare_methods() {
     *n2n.h_n = n_max;
@@ -175,6 +204,7 @@ const char* test_lattice_spacing() {
 
 
 const char* all_tests() {
+    MU_RUN_TEST(test_oscillation);
     MU_RUN_TEST(test_n2n_tetrahedron);
     MU_RUN_TEST(test_latt_tetrahedron);
     MU_RUN_TEST(test_compare_methods);

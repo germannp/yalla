@@ -94,6 +94,12 @@ operator-(const Pt& a, const Pt& b) {
 
 template<typename Pt> __device__ __host__
 typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+operator-(const Pt& a) {
+    return -1*a;
+}
+
+template<typename Pt> __device__ __host__
+typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
 operator*(const Pt& a, const float b) {
     auto prod = a;
     prod *= b;
