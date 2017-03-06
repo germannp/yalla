@@ -9,7 +9,7 @@ class Solution;
 
 // Distribute bolls uniformly random in circle
 template<typename Pt, int n_max, template<typename, int> class Solver>
-void uniform_circle(float mean_distance, Solution<Pt, n_max, Solver>& bolls, uint n_0 = 0) {
+void uniform_circle(float mean_distance, Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0) {
     assert(n_0 < *bolls.h_n);
     auto r_max = pow((*bolls.h_n - n_0)/0.9069, 1./2)*mean_distance/2;  // Circle packing
     for (auto i = n_0; i < *bolls.h_n; i++) {
@@ -24,7 +24,7 @@ void uniform_circle(float mean_distance, Solution<Pt, n_max, Solver>& bolls, uin
 
 // Distribute bolls uniformly random in sphere
 template<typename Pt, int n_max, template<typename, int> class Solver>
-void uniform_sphere(float mean_distance, Solution<Pt, n_max, Solver>& bolls, uint n_0 = 0) {
+void uniform_sphere(float mean_distance, Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0) {
     assert(n_0 < *bolls.h_n);
     auto r_max = pow((*bolls.h_n - n_0)/0.64, 1./3)*mean_distance/2;  // Sphere packing
     for (auto i = n_0; i < *bolls.h_n; i++) {
