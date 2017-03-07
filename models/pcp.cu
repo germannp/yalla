@@ -51,13 +51,12 @@ __device__ Po_cell4 biased_heisenberg(Po_cell4 Xi, Po_cell4 Xj, int i, int j) {
 int main(int argc, char const *argv[]) {
     // Prepare initial state
     Solution<Po_cell4, n_cells, Lattice_solver> bolls;
-    uniform_sphere(0.5, bolls);
     for (auto i = 0; i < n_cells; i++) {
         bolls.h_X[i].w = (i == 0);
         bolls.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
         bolls.h_X[i].theta = acos(2.*rand()/(RAND_MAX + 1.) - 1.);
     }
-    bolls.copy_to_device();
+    uniform_sphere(0.5, bolls);
 
     // Integrate cell positions
     Vtk_output output("pcp");
