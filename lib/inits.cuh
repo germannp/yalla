@@ -31,8 +31,8 @@ void uniform_sphere(float mean_distance, Solution<Pt, n_max, Solver>& bolls, uns
         auto r = r_max*pow(rand()/(RAND_MAX + 1.), 1./3);
         auto phi = rand()/(RAND_MAX + 1.)*2*M_PI;
         auto theta = acos(2.*rand()/(RAND_MAX + 1.) - 1);
-        bolls.h_X[i].x = r*sin(theta)*sin(phi);
-        bolls.h_X[i].y = r*sin(theta)*cos(phi);
+        bolls.h_X[i].x = r*sin(theta)*cos(phi);
+        bolls.h_X[i].y = r*sin(theta)*sin(phi);
         bolls.h_X[i].z = r*cos(theta);
     }
     bolls.copy_to_device();
