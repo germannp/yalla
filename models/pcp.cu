@@ -3,6 +3,7 @@
 #include "../lib/solvers.cuh"
 #include "../lib/inits.cuh"
 #include "../lib/vtk.cuh"
+#include "../lib/polarity.cuh"
 
 
 const auto r_max = 1;
@@ -15,7 +16,7 @@ const auto dt = 0.025;
 MAKE_PT(Po_cell4, x, y, z, w, phi, theta);
 
 
-__device__ Po_cell4 biased_heisenberg(Po_cell4 Xi, Po_cell4 Xj, int i, int j) {
+__device__ Po_cell4 biased_pcp(Po_cell4 Xi, Po_cell4 Xj, int i, int j) {
     Po_cell4 dF {0};
     if (i == j) return dF;
 
@@ -29,27 +30,13 @@ __device__ Po_cell4 biased_heisenberg(Po_cell4 Xi, Po_cell4 Xj, int i, int j) {
     dF.z = r.z*F/dist;
     dF.w = i == 0 ? 0 : -r.w*D;
 
-    // U_PCP = Σ(n_i . n_j)^2/2
-    auto prod = sinf(Xi.theta)*sinf(Xj.theta)*cosf(Xi.phi - Xj.phi)
-        + cosf(Xi.theta)*cosf(Xj.theta);
-    auto sin_Xi_theta = sinf(Xi.theta);
-    if (fabs(sin_Xi_theta) > 1e-10)
-        dF.phi = - prod*sinf(Xj.theta)*sinf(Xi.phi - Xj.phi)/sin_Xi_theta;
-    dF.theta = prod*(cosf(Xi.theta)*sinf(Xj.theta)*cosf(Xi.phi - Xj.phi) -
-        sinf(Xi.theta)*cosf(Xj.theta));
-
+    // U_PCP = - Σ(n_i . n_j)^2/2
+    add_pcp_force(Xi, Xj, dF);
     if (r.w > 0) return dF;
 
     // U_WNT = - ΣXj.w*(n_i . r_ij/r)^2/2 to bias along w
-    auto r_phi = atan2(-r.y, -r.x);
-    auto r_theta = acosf(-r.z/dist);
-    prod = sinf(Xi.theta)*sinf(r_theta)*cosf(Xi.phi - r_phi)
-        + cosf(Xi.theta)*cosf(r_theta);
-    if (fabs(sin_Xi_theta) > 1e-10)
-        dF.phi += - Xj.w*prod*sinf(r_theta)*sinf(Xi.phi - r_phi)/sin_Xi_theta;
-    dF.theta += Xj.w*prod*(cosf(Xi.theta)*sinf(r_theta)*cosf(Xi.phi - r_phi) -
-        sinf(Xi.theta)*cosf(r_theta));
-
+    Polarity rhat {atan2(-r.y, -r.x), acosf(-r.z/dist)};
+    add_pcp_force(Xi, rhat, dF, Xj.w);
     return dF;
 }
 
@@ -68,7 +55,7 @@ int main(int argc, char const *argv[]) {
     Vtk_output output("pcp");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
-        bolls.take_step<biased_heisenberg>(dt);
+        bolls.take_step<biased_pcp>(dt);
         output.write_positions(bolls);
         output.write_field(bolls);
         output.write_polarity(bolls);

@@ -2,9 +2,25 @@
 #pragma once
 
 
-// Calculate force from the potential U = Σ(p_i . r_ij/r)^2/2 for points Pt
-// with polarity, i.e. a unit vector p specified by -pi <= Pt.phi <= pi and
-// 0 <= Pt.theta < pi.
+// Calculate force from the potential U_PCP = - Σ(n_i . n_j)^2/2 for points
+// Pt with polarity, i.e. a unit vector p specified by -pi <= Pt.phi <= pi
+// and 0 <= Pt.theta < pi.
+template<typename Pt, typename Pol>
+__device__ void add_pcp_force(Pt& Xi, Pol& pj, Pt& dF, float strength = 1) {
+    auto prod = sinf(Xi.theta)*sinf(pj.theta)*cosf(Xi.phi - pj.phi)
+        + cosf(Xi.theta)*cosf(pj.theta);
+    auto sin_Xi_theta = sinf(Xi.theta);
+    if (fabs(sin_Xi_theta) > 1e-10)
+        dF.phi += - strength*prod*sinf(pj.theta)*sinf(Xi.phi - pj.phi)/sin_Xi_theta;
+        // dF.phi += - strength*prod*sinf(pj.theta)*sinf(Xi.phi - pj.phi)/sin_Xi_theta;
+    dF.theta += strength*prod*(cosf(Xi.theta)*sinf(pj.theta)*cosf(Xi.phi - pj.phi) -
+        sinf(Xi.theta)*cosf(pj.theta));
+}
+
+struct Polarity { float phi, theta; };
+
+
+// Calculate force from the potential U_Epi = Σ(p_i . r_ij/r)^2/2.
 template<typename Pt> __device__ Pt rigidity_force(Pt Xi, Pt Xj) {
     Pt dF {0};
     float3 r {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
