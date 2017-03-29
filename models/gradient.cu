@@ -34,11 +34,10 @@ __device__ float4 clipped_cubic_w_gradient(float4 Xi, float4 Xj, int i, int j) {
 int main(int argc, char const *argv[]) {
     // Prepare initial state
     Solution<float4, n_cells, N2n_solver> bolls;
-    uniform_circle(0.733333, bolls);
     for (auto i = 0; i < n_cells; i++) {
         bolls.h_X[i].w = i == 0 ? 1 : 0;
     }
-    bolls.copy_to_device();
+    uniform_circle(0.733333, bolls);
 
     // Integrate cell positions
     Vtk_output output("gradient");
