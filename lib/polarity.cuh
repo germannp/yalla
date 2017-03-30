@@ -12,7 +12,6 @@ __device__ void add_pcp_force(Pt& Xi, Pol& pj, Pt& dF, float strength = 1) {
     auto sin_Xi_theta = sinf(Xi.theta);
     if (fabs(sin_Xi_theta) > 1e-10)
         dF.phi += - strength*prod*sinf(pj.theta)*sinf(Xi.phi - pj.phi)/sin_Xi_theta;
-        // dF.phi += - strength*prod*sinf(pj.theta)*sinf(Xi.phi - pj.phi)/sin_Xi_theta;
     dF.theta += strength*prod*(cosf(Xi.theta)*sinf(pj.theta)*cosf(Xi.phi - pj.phi) -
         sinf(Xi.theta)*cosf(pj.theta));
 }
