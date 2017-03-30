@@ -16,28 +16,25 @@ const char* test_pcp() {
     Solution<Po_cell, 2, N2n_solver> bolls;
 
     // Turn in theta and phi, close to z-axis to test transformation
-    auto t_i = M_PI/2 + M_PI/4 + 0.01;
-    auto p_i = 0.5;
-    auto t_f = M_PI/2 + M_PI/4 + 0.01;
-    auto p_f = M_PI;
-    auto arc_if = acosf(scalar_product(t_i, p_i, t_f, p_f));
+    Polarity p_i {M_PI/2 + M_PI/4 + 0.01, 0.5};
+    Polarity p_f {M_PI/2 + M_PI/4 + 0.01, M_PI};
+    auto arc_if = acosf(pol_scalar_product(p_i, p_f));
 
-    bolls.h_X[0].theta = t_i;
-    bolls.h_X[0].phi = p_i;
-    bolls.h_X[1].theta = t_f;
-    bolls.h_X[1].phi = p_f;
+    bolls.h_X[0].theta = p_i.theta;
+    bolls.h_X[0].phi = p_i.phi;
+    bolls.h_X[1].theta = p_f.theta;
+    bolls.h_X[1].phi = p_f.phi;
     bolls.copy_to_device();
 
     for (auto i = 0; i < 5000; i++) {
         bolls.copy_to_host();
         bolls.take_step<pcp_force>(0.01);
-        auto arc_i0 = acosf(scalar_product(t_i, p_i, bolls.h_X[0].theta, bolls.h_X[0].phi));
-        auto arc_0f = acosf(scalar_product(bolls.h_X[0].theta, bolls.h_X[0].phi, t_f, p_f));
+        auto arc_i0 = acosf(pol_scalar_product(p_i, bolls.h_X[0]));
+        auto arc_0f = acosf(pol_scalar_product(bolls.h_X[0], p_f));
         MU_ASSERT("PCP off great circle", MU_ISCLOSE(arc_i0 + arc_0f, arc_if));
     }
 
-    auto prod = scalar_product(bolls.h_X[0].theta, bolls.h_X[0].phi,
-        bolls.h_X[1].theta, bolls.h_X[1].phi);
+    auto prod = pol_scalar_product(bolls.h_X[0], bolls.h_X[1]);
     MU_ASSERT("PCP not aligned", MU_ISCLOSE(fabs(prod), 1));
 
     return NULL;
@@ -79,8 +76,7 @@ const char* test_line_of_four() {
 
     bolls.copy_to_host();
     for (auto i = 1; i < 4; i++) {
-        auto prod = scalar_product(bolls.h_X[0].theta, bolls.h_X[0].phi,
-            bolls.h_X[i].theta, bolls.h_X[i].phi);
+        auto prod = pol_scalar_product(bolls.h_X[0], bolls.h_X[i]);
         MU_ASSERT("Epithelial polarity not aligned", MU_ISCLOSE(prod, 1));
     }
 

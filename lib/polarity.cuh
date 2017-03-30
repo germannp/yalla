@@ -4,22 +4,23 @@
 
 struct Polarity { float theta, phi; };
 
-__host__ __device__ float scalar_product(float t0, float p0, float t1, float p1) {
-    return sinf(t0)*sinf(t1)*cosf(p0 - p1) + cosf(t0)*cosf(t1);
+template<typename Pol_a, typename Pol_b>
+__host__ __device__ float pol_scalar_product(Pol_a a, Pol_b b) {
+    return sinf(a.theta)*sinf(b.theta)*cosf(a.phi - b.phi) + cosf(a.theta)*cosf(b.theta);
 }
 
 
-// Calculate force from the potential U_PCP = - Σ(n_i . n_j)^2/2 for points
+// Calculate force from the potential U_PCP = - Σ(p_i . p_j)^2/2 for points
 // Pt with polarity, i.e. a unit vector p specified by -pi <= Pt.phi <= pi
 // and 0 <= Pt.theta < pi.
 template<typename Pt, typename Pol> __device__ Pt pcp_force(Pt Xi, Pol pj) {
     Pt dF {0};
-    auto prod = scalar_product(Xi.theta, Xi.phi, pj.theta, pj.phi);
-    dF.theta += prod*(cosf(Xi.theta)*sinf(pj.theta)*cosf(Xi.phi - pj.phi) -
+    auto prod = pol_scalar_product(Xi, pj);
+    dF.theta = prod*(cosf(Xi.theta)*sinf(pj.theta)*cosf(Xi.phi - pj.phi) -
         sinf(Xi.theta)*cosf(pj.theta));
     auto sin_Xi_theta = sinf(Xi.theta);
     if (fabs(sin_Xi_theta) > 1e-10)
-        dF.phi += - prod*sinf(pj.theta)*sinf(Xi.phi - pj.phi)/sin_Xi_theta;
+        dF.phi = - prod*sinf(pj.theta)*sinf(Xi.phi - pj.phi)/sin_Xi_theta;
 
     return dF;
 }
