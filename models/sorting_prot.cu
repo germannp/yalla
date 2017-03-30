@@ -53,7 +53,7 @@ __global__ void update_protrusions(const float3* __restrict__ d_X, Link* d_link,
     if (new_j == new_k) return;
 
     auto dx = d_X[new_j] - d_X[new_k];
-    auto dist = sqrtf(dx.x*dx.x + dx.y*dx.y + dx.z*dx.z);
+    auto dist = norm3df(dx.x, dx.y, dx.z);
     if (dist > 2) return;
 
     d_link[i].a = new_j;
