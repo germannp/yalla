@@ -68,8 +68,8 @@ const char* test_line_of_four() {
         bolls.h_X[i].x = 0.733333*cosf((i - 0.5)*M_PI/3);
         bolls.h_X[i].y = 0.733333*sinf((i - 0.5)*M_PI/3);
         bolls.h_X[i].z = 0;
-        bolls.h_X[i].phi = (i - 0.5)*M_PI/3;
         bolls.h_X[i].theta = M_PI/2;
+        bolls.h_X[i].phi = (i - 0.5)*M_PI/3;
     }
     bolls.copy_to_device();
     auto com_i = center_of_mass(bolls);

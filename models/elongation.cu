@@ -29,7 +29,7 @@ const auto proliferation_rate = 1.386/n_time_steps;  // log(fold-change: 4) = 1.
 const auto dt = 0.2f;
 enum Cell_types {mesenchyme, epithelium, aer};
 
-MAKE_PT(Lb_cell, x, y, z, w, f, phi, theta);
+MAKE_PT(Lb_cell, x, y, z, w, f, theta, phi);
 
 
 __device__ Cell_types* d_type;
@@ -136,8 +136,8 @@ __global__ void proliferate(float mean_distance, Lb_cell* d_X, int* d_n_cells,
     d_X[i].w = d_X[i].w/2;
     d_X[n].f = d_X[i].f/2;
     d_X[i].f = d_X[i].f/2;
-    d_X[n].phi = d_X[i].phi;
     d_X[n].theta = d_X[i].theta;
+    d_X[n].phi = d_X[i].phi;
     d_type[n] = d_type[i];
 }
 
@@ -186,11 +186,11 @@ int main(int argc, char const *argv[]) {
                 type.h_prop[i] = epithelium;
             auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x
                 + bolls.h_X[i].y*bolls.h_X[i].y + bolls.h_X[i].z*bolls.h_X[i].z);
-            bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x);
             bolls.h_X[i].theta = acosf(bolls.h_X[i].z/dist);
+            bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x);
         } else {
-            bolls.h_X[i].phi = 0;
             bolls.h_X[i].theta = 0;
+            bolls.h_X[i].phi = 0;
         }
         bolls.h_X[i].w = 0;
         bolls.h_X[i].f = 0;

@@ -76,8 +76,8 @@ __global__ void proliferate(float rate, float mean_distance, Po_cell* d_X, int* 
     d_X[n].x = d_X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
     d_X[n].y = d_X[i].y + mean_distance/4*sinf(theta)*sinf(phi);
     d_X[n].z = d_X[i].z + mean_distance/4*cosf(theta);
-    d_X[n].phi = d_X[i].phi;
     d_X[n].theta = d_X[i].theta;
+    d_X[n].phi = d_X[i].phi;
     d_type[n] = d_type[i];
     d_mes_nbs[n] = 0;
     d_epi_nbs[n] = 0;
@@ -114,11 +114,11 @@ int main(int argc, char const *argv[]) {
             type.h_prop[i] = epithelium;
             auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x + bolls.h_X[i].y*bolls.h_X[i].y
                 + bolls.h_X[i].z*bolls.h_X[i].z);
-            bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x);
             bolls.h_X[i].theta = acosf(bolls.h_X[i].z/dist);
+            bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x);
         } else {
-            bolls.h_X[i].phi = 0;
             bolls.h_X[i].theta = 0;
+            bolls.h_X[i].phi = 0;
         }
     }
     bolls.copy_to_device();

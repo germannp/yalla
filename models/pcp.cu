@@ -13,7 +13,7 @@ const auto n_cells = 500;
 const auto n_time_steps = 300;
 const auto dt = 0.025;
 
-MAKE_PT(Po_cell4, x, y, z, w, phi, theta);
+MAKE_PT(Po_cell4, x, y, z, w, theta, phi);
 
 
 __device__ Po_cell4 biased_pcp(Po_cell4 Xi, Po_cell4 Xj, int i, int j) {
@@ -35,7 +35,7 @@ __device__ Po_cell4 biased_pcp(Po_cell4 Xi, Po_cell4 Xj, int i, int j) {
     if (r.w > 0) return dF;
 
     // U_WNT = - ΣXj.w*(n_i . r_ij/r)^2/2 to bias along w
-    Polarity rhat {atan2(-r.y, -r.x), acosf(-r.z/dist)};
+    Polarity rhat {acosf(-r.z/dist), atan2(-r.y, -r.x)};
     add_pcp_force(Xi, rhat, dF, Xj.w);
     return dF;
 }
@@ -46,8 +46,8 @@ int main(int argc, char const *argv[]) {
     Solution<Po_cell4, n_cells, Lattice_solver> bolls;
     for (auto i = 0; i < n_cells; i++) {
         bolls.h_X[i].w = (i == 0)*10;
-        bolls.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
         bolls.h_X[i].theta = acos(2.*rand()/(RAND_MAX + 1.) - 1.);
+        bolls.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
     }
     uniform_sphere(0.5, bolls);
 

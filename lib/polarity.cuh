@@ -12,14 +12,14 @@ __host__ __device__ float scalar_product(float t0, float p0, float t1, float p1)
 template<typename Pt, typename Pol>
 __device__ void add_pcp_force(Pt& Xi, Pol& pj, Pt& dF, float strength = 1) {
     auto prod = scalar_product(Xi.theta, Xi.phi, pj.theta, pj.phi);
+    dF.theta += strength*prod*(cosf(Xi.theta)*sinf(pj.theta)*cosf(Xi.phi - pj.phi) -
+        sinf(Xi.theta)*cosf(pj.theta));
     auto sin_Xi_theta = sinf(Xi.theta);
     if (fabs(sin_Xi_theta) > 1e-10)
         dF.phi += - strength*prod*sinf(pj.theta)*sinf(Xi.phi - pj.phi)/sin_Xi_theta;
-    dF.theta += strength*prod*(cosf(Xi.theta)*sinf(pj.theta)*cosf(Xi.phi - pj.phi) -
-        sinf(Xi.theta)*cosf(pj.theta));
 }
 
-struct Polarity { float phi, theta; };
+struct Polarity { float theta, phi; };
 
 
 // Calculate force from the potential U_Epi = Σ(p_i . r_ij/r)^2/2.
@@ -31,13 +31,13 @@ template<typename Pt> __device__ Pt rigidity_force(Pt Xi, Pt Xj) {
         cosf(Xi.theta)};
     auto prodi = pi.x*r.x + pi.y*r.y + pi.z*r.z;
 
-    auto r_phi = atan2(r.y, r.x);
     auto r_theta = acosf(r.z/dist);
+    auto r_phi = atan2(r.y, r.x);
+    dF.theta = - prodi*(cosf(Xi.theta)*sinf(r_theta)*cosf(Xi.phi - r_phi) -
+        sinf(Xi.theta)*cosf(r_theta));
     auto sin_Xi_theta = sinf(Xi.theta);
     if (fabs(sin_Xi_theta) > 1e-10)
         dF.phi = prodi*sinf(r_theta)*sinf(Xi.phi - r_phi)/sin_Xi_theta;
-    dF.theta = - prodi*(cosf(Xi.theta)*sinf(r_theta)*cosf(Xi.phi - r_phi) -
-        sinf(Xi.theta)*cosf(r_theta));
 
     dF.x = - prodi/powf(dist, 2)*pi.x + powf(prodi, 2)/powf(dist, 4)*r.x;
     dF.y = - prodi/powf(dist, 2)*pi.y + powf(prodi, 2)/powf(dist, 4)*r.y;
