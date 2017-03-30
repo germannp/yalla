@@ -2,13 +2,16 @@
 #pragma once
 
 
+__host__ __device__ float scalar_product(float t0, float p0, float t1, float p1) {
+    return sinf(t0)*sinf(t1)*cosf(p0 - p1) + cosf(t0)*cosf(t1);
+}
+
 // Calculate force from the potential U_PCP = - Σ(n_i . n_j)^2/2 for points
 // Pt with polarity, i.e. a unit vector p specified by -pi <= Pt.phi <= pi
 // and 0 <= Pt.theta < pi.
 template<typename Pt, typename Pol>
 __device__ void add_pcp_force(Pt& Xi, Pol& pj, Pt& dF, float strength = 1) {
-    auto prod = sinf(Xi.theta)*sinf(pj.theta)*cosf(Xi.phi - pj.phi)
-        + cosf(Xi.theta)*cosf(pj.theta);
+    auto prod = scalar_product(Xi.theta, Xi.phi, pj.theta, pj.phi);
     auto sin_Xi_theta = sinf(Xi.theta);
     if (fabs(sin_Xi_theta) > 1e-10)
         dF.phi += - strength*prod*sinf(pj.theta)*sinf(Xi.phi - pj.phi)/sin_Xi_theta;
@@ -28,7 +31,6 @@ template<typename Pt> __device__ Pt rigidity_force(Pt Xi, Pt Xj) {
         cosf(Xi.theta)};
     auto prodi = pi.x*r.x + pi.y*r.y + pi.z*r.z;
 
-    // n1 . n2 = sin(t1)*sin(t2)*cos(p1 - p2) + cos(t1)*cos(t2)
     auto r_phi = atan2(r.y, r.x);
     auto r_theta = acosf(r.z/dist);
     auto sin_Xi_theta = sinf(Xi.theta);

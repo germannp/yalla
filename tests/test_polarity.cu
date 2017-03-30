@@ -4,6 +4,46 @@
 #include "minunit.cuh"
 
 
+__device__ Po_cell pcp_force(Po_cell Xi, Po_cell Xj, int i, int j) {
+    Po_cell dF {0};
+    if (i == j or i == 1) return dF;
+
+    add_pcp_force(Xi, Xj, dF);
+    return dF;
+}
+
+const char* test_pcp() {
+    Solution<Po_cell, 2, N2n_solver> bolls;
+
+    // Turn in theta and phi, close to z-axis to test transformation
+    auto t_i = M_PI/2 + M_PI/4 + 0.01;
+    auto p_i = 0.5;
+    auto t_f = M_PI/2 + M_PI/4 + 0.01;
+    auto p_f = M_PI;
+    auto arc_if = acosf(scalar_product(t_i, p_i, t_f, p_f));
+
+    bolls.h_X[0].theta = t_i;
+    bolls.h_X[0].phi = p_i;
+    bolls.h_X[1].theta = t_f;
+    bolls.h_X[1].phi = p_f;
+    bolls.copy_to_device();
+
+    for (auto i = 0; i < 5000; i++) {
+        bolls.copy_to_host();
+        bolls.take_step<pcp_force>(0.01);
+        auto arc_i0 = acosf(scalar_product(t_i, p_i, bolls.h_X[0].theta, bolls.h_X[0].phi));
+        auto arc_0f = acosf(scalar_product(bolls.h_X[0].theta, bolls.h_X[0].phi, t_f, p_f));
+        MU_ASSERT("PCP off great circle", MU_ISCLOSE(arc_i0 + arc_0f, arc_if));
+    }
+
+    auto prod = scalar_product(bolls.h_X[0].theta, bolls.h_X[0].phi,
+        bolls.h_X[1].theta, bolls.h_X[1].phi);
+    MU_ASSERT("PCP not aligned", MU_ISCLOSE(fabs(prod), 1));
+
+    return NULL;
+}
+
+
 __device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell Xj, int i, int j) {
     Po_cell dF {0};
     if (i == j) return dF;
@@ -21,10 +61,9 @@ __device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell Xj, int i, int j) {
     return dF;
 }
 
-
-Solution<Po_cell, 4, N2n_solver> bolls;
-
 const char* test_line_of_four() {
+    Solution<Po_cell, 4, N2n_solver> bolls;
+
     for (auto i = 0; i < 4; i++) {
         bolls.h_X[i].x = 0.733333*cosf((i - 0.5)*M_PI/3);
         bolls.h_X[i].y = 0.733333*sinf((i - 0.5)*M_PI/3);
@@ -40,9 +79,9 @@ const char* test_line_of_four() {
 
     bolls.copy_to_host();
     for (auto i = 1; i < 4; i++) {
-        auto prod = sinf(bolls.h_X[0].theta)*sinf(bolls.h_X[i].theta)*cosf(bolls.h_X[0].phi - bolls.h_X[i].phi)
-            + cosf(bolls.h_X[0].theta)*cosf(bolls.h_X[i].theta);
-        MU_ASSERT("Polarity not aligned", MU_ISCLOSE(prod, 1));
+        auto prod = scalar_product(bolls.h_X[0].theta, bolls.h_X[0].phi,
+            bolls.h_X[i].theta, bolls.h_X[i].phi);
+        MU_ASSERT("Epithelial polarity not aligned", MU_ISCLOSE(prod, 1));
     }
 
     float3 r_01 {bolls.h_X[1].x - bolls.h_X[0].x,
@@ -68,6 +107,7 @@ const char* test_line_of_four() {
 
 
 const char* all_tests() {
+    MU_RUN_TEST(test_pcp);
     MU_RUN_TEST(test_line_of_four);
     return NULL;
 }
