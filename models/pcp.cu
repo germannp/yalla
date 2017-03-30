@@ -31,12 +31,12 @@ __device__ Po_cell4 biased_pcp(Po_cell4 Xi, Po_cell4 Xj, int i, int j) {
     dF.w = i == 0 ? 0 : -r.w*D;
 
     // U_PCP = - Σ(n_i . n_j)^2/2
-    add_pcp_force(Xi, Xj, dF);
+    dF += pcp_force(Xi, Xj);
     if (r.w > 0) return dF;
 
     // U_WNT = - ΣXj.w*(n_i . r_ij/r)^2/2 to bias along w
     Polarity rhat {acosf(-r.z/dist), atan2(-r.y, -r.x)};
-    add_pcp_force(Xi, rhat, dF, Xj.w);
+    dF += Xj.w*pcp_force(Xi, rhat);
     return dF;
 }
 

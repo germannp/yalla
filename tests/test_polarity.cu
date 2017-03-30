@@ -8,7 +8,7 @@ __device__ Po_cell pcp_force(Po_cell Xi, Po_cell Xj, int i, int j) {
     Po_cell dF {0};
     if (i == j or i == 1) return dF;
 
-    add_pcp_force(Xi, Xj, dF);
+    dF += pcp_force(Xi, Xj);
     return dF;
 }
 
