@@ -3,13 +3,13 @@
 #include <thrust/fill.h>
 #include <thrust/execution_policy.h>
 
-#include "../lib/dtypes.cuh"
-#include "../lib/solvers.cuh"
-#include "../lib/inits.cuh"
-#include "../lib/property.cuh"
-#include "../lib/links.cuh"
-#include "../lib/vtk.cuh"
-#include "../lib/polarity.cuh"
+#include "../include/dtypes.cuh"
+#include "../include/solvers.cuh"
+#include "../include/inits.cuh"
+#include "../include/property.cuh"
+#include "../include/links.cuh"
+#include "../include/vtk.cuh"
+#include "../include/polarity.cuh"
 
 
 const auto r_max = 1;

@@ -1,6 +1,6 @@
-#include "../lib/dtypes.cuh"
-#include "../lib/solvers.cuh"
-#include "../lib/polarity.cuh"
+#include "../include/dtypes.cuh"
+#include "../include/solvers.cuh"
+#include "../include/polarity.cuh"
 #include "minunit.cuh"
 
 

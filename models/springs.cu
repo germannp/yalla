@@ -1,8 +1,8 @@
 // Integrate N-body problem with springs between all bodies
-#include "../lib/dtypes.cuh"
-#include "../lib/solvers.cuh"
-#include "../lib/inits.cuh"
-#include "../lib/vtk.cuh"
+#include "../include/dtypes.cuh"
+#include "../include/solvers.cuh"
+#include "../include/inits.cuh"
+#include "../include/vtk.cuh"
 
 
 const auto L_0 = 0.5f;  // Relaxed spring length

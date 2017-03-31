@@ -1,4 +1,4 @@
-#include "../lib/dtypes.cuh"
+#include "../include/dtypes.cuh"
 #include "minunit.cuh"
 
 

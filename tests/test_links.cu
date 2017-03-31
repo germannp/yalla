@@ -1,8 +1,8 @@
 #include <functional>
 
-#include "../lib/dtypes.cuh"
-#include "../lib/solvers.cuh"
-#include "../lib/links.cuh"
+#include "../include/dtypes.cuh"
+#include "../include/solvers.cuh"
+#include "../include/links.cuh"
 #include "minunit.cuh"
 
 

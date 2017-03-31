@@ -7,14 +7,14 @@
 #include <thrust/fill.h>
 #include <thrust/execution_policy.h>
 
-#include "../lib/cudebug.cuh"
-#include "../lib/dtypes.cuh"
-#include "../lib/solvers.cuh"
-#include "../lib/inits.cuh"
-#include "../lib/links.cuh"
-#include "../lib/polarity.cuh"
-#include "../lib/property.cuh"
-#include "../lib/vtk.cuh"
+#include "../include/cudebug.cuh"
+#include "../include/dtypes.cuh"
+#include "../include/solvers.cuh"
+#include "../include/inits.cuh"
+#include "../include/links.cuh"
+#include "../include/polarity.cuh"
+#include "../include/property.cuh"
+#include "../include/vtk.cuh"
 
 
 const auto n_0 = 15000;

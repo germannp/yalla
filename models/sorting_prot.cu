@@ -2,12 +2,12 @@
 #include <functional>
 #include <curand_kernel.h>
 
-#include "../lib/dtypes.cuh"
-#include "../lib/solvers.cuh"
-#include "../lib/inits.cuh"
-#include "../lib/links.cuh"
-#include "../lib/property.cuh"
-#include "../lib/vtk.cuh"
+#include "../include/dtypes.cuh"
+#include "../include/solvers.cuh"
+#include "../include/inits.cuh"
+#include "../include/links.cuh"
+#include "../include/property.cuh"
+#include "../include/vtk.cuh"
 
 
 const auto r_max = 1.f;
