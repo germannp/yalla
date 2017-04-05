@@ -71,8 +71,8 @@ __global__ void proliferate(float rate, float mean_distance, Po_cell* d_X, int* 
     }
 
     auto n = atomicAdd(d_n_cells, 1);
-    auto phi = curand_uniform(&d_state[i])*M_PI;
     auto theta = curand_uniform(&d_state[i])*2*M_PI;
+    auto phi = curand_uniform(&d_state[i])*M_PI;
     d_X[n].x = d_X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
     d_X[n].y = d_X[i].y + mean_distance/4*sinf(theta)*sinf(phi);
     d_X[n].z = d_X[i].z + mean_distance/4*cosf(theta);
