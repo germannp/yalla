@@ -1,4 +1,4 @@
-// Biolerplate vector space over data type Pt
+// Boilerplate vector space over data type Pt
 #pragma once
 
 #include <type_traits>
