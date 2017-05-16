@@ -90,6 +90,8 @@ template<typename Pt> __global__ void heun_step(int n_cells, float dt,
     d_dX1[i].z += d_sum_v[i].z/d_nNBs[i];
     d_X[i] += (d_dX[i] + d_dX1[i])*0.5*dt;
 
+    d_X[i].v = norm3df(d_sum_v[i].x/d_nNBs[i], d_sum_v[i].y/d_nNBs[i], d_sum_v[i].z/d_nNBs[i]);
+
     d_old_v[i].x = (d_dX[i].x + d_dX1[i].x)*0.5/1.0;
     d_old_v[i].y = (d_dX[i].y + d_dX1[i].y)*0.5/1.0;
     d_old_v[i].z = (d_dX[i].z + d_dX1[i].z)*0.5/1.0;
@@ -103,18 +105,24 @@ const auto TILE_SIZE = 32;
 template<typename Pt, int n_max>class N2n_solver {
 protected:
     Pt *d_X, *d_dX, *d_X1, *d_dX1;
-    int *d_n;
+    float3 *d_old_v, *d_sum_v;
+    int *d_n, *d_nNBs;
     N2n_solver() {
         cudaMalloc(&d_X, n_max*sizeof(Pt));
         cudaMalloc(&d_dX, n_max*sizeof(Pt));
         cudaMalloc(&d_X1, n_max*sizeof(Pt));
         cudaMalloc(&d_dX1, n_max*sizeof(Pt));
 
-        cudaMalloc(&d_n, sizeof(int));
+        cudaMalloc(&d_old_v, n_max*sizeof(float3));
+        thrust::fill(thrust::device, d_old_v, d_old_v + n_max, float3 {0});
+        cudaMalloc(&d_sum_v, n_max*sizeof(float3)); CHECK_CUDA;
+
+        cudaMalloc(&d_n, sizeof(int)); CHECK_CUDA;
+        cudaMalloc(&d_nNBs, n_max*sizeof(int));
     }
     int get_d_n() {
         int n;
-        cudaMemcpy(&n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
+        cudaMemcpy(&n, d_n, sizeof(int), cudaMemcpyDeviceToHost); CHECK_CUDA;
         assert(n <= n_max);
         return n;
     }
@@ -122,9 +130,17 @@ protected:
     void take_step(float dt, Generic_forces<Pt> gen_forces);
 };
 
+__global__ void keep_one_fixed(int n_cells, float3* d_old_v) {
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i >= n_cells) return;
+
+    d_old_v[i] -= d_old_v[0];
+}
+
 // Calculate d_dX one thread per point, to TILE_SIZE other points at a time
 template<typename Pt, Pairwise_interaction<Pt> pw_int>
-__global__ void compute_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX) {
+__global__ void compute_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
+        const float3* __restrict__ d_old_v, float3* d_sum_v, int* d_nNBs) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
 
     __shared__ Pt shX[TILE_SIZE];
@@ -140,7 +156,13 @@ __global__ void compute_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX
         for (auto k = 0; k < TILE_SIZE; k++) {
             auto j = tile_start + k;
             if ((i < n_cells) and (j < n_cells)) {
-                Fi += pw_int(d_X[i], shX[k], i, j);
+                auto r = d_X[i] - shX[k];
+                auto dist = norm3df(r.x, r.y, r.z);
+                if (dist < 1) {
+                    d_nNBs[i] += 1;
+                    d_sum_v[i] += d_old_v[j];
+                    Fi += pw_int(d_X[i], shX[k], i, j);
+                }
             }
         }
     }
@@ -156,16 +178,22 @@ void N2n_solver<Pt, n_max>::take_step(float dt, Generic_forces<Pt> gen_forces) {
     auto n = get_d_n();
 
     // 1st step
+    CHECK_CUDA; thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
+    CHECK_CUDA; thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
+    CHECK_CUDA; keep_one_fixed<<<(n + 64 - 1)/64, 64>>>(n, d_old_v);
     compute_n2n_dX<Pt, pw_int><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(  // ceil int div.
-        n, d_X, d_dX);
+        n, d_X, d_dX, d_old_v, d_sum_v, d_nNBs);
     gen_forces(d_X, d_dX);
-    euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_X1, d_dX);
+    euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_X1, d_dX, d_sum_v, d_nNBs, d_old_v);
 
     // 2nd step
+    CHECK_CUDA; thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
+    CHECK_CUDA; thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
+    CHECK_CUDA; keep_one_fixed<<<(n + 64 - 1)/64, 64>>>(n, d_old_v);
     compute_n2n_dX<Pt, pw_int><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
-        n, d_X1, d_dX1);
+        n, d_X1, d_dX1, d_old_v, d_sum_v, d_nNBs);
     gen_forces(d_X1, d_dX1);
-    heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_dX, d_dX1);
+    heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_dX, d_dX1, d_sum_v, d_nNBs, d_old_v);
 }
 
 
@@ -306,13 +334,6 @@ __global__ void pw_forces(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
         }
     }
     d_dX[d_lattice->d_cell_id[i]] = F;
-}
-
-__global__ void keep_one_fixed(int n_cells, float3* d_old_v) {
-    auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells) return;
-
-    d_old_v[i] -= d_old_v[0];
 }
 
 template<typename Pt, int n_max>
