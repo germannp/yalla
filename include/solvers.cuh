@@ -71,10 +71,6 @@ template<typename Pt> __global__ void euler_step(int n_cells, float dt,
     d_dX[i].y += d_sum_v[i].y/d_nNBs[i];
     d_dX[i].z += d_sum_v[i].z/d_nNBs[i];
     d_X[i] = d_X0[i] + d_dX[i]*dt;
-
-    // d_old_v[i].x = d_dX[i].x/1.0;
-    // d_old_v[i].y = d_dX[i].y/1.0;
-    // d_old_v[i].z = d_dX[i].z/1.0;
 }
 
 template<typename Pt> __global__ void heun_step(int n_cells, float dt,
