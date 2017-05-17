@@ -222,7 +222,7 @@ public:
     Lattice<n_max> *d_lattice;
     void build_lattice(float cube_size) {
         build_lattice(d_X, cube_size);
-    };
+    }
 protected:
     Pt *d_X, *d_dX, *d_X1, *d_dX1;
     float3 *d_old_v, *d_sum_v;
