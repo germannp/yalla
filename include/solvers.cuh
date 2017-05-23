@@ -67,9 +67,6 @@ template<typename Pt> __global__ void euler_step(int n_cells, float dt,
     if (i >= n_cells) return;
 
     D_ASSERT(d_dX[i].x == d_dX[i].x);  // For NaN f != f
-    d_dX[i].x += d_sum_v[i].x/d_nNBs[i] - d_sum_v[0].x/d_nNBs[0] - d_dX[0].x;
-    d_dX[i].y += d_sum_v[i].y/d_nNBs[i] - d_sum_v[0].y/d_nNBs[0] - d_dX[0].y;
-    d_dX[i].z += d_sum_v[i].z/d_nNBs[i] - d_sum_v[0].z/d_nNBs[0] - d_dX[0].z;
     d_X[i] = d_X0[i] + d_dX[i]*dt;
 }
 
@@ -81,16 +78,21 @@ template<typename Pt> __global__ void heun_step(int n_cells, float dt,
     if (i >= n_cells) return;
 
     D_ASSERT(d_dX1[i].x == d_dX1[i].x);
-    d_dX1[i].x += d_sum_v[i].x/d_nNBs[i] - d_sum_v[0].x/d_nNBs[0] - d_dX1[0].x;
-    d_dX1[i].y += d_sum_v[i].y/d_nNBs[i] - d_sum_v[0].y/d_nNBs[0] - d_dX1[0].y;
-    d_dX1[i].z += d_sum_v[i].z/d_nNBs[i] - d_sum_v[0].z/d_nNBs[0] - d_dX1[0].z;
     d_X[i] += (d_dX[i] + d_dX1[i])*0.5*dt;
-
-    d_X[i].v = norm3df(d_sum_v[i].x/d_nNBs[i], d_sum_v[i].y/d_nNBs[i], d_sum_v[i].z/d_nNBs[i]);
 
     d_old_v[i].x = (d_dX[i].x + d_dX1[i].x)*0.5/1.0;
     d_old_v[i].y = (d_dX[i].y + d_dX1[i].y)*0.5/1.0;
     d_old_v[i].z = (d_dX[i].z + d_dX1[i].z)*0.5/1.0;
+}
+
+template<typename Pt> __global__ void add_rhs(int n_cells, Pt* d_dX,
+        const float3* __restrict__ d_sum_v, const int* __restrict__ d_nNBs) {
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i >= n_cells) return;
+
+    d_dX[i].x += d_sum_v[i].x/d_nNBs[i] - d_sum_v[0].x/d_nNBs[0] - d_dX[0].x;
+    d_dX[i].y += d_sum_v[i].y/d_nNBs[i] - d_sum_v[0].y/d_nNBs[0] - d_dX[0].y;
+    d_dX[i].z += d_sum_v[i].z/d_nNBs[i] - d_sum_v[0].z/d_nNBs[0] - d_dX[0].z;
 }
 
 
@@ -126,16 +128,10 @@ protected:
     void take_step(float dt, Generic_forces<Pt> gen_forces);
 };
 
-__global__ void keep_one_fixed(int n_cells, float3* d_old_v) {
-    auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells) return;
 
-    d_old_v[i] -= d_old_v[0];
-}
-
-// Calculate d_dX one thread per point, to TILE_SIZE other points at a time
+// Calculate d_dX, d_sum_v and d_nNBs one thread per point, to TILE_SIZE points at a time
 template<typename Pt, Pairwise_interaction<Pt> pw_int>
-__global__ void compute_n2n_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
+__global__ void compute_n2n_pwints(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
         const float3* __restrict__ d_old_v, float3* d_sum_v, int* d_nNBs) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
 
@@ -176,19 +172,19 @@ void N2n_solver<Pt, n_max>::take_step(float dt, Generic_forces<Pt> gen_forces) {
     // 1st step
     thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
     thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
-    keep_one_fixed<<<(n + 64 - 1)/64, 64>>>(n, d_old_v);
-    compute_n2n_dX<Pt, pw_int><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(  // ceil int div.
+    compute_n2n_pwints<Pt, pw_int><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(  // ceil int div.
         n, d_X, d_dX, d_old_v, d_sum_v, d_nNBs);
     gen_forces(d_X, d_dX);
+    add_rhs<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n, d_dX, d_sum_v, d_nNBs);
     euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_X1, d_dX, d_sum_v, d_nNBs, d_old_v);
 
     // 2nd step
     thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
     thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
-    keep_one_fixed<<<(n + 64 - 1)/64, 64>>>(n, d_old_v);
-    compute_n2n_dX<Pt, pw_int><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
+    compute_n2n_pwints<Pt, pw_int><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
         n, d_X1, d_dX1, d_old_v, d_sum_v, d_nNBs);
     gen_forces(d_X1, d_dX1);
+    add_rhs<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n, d_dX1, d_sum_v, d_nNBs);
     heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_dX, d_dX1, d_sum_v, d_nNBs, d_old_v);
 }
 
@@ -308,7 +304,7 @@ void Lattice_solver<Pt, n_max>::build_lattice(const Pt* __restrict__ d_X, float 
 
 // Integration
 template<typename Pt, int n_max, Pairwise_interaction<Pt> pw_int>
-__global__ void compute_lattice_dX(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
+__global__ void compute_lattice_pwints(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
         const float3* __restrict__ d_old_v, float3* d_sum_v, int* d_nNBs,
         const Lattice<n_max>* __restrict__ d_lattice) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
@@ -339,22 +335,22 @@ void Lattice_solver<Pt, n_max>::take_step(float dt, Generic_forces<Pt> gen_force
     auto n = get_d_n();
 
     // 1st step
-    build_lattice(d_X);
     thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
     thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
-    // keep_one_fixed<<<(n + 64 - 1)/64, 64>>>(n, d_old_v);
-    compute_lattice_dX<Pt, n_max, pw_int><<<(n + 64 - 1)/64, 64>>>(n, d_X, d_dX,
+    build_lattice(d_X);
+    compute_lattice_pwints<Pt, n_max, pw_int><<<(n + 64 - 1)/64, 64>>>(n, d_X, d_dX,
         d_old_v, d_sum_v, d_nNBs, d_lattice);
     gen_forces(d_X, d_dX);
+    add_rhs<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n, d_dX, d_sum_v, d_nNBs);
     euler_step<<<(n + 64 - 1)/64, 64>>>(n, dt, d_X, d_X1, d_dX, d_sum_v, d_nNBs, d_old_v);
 
     // 2nd step
-    build_lattice(d_X1);
     thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
     thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
-    // keep_one_fixed<<<(n + 64 - 1)/64, 64>>>(n, d_old_v);
-    compute_lattice_dX<Pt, n_max, pw_int><<<(n + 64 - 1)/64, 64>>>(n, d_X1, d_dX1,
+    build_lattice(d_X1);
+    compute_lattice_pwints<Pt, n_max, pw_int><<<(n + 64 - 1)/64, 64>>>(n, d_X1, d_dX1,
         d_old_v, d_sum_v, d_nNBs, d_lattice);
     gen_forces(d_X1, d_dX1);
+    add_rhs<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n, d_dX1, d_sum_v, d_nNBs);
     heun_step<<<(n + 64 - 1)/64, 64>>>(n, dt, d_X, d_dX, d_dX1, d_sum_v, d_nNBs, d_old_v);
 }
