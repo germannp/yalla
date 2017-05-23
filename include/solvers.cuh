@@ -67,9 +67,9 @@ template<typename Pt> __global__ void euler_step(int n_cells, float dt,
     if (i >= n_cells) return;
 
     D_ASSERT(d_dX[i].x == d_dX[i].x);  // For NaN f != f
-    d_dX[i].x += d_sum_v[i].x/d_nNBs[i];
-    d_dX[i].y += d_sum_v[i].y/d_nNBs[i];
-    d_dX[i].z += d_sum_v[i].z/d_nNBs[i];
+    d_dX[i].x += d_sum_v[i].x/d_nNBs[i] - d_sum_v[0].x/d_nNBs[0] - d_dX[0].x;
+    d_dX[i].y += d_sum_v[i].y/d_nNBs[i] - d_sum_v[0].y/d_nNBs[0] - d_dX[0].y;
+    d_dX[i].z += d_sum_v[i].z/d_nNBs[i] - d_sum_v[0].z/d_nNBs[0] - d_dX[0].z;
     d_X[i] = d_X0[i] + d_dX[i]*dt;
 }
 
@@ -81,9 +81,9 @@ template<typename Pt> __global__ void heun_step(int n_cells, float dt,
     if (i >= n_cells) return;
 
     D_ASSERT(d_dX1[i].x == d_dX1[i].x);
-    d_dX1[i].x += d_sum_v[i].x/d_nNBs[i];
-    d_dX1[i].y += d_sum_v[i].y/d_nNBs[i];
-    d_dX1[i].z += d_sum_v[i].z/d_nNBs[i];
+    d_dX1[i].x += d_sum_v[i].x/d_nNBs[i] - d_sum_v[0].x/d_nNBs[0] - d_dX1[0].x;
+    d_dX1[i].y += d_sum_v[i].y/d_nNBs[i] - d_sum_v[0].y/d_nNBs[0] - d_dX1[0].y;
+    d_dX1[i].z += d_sum_v[i].z/d_nNBs[i] - d_sum_v[0].z/d_nNBs[0] - d_dX1[0].z;
     d_X[i] += (d_dX[i] + d_dX1[i])*0.5*dt;
 
     d_X[i].v = norm3df(d_sum_v[i].x/d_nNBs[i], d_sum_v[i].y/d_nNBs[i], d_sum_v[i].z/d_nNBs[i]);
@@ -342,7 +342,7 @@ void Lattice_solver<Pt, n_max>::take_step(float dt, Generic_forces<Pt> gen_force
     build_lattice(d_X);
     thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
     thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
-    keep_one_fixed<<<(n + 64 - 1)/64, 64>>>(n, d_old_v);
+    // keep_one_fixed<<<(n + 64 - 1)/64, 64>>>(n, d_old_v);
     compute_lattice_dX<Pt, n_max, pw_int><<<(n + 64 - 1)/64, 64>>>(n, d_X, d_dX,
         d_old_v, d_sum_v, d_nNBs, d_lattice);
     gen_forces(d_X, d_dX);
@@ -352,7 +352,7 @@ void Lattice_solver<Pt, n_max>::take_step(float dt, Generic_forces<Pt> gen_force
     build_lattice(d_X1);
     thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
     thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
-    keep_one_fixed<<<(n + 64 - 1)/64, 64>>>(n, d_old_v);
+    // keep_one_fixed<<<(n + 64 - 1)/64, 64>>>(n, d_old_v);
     compute_lattice_dX<Pt, n_max, pw_int><<<(n + 64 - 1)/64, 64>>>(n, d_X1, d_dX1,
         d_old_v, d_sum_v, d_nNBs, d_lattice);
     gen_forces(d_X1, d_dX1);
