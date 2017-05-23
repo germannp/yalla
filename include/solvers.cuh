@@ -113,14 +113,14 @@ protected:
 
         cudaMalloc(&d_old_v, n_max*sizeof(float3));
         thrust::fill(thrust::device, d_old_v, d_old_v + n_max, float3 {0});
-        cudaMalloc(&d_sum_v, n_max*sizeof(float3)); CHECK_CUDA;
+        cudaMalloc(&d_sum_v, n_max*sizeof(float3));
 
-        cudaMalloc(&d_n, sizeof(int)); CHECK_CUDA;
+        cudaMalloc(&d_n, sizeof(int));
         cudaMalloc(&d_nNBs, n_max*sizeof(int));
     }
     int get_d_n() {
         int n;
-        cudaMemcpy(&n, d_n, sizeof(int), cudaMemcpyDeviceToHost); CHECK_CUDA;
+        cudaMemcpy(&n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
         assert(n <= n_max);
         return n;
     }
