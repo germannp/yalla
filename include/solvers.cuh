@@ -60,9 +60,7 @@ public:
 
 // Integration templates
 template<typename Pt> __global__ void euler_step(int n_cells, float dt,
-        const Pt* __restrict__ d_X0, Pt* d_X, Pt* d_dX,
-        const float3* __restrict__ d_sum_v, const int* __restrict__ d_nNBs,
-        float3* d_old_v) {
+        const Pt* __restrict__ d_X0, Pt* d_X, Pt* d_dX) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
@@ -71,9 +69,7 @@ template<typename Pt> __global__ void euler_step(int n_cells, float dt,
 }
 
 template<typename Pt> __global__ void heun_step(int n_cells, float dt,
-        Pt* d_X, const Pt* __restrict__ d_dX, Pt* d_dX1,
-        const float3* __restrict__ d_sum_v, const int* __restrict__ d_nNBs,
-        float3* d_old_v) {
+        Pt* d_X, const Pt* __restrict__ d_dX, Pt* d_dX1, float3* d_old_v) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
@@ -176,7 +172,7 @@ void N2n_solver<Pt, n_max>::take_step(float dt, Generic_forces<Pt> gen_forces) {
         n, d_X, d_dX, d_old_v, d_sum_v, d_nNBs);
     gen_forces(d_X, d_dX);
     add_rhs<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n, d_dX, d_sum_v, d_nNBs);
-    euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_X1, d_dX, d_sum_v, d_nNBs, d_old_v);
+    euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_X1, d_dX);
 
     // 2nd step
     thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
@@ -185,7 +181,7 @@ void N2n_solver<Pt, n_max>::take_step(float dt, Generic_forces<Pt> gen_forces) {
         n, d_X1, d_dX1, d_old_v, d_sum_v, d_nNBs);
     gen_forces(d_X1, d_dX1);
     add_rhs<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n, d_dX1, d_sum_v, d_nNBs);
-    heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_dX, d_dX1, d_sum_v, d_nNBs, d_old_v);
+    heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_dX, d_dX1, d_old_v);
 }
 
 
@@ -342,7 +338,7 @@ void Lattice_solver<Pt, n_max>::take_step(float dt, Generic_forces<Pt> gen_force
         d_old_v, d_sum_v, d_nNBs, d_lattice);
     gen_forces(d_X, d_dX);
     add_rhs<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n, d_dX, d_sum_v, d_nNBs);
-    euler_step<<<(n + 64 - 1)/64, 64>>>(n, dt, d_X, d_X1, d_dX, d_sum_v, d_nNBs, d_old_v);
+    euler_step<<<(n + 64 - 1)/64, 64>>>(n, dt, d_X, d_X1, d_dX);
 
     // 2nd step
     thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
@@ -352,5 +348,5 @@ void Lattice_solver<Pt, n_max>::take_step(float dt, Generic_forces<Pt> gen_force
         d_old_v, d_sum_v, d_nNBs, d_lattice);
     gen_forces(d_X1, d_dX1);
     add_rhs<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n, d_dX1, d_sum_v, d_nNBs);
-    heun_step<<<(n + 64 - 1)/64, 64>>>(n, dt, d_X, d_dX, d_dX1, d_sum_v, d_nNBs, d_old_v);
+    heun_step<<<(n + 64 - 1)/64, 64>>>(n, dt, d_X, d_dX, d_dX1, d_old_v);
 }
