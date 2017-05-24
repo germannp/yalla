@@ -1,4 +1,4 @@
-// Boilerplate vector space over data type Pt
+// Boilerplate vector space over data type Pt. Needs members x, y, and z.
 #pragma once
 
 #include <type_traits>
@@ -27,21 +27,21 @@ __device__ __host__ float4 operator*=(float4& a, const float b) {
 }
 
 
-// MAKE_PT(Pt, ...) makes data type Pt with __VA_ARGS__ as members
+// MAKE_PT(Pt, ...) makes data type Pt with x, y, z, and __VA_ARGS__ as members
 #define MEMBER(component) float component
 #define COMP_WISE_ADD(component) a.component += b.component
 #define COMP_WISE_MULTIPLY(component) a.component *= b
 
 #define MAKE_PT(Pt, ...) \
 struct Pt { \
-    MAP(MEMBER, __VA_ARGS__) \
+    MAP(MEMBER, x, y, z, __VA_ARGS__) \
     \
     friend __device__ __host__ Pt operator+=(Pt& a, const Pt& b) { \
-        MAP(COMP_WISE_ADD, __VA_ARGS__) \
+        MAP(COMP_WISE_ADD, x, y, z, __VA_ARGS__) \
         return a; \
     } \
     friend __device__ __host__ Pt operator*=(Pt& a, const float b) { \
-        MAP(COMP_WISE_MULTIPLY, __VA_ARGS__) \
+        MAP(COMP_WISE_MULTIPLY, x, y, z, __VA_ARGS__) \
         return a; \
     } \
 }
@@ -65,7 +65,7 @@ struct Pt { \
     _MAP3, _MAP2, _MAP1, _MAP0)(MACRO, __VA_ARGS__)
 
 // Polarized cell
-MAKE_PT(Po_cell, x, y, z, theta, phi);
+MAKE_PT(Po_cell, theta, phi);
 
 
 // Generalize += and *= to +, -=, -, *, /= and /

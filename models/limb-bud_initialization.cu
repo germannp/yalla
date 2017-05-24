@@ -26,7 +26,7 @@ const auto n_time_steps = 500;
 const auto dt = 0.2;
 enum Cell_types {mesoderm, mesenchyme, ectoderm, aer};
 
-MAKE_PT(Lb_cell, x, y, z, w, f, theta, phi);
+MAKE_PT(Lb_cell, w, f, theta, phi);
 
 
 __device__ Cell_types* d_type;

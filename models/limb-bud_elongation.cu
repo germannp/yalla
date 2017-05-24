@@ -29,7 +29,7 @@ const auto proliferation_rate = 1.386/n_time_steps;  // log(fold-change: 4) = 1.
 const auto dt = 0.2f;
 enum Cell_types {mesenchyme, epithelium, aer};
 
-MAKE_PT(Lb_cell, x, y, z, w, f, theta, phi);
+MAKE_PT(Lb_cell, w, f, theta, phi);
 
 
 __device__ Cell_types* d_type;

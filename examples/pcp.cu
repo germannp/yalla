@@ -13,7 +13,7 @@ const auto n_cells = 500;
 const auto n_time_steps = 300;
 const auto dt = 0.025;
 
-MAKE_PT(Po_cell4, x, y, z, w, theta, phi);
+MAKE_PT(Po_cell4, w, theta, phi);
 
 
 __device__ Po_cell4 biased_pcp(Po_cell4 Xi, Po_cell4 Xj, int i, int j) {
