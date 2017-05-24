@@ -58,7 +58,7 @@ public:
 };
 
 
-// The following classes solve the equation v = F + <v>(t - dt), see
+// The following classes solve the equation v = F + <v(t - dt)>, see
 // http://dx.doi.org/10.1007/s10237-014-0613-5. The mean velocity <v>
 // is among neighbours closer than 1. They use Heun's method and only
 // differ in computing the pairwise interactions.
