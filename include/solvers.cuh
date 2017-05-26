@@ -58,9 +58,10 @@ public:
 };
 
 
-// The following classes solve the equation v = F + <v(t - dt)>, see
-// http://dx.doi.org/10.1007/s10237-014-0613-5. The mean velocity <v>
-// is among neighbours closer than 1. They use Heun's method and only
+// The following classes solve the equation v = F + <v(t - dt)> for x,
+// y, and z (see http://dx.doi.org/10.1007/s10237-014-0613-5) and
+// dw/dt = F_w for other variables in Pt. The mean velocity <v> is
+// among neighbours closer than 1. They use Heun's method and only
 // differ in computing the pairwise interactions.
 template<typename Pt> __global__ void euler_step(int n_cells, float dt,
         const Pt* __restrict__ d_X0, Pt* d_X, Pt* d_dX) {
