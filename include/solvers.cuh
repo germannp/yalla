@@ -11,7 +11,8 @@
 
 
 // Interactions must be specified between two points of type Pt (e.g. float3,
-// see dtypes.cuh) with the following signature:
+// see dtypes.cuh). Pt contains the variables to be integrated, e.g. position
+// or concentrations.
 template<typename Pt>
 using Pairwise_interaction = Pt (Pt Xi, Pt Xj, int i, int j);
 
@@ -24,14 +25,14 @@ void no_gen_forces(const Pt* __restrict__ d_X, Pt* d_dX) {}
 
 
 // Solution<Pt, n_max, Solver> combines a method, Solver, with a point type, Pt.
-// It stores the solutions on the host and specifies how the solution on the
-// device can be accessed and how new steps are computed. However all the GPU
+// It stores the variables on the host and specifies how the variables on the
+// device can be accessed and how new steps are computed. However, all the GPU
 // action is happening in the Solver classes.
 template<typename Pt, int n_max, template<typename, int> class Solver>
 class Solution: public Solver<Pt, n_max> {
 public:
-    Pt *h_X = (Pt*)malloc(n_max*sizeof(Pt));  // Current solution on host
-    Pt *d_X = Solver<Pt, n_max>::d_X;         // Solution on device (GPU)
+    Pt *h_X = (Pt*)malloc(n_max*sizeof(Pt));  // Current variables on host
+    Pt *d_X = Solver<Pt, n_max>::d_X;         // Variables on device (GPU)
     int *h_n = (int*)malloc(sizeof(int));     // Number of bolls
     int *d_n = Solver<Pt, n_max>::d_n;
     Solution(int n_0 = n_max) {
