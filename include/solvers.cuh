@@ -95,17 +95,12 @@ template<typename Pt> __global__ void add_rhs(int n_cells, Pt* d_dX,
     d_dX[i].z += d_sum_v[i].z/d_nNBs[i] - d_sum_v[0].z/d_nNBs[0] - d_dX[0].z;
 }
 
-
-// Solver implementation with interactions among all pairs, after
-// http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html.
-const auto TILE_SIZE = 32;
-
-template<typename Pt, int n_max>class N2n_solver {
+template<typename Pt, int n_max>class Order2_solver {
 protected:
     Pt *d_X, *d_dX, *d_X1, *d_dX1;
     float3 *d_old_v, *d_sum_v;
     int *d_n, *d_nNBs;
-    N2n_solver() {
+    Order2_solver() {
         cudaMalloc(&d_X, n_max*sizeof(Pt));
         cudaMalloc(&d_dX, n_max*sizeof(Pt));
         cudaMalloc(&d_X1, n_max*sizeof(Pt));
@@ -125,9 +120,33 @@ protected:
         return n;
     }
     template<Pairwise_interaction<Pt> pw_int>
-    void take_step(float dt, Generic_forces<Pt> gen_forces);
+    void take_step(float dt, Generic_forces<Pt> gen_forces) {
+        auto n = get_d_n();
+
+        // 1st step
+        thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
+        thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
+        compute_pwints<pw_int>(n, d_X, d_dX);
+        gen_forces(d_X, d_dX);
+        add_rhs<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n, d_dX, d_sum_v, d_nNBs);
+        euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_X1, d_dX);
+
+        // 2nd step
+        thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
+        thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
+        compute_pwints<pw_int>(n, d_X1, d_dX1);
+        gen_forces(d_X1, d_dX1);
+        add_rhs<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n, d_dX1, d_sum_v, d_nNBs);
+        heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_dX, d_dX1, d_old_v);
+    }
+    template<Pairwise_interaction<Pt> pw_int>
+    void compute_pwints(int n, Pt* d_X, Pt* d_dX) {}
 };
 
+
+// Solver implementation with interactions among all pairs, after
+// http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html.
+const auto TILE_SIZE = 32;
 
 // Calculate d_dX, d_sum_v and d_nNBs one thread per point, to TILE_SIZE points at a time
 template<typename Pt, Pairwise_interaction<Pt> pw_int>
@@ -165,28 +184,14 @@ __global__ void compute_n2n_pwints(int n_cells, const Pt* __restrict__ d_X, Pt* 
 }
 
 template<typename Pt, int n_max>
-template<Pairwise_interaction<Pt> pw_int>
-void N2n_solver<Pt, n_max>::take_step(float dt, Generic_forces<Pt> gen_forces) {
-    auto n = get_d_n();
-
-    // 1st step
-    thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
-    thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
-    compute_n2n_pwints<Pt, pw_int><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(  // ceil int div.
-        n, d_X, d_dX, d_old_v, d_sum_v, d_nNBs);
-    gen_forces(d_X, d_dX);
-    add_rhs<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n, d_dX, d_sum_v, d_nNBs);
-    euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_X1, d_dX);
-
-    // 2nd step
-    thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
-    thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
-    compute_n2n_pwints<Pt, pw_int><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
-        n, d_X1, d_dX1, d_old_v, d_sum_v, d_nNBs);
-    gen_forces(d_X1, d_dX1);
-    add_rhs<<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(n, d_dX1, d_sum_v, d_nNBs);
-    heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_dX, d_dX1, d_old_v);
-}
+class N2n_solver: public Order2_solver<Pt, n_max> {
+protected:
+    template<Pairwise_interaction<Pt> pw_int>
+    void compute_pwints(int n, Pt* d_X, Pt* d_dX) {
+        compute_n2n_pwints<Pt, pw_int><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(  // ceil int div.
+            n, d_X, d_dX, d_old_v, d_sum_v, d_nNBs);
+    }
+};
 
 
 // Solver implementation with sorting based lattice for limited pairwise_interaction,
