@@ -10,11 +10,11 @@
 #include "cudebug.cuh"
 
 
-// Interactions must be specified between two points of type Pt (e.g. float3,
-// see dtypes.cuh). Pt contains the variables to be integrated, e.g. position
-// or concentrations.
+// Interactions must be specified between two points Xi and Xj, with  r = Xi - Xj.
+// The type Pt (e.g. float3, see dtypes.cuh) contains the variables to be integrated,
+// e.g. position or concentrations.
 template<typename Pt>
-using Pairwise_interaction = Pt (Pt Xi, Pt Xj, int i, int j);
+using Pairwise_interaction = Pt (Pt Xi, Pt r, float dist, int i, int j);
 
 // In addition a generic force can be passed optionally:
 template<typename Pt>
@@ -124,7 +124,7 @@ __global__ void compute_tiles(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
                     d_nNBs[i] += 1;
                     d_sum_v[i] += d_old_v[j];
                 }
-                Fi += pw_int(d_X[i], shX[k], i, j);
+                Fi += pw_int(d_X[i], r, dist, i, j);
             }
         }
     }
@@ -255,7 +255,7 @@ __global__ void compute_lattice_pwints(int n_cells, const Pt* __restrict__ d_X, 
             if (dist < CUBE_SIZE) {
                 d_nNBs[d_lattice->d_cell_id[i]] += 1;
                 d_sum_v[d_lattice->d_cell_id[i]] += d_old_v[d_lattice->d_cell_id[k]];
-                F += pw_int(Xi, Xj, d_lattice->d_cell_id[i], d_lattice->d_cell_id[k]);
+                F += pw_int(Xi, r, dist, d_lattice->d_cell_id[i], d_lattice->d_cell_id[k]);
             }
         }
     }

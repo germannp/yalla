@@ -4,11 +4,11 @@
 #include "minunit.cuh"
 
 
-__device__ Po_cell pcp_force(Po_cell Xi, Po_cell Xj, int i, int j) {
+__device__ Po_cell pcp_force(Po_cell Xi, Po_cell r, float dist, int i, int j) {
     Po_cell dF {0};
     if (i == j or i == 1) return dF;
 
-    dF += pcp_force(Xi, Xj);
+    dF += pcp_force(Xi, Xi - r);
     return dF;
 }
 
@@ -41,12 +41,10 @@ const char* test_pcp() {
 }
 
 
-__device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell Xj, int i, int j) {
+__device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell r, float dist, int i, int j) {
     Po_cell dF {0};
     if (i == j) return dF;
 
-    auto r = Xi - Xj;
-    auto dist = norm3df(r.x, r.y, r.z);
     if (dist > 1) return dF;
 
     auto F = 2*(0.6 - dist)*(1 - dist) + powf(1 - dist, 2);
@@ -54,7 +52,7 @@ __device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell Xj, int i, int j) {
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
 
-    dF += rigidity_force(Xi, Xj)*0.2;
+    dF += rigidity_force(Xi, r, dist)*0.2;
     return dF;
 }
 
@@ -69,7 +67,6 @@ const char* test_line_of_four() {
         bolls.h_X[i].phi = (i - 0.5)*M_PI/3;
     }
     bolls.copy_to_device();
-    auto com_i = center_of_mass(bolls);
     for (auto i = 0; i < 500; i++) {
         bolls.take_step<rigid_cubic_force>(0.5);
     }
@@ -92,11 +89,6 @@ const char* test_line_of_four() {
     MU_ASSERT("Cells not on line", MU_ISCLOSE(r_12.y, r_23.y));
     MU_ASSERT("Cells not on line", MU_ISCLOSE(r_01.z, r_12.z));
     MU_ASSERT("Cells not on line", MU_ISCLOSE(r_12.z, r_23.z));
-
-    auto com_f = center_of_mass(bolls);
-    MU_ASSERT("Momentum in line", MU_ISCLOSE(com_i.x, com_f.x));
-    MU_ASSERT("Momentum in line", MU_ISCLOSE(com_i.y, com_f.y));
-    MU_ASSERT("Momentum in line", MU_ISCLOSE(com_i.z, com_f.z));
 
     return NULL;
 }

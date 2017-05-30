@@ -36,7 +36,7 @@ __device__ Cell_types* d_type;
 __device__ int* d_mes_nbs;  // number of mesenchymal neighbours
 __device__ int* d_epi_nbs;
 
-__device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell Xj, int i, int j) {
+__device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
     Lb_cell dF {0};
     if (i == j) {
         // D_ASSERT(Xi.w >= 0);
@@ -45,8 +45,6 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell Xj, int i, int j) {
         return dF;
     }
 
-    auto r = Xi - Xj;
-    auto dist = norm3df(r.x, r.y, r.z);
     if (dist > r_max) return dF;
 
     float F;
@@ -67,7 +65,7 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell Xj, int i, int j) {
 
     if (d_type[i] == mesenchyme or d_type[j] == mesenchyme) return dF;
 
-    dF += rigidity_force(Xi, Xj)*0.2;
+    dF += rigidity_force(Xi, r, dist)*0.2;
     return dF;
 }
 

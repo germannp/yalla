@@ -21,12 +21,10 @@ const auto n_time_steps = 500;
 const auto dt = 0.2f;
 
 
-__device__ Po_cell lb_force(Po_cell Xi, Po_cell Xj, int i, int j) {
+__device__ Po_cell lb_force(Po_cell Xi, Po_cell r, float dist, int i, int j) {
     Po_cell dF {0};
     if (i == j) return dF;
 
-    auto r = Xi - Xj;
-    auto dist = norm3df(r.x, r.y, r.z);
     if (dist > 1) return dF;
 
     auto F = fmaxf(0.7 - dist, 0)*2 - fmaxf(dist - 0.8, 0)/2;

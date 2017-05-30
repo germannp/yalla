@@ -27,10 +27,8 @@ template<typename Pt, typename Pol> __device__ Pt pcp_force(Pt Xi, Pol pj) {
 
 
 // Calculate force from the potential U_Epi = Σ(p_i . r_ij/r)^2/2.
-template<typename Pt> __device__ Pt rigidity_force(Pt Xi, Pt Xj) {
+template<typename Pt> __device__ Pt rigidity_force(Pt Xi, Pt r, float dist) {
     Pt dF {0};
-    float3 r {Xi.x - Xj.x, Xi.y - Xj.y, Xi.z - Xj.z};
-    auto dist = norm3df(r.x, r.y, r.z);
     float3 pi {sinf(Xi.theta)*cosf(Xi.phi), sinf(Xi.theta)*sinf(Xi.phi),
         cosf(Xi.theta)};
     auto prodi = pi.x*r.x + pi.y*r.y + pi.z*r.z;
@@ -48,8 +46,10 @@ template<typename Pt> __device__ Pt rigidity_force(Pt Xi, Pt Xj) {
     dF.z = - prodi/powf(dist, 2)*pi.z + powf(prodi, 2)/powf(dist, 4)*r.z;
 
     // Contribution from (p_j . r_ji/r)^2/2
-    float3 pj {sinf(Xj.theta)*cosf(Xj.phi), sinf(Xj.theta)*sinf(Xj.phi),
-        cosf(Xj.theta)};
+    auto Xj_theta = Xi.theta - r.theta;
+    auto Xj_phi = Xi.phi - r.phi;
+    float3 pj {sinf(Xj_theta)*cosf(Xj_phi), sinf(Xj_theta)*sinf(Xj_phi),
+        cosf(Xj_theta)};
     auto prodj = pj.x*r.x + pj.y*r.y + pj.z*r.z;
     dF.x += - prodj/powf(dist, 2)*pj.x + powf(prodj, 2)/powf(dist, 4)*r.x;
     dF.y += - prodj/powf(dist, 2)*pj.y + powf(prodj, 2)/powf(dist, 4)*r.y;
