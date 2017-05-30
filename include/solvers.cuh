@@ -178,6 +178,7 @@ protected:
         add_rhs<<<(n + 32 - 1)/32, 32>>>(n, d_dX1, d_sum_v, d_nNBs);
         heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_dX, d_dX1, d_old_v);
     }
+    // Compute pwints separately to allow inheritance of the rest
     template<Pairwise_interaction<Pt> pw_int>
     void compute_pwints(int n, Pt* d_X, Pt* d_dX, const float3* __restrict__ d_old_v,
             float3* d_sum_v, int* d_nNBs) {
