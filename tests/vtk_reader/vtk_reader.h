@@ -57,6 +57,10 @@ public:
     template<typename Pt, int n_max, template<typename, int> class Solver>
     void read_polarity(Solution<Pt, n_max, Solver>& bolls);
     // Read not integrated property, see property.cuh
+    // template<int n_max, typename Prop>
+    // void read_property_int(Property<n_max, Prop>& property);
+    // template<int n_max, typename Prop>
+    // void read_property_float(Property<n_max, Prop>& property);
     template<int n_max, typename Prop>
     void read_property(Property<n_max, Prop>& property);
 
@@ -64,9 +68,6 @@ protected:
     int n_bolls;
     std::streampos bookmark;
     std::string file_name;
-    //std::string current_path;
-    //bool point_data_started;
-    //time_t t_0;
 };
 
 Vtk_input::Vtk_input(std::string s, int& n) {
@@ -219,6 +220,105 @@ void Vtk_input::read_polarity(Solution<Pt, n_max, Solver>& bolls) {
 
 }
 
+// template<int n_max, typename Prop>
+// void Vtk_input::read_property_int(Property<n_max, Prop>& property) {
+//
+//   std::ifstream input_file(file_name);
+//   assert(input_file.is_open());
+//
+//   //set the read position to the last line read
+//   input_file.seekg(bookmark);
+//
+//   std::string line;
+//   std::vector<std::string> items;
+//   getline (input_file,line); //Property header line
+//   split(line, ' ', std::back_inserter(items));
+//   std::cout<<"headline1 "<<items[0]<<std::endl;
+//   items.clear();
+//
+//   getline (input_file,line); //Lookup table
+//   split(line, ' ', std::back_inserter(items));
+//   std::cout<<"headline2 "<<items[0]<<std::endl;
+//   items.clear();
+//
+//   for (int i=0 ; i<n_bolls ; i++)
+//   {
+//     getline (input_file,line);
+//     split(line, ' ', std::back_inserter(items));
+//     property.h_prop[i]=stoi(items[0]) ;
+//     items.clear();
+//     std::cout<<i<<" prop "<< property.h_prop[i] <<std::endl;
+//   }
+//
+//     bookmark=input_file.tellg();
+// }
+//
+// template<int n_max, typename Prop>
+// void Vtk_input::read_property_float(Property<n_max, Prop>& property) {
+//
+//   std::ifstream input_file(file_name);
+//   assert(input_file.is_open());
+//
+//   //set the read position to the last line read
+//   input_file.seekg(bookmark);
+//
+//   std::string line;
+//   std::vector<std::string> items;
+//   getline (input_file,line); //Property header line
+//   split(line, ' ', std::back_inserter(items));
+//   std::cout<<"headline1 "<<items[0]<<std::endl;
+//   items.clear();
+//
+//   getline (input_file,line); //Lookup table
+//   split(line, ' ', std::back_inserter(items));
+//   std::cout<<"headline2 "<<items[0]<<std::endl;
+//   items.clear();
+//
+//   for (int i=0 ; i<n_bolls ; i++)
+//   {
+//     getline (input_file,line);
+//     split(line, ' ', std::back_inserter(items));
+//     property.h_prop[i]=stof(items[0]) ;
+//     items.clear();
+//     std::cout<<i<<" prop "<< property.h_prop[i] <<std::endl;
+//   }
+//
+//     bookmark=input_file.tellg();
+// }
 
+
+template<int n_max, typename Prop>
+void Vtk_input::read_property(Property<n_max, Prop>& property) {
+
+  std::ifstream input_file(file_name);
+  assert(input_file.is_open());
+
+  //set the read position to the last line read
+  input_file.seekg(bookmark);
+
+  std::string line;
+  std::vector<std::string> items;
+  getline (input_file,line); //Property header line
+  split(line, ' ', std::back_inserter(items));
+  std::cout<<"headline1 "<<items[0]<<std::endl;
+  items.clear();
+
+  getline (input_file,line); //Lookup table
+  split(line, ' ', std::back_inserter(items));
+  std::cout<<"headline2 "<<items[0]<<std::endl;
+  items.clear();
+
+  for (int i=0 ; i<n_bolls ; i++)
+  {
+    getline (input_file,line);
+    //split(line, ' ', std::back_inserter(items));
+    std::istringstream (line) >> property.h_prop[i] ;
+    //property.h_prop[i]=stoi(items[0]) ;
+    //items.clear();
+    std::cout<<i<<" prop "<< property.h_prop[i] <<std::endl;
+  }
+
+    bookmark=input_file.tellg();
+}
 
 #endif

@@ -44,6 +44,7 @@ const auto n_max = 65000;
 enum Cell_types {mesenchyme, epithelium};
 
 __device__ Cell_types* d_type;
+__device__ float* d_state;
 __device__ int* d_mes_nbs;  // number of mesenchymal neighbours
 __device__ int* d_epi_nbs;
 
@@ -119,6 +120,15 @@ int main(int argc, char const *argv[]) {
     }
     bolls.copy_to_device();
     type.copy_to_device();
+
+    Property<n_max, float> state("state");
+    cudaMemcpyToSymbol(d_state, &state.d_prop, sizeof(d_state));
+    for (auto i = 0; i < n_0; i++) {
+      state.h_prop[i] = rand()/(RAND_MAX+1.f);
+    }
+    state.copy_to_device();
+
+
     Property<n_max, int> n_mes_nbs;
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     Property<n_max, int> n_epi_nbs;
@@ -171,12 +181,12 @@ int main(int argc, char const *argv[]) {
         bolls.take_step<relaxation_force>(dt);
         if(time_step==n_time_steps)
         {
-
           output.write_positions(bolls);
           output.write_polarity(bolls);
+          output.write_property(type);
+          output.write_property(state);
           //output.write_field(bolls, "u", &Cell::u);
           //output.write_field(bolls, "v", &Cell::v);
-          //output.write_property(type);
         }
     }
 
