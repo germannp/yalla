@@ -9,6 +9,10 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <typeinfo>
+#include <sstream>
+#include <vector>
+#include <iterator>
 
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
@@ -159,8 +163,206 @@ void Vtk_output::write_property(Property<n_max, Prop>& property) {
         file << "\nPOINT_DATA " << n_bolls << "\n";
         point_data_started = true;
     }
-    file << "SCALARS " << property.name << " int\n";
+
+    std::string ptype=typeid(Prop).name(); //we check whether Prop is int or float
+    if(ptype=="f") {ptype="float";}        //in order to define the type in vtk format
+    else {ptype="int";}
+
+    file << "SCALARS " << property.name <<" "<< ptype <<"\n";
     file << "LOOKUP_TABLE default\n";
     for (auto i = 0; i < n_bolls; i++)
         file << property.h_prop[i] << "\n";
+}
+
+//VTK reader class and associated functions
+
+//function to split a string by whitespace
+//adapted from: https://stackoverflow.com/questions/236129/split-a-string-in-c
+template<typename Out>
+void split(const std::string &s, char delim, Out result) {
+    if(s.length()==0) return;
+    std::stringstream ss;
+    ss.str(s);
+    std::string item;
+    while (std::getline(ss, item, delim)) {
+        *(result++) = item;
+    }
+}
+
+std::vector<std::string> split(const std::string &s, char delim) {
+    std::vector<std::string> elems;
+    split(s, delim, std::back_inserter(elems));
+    return elems;
+}
+
+//A custom class that reads vtk format files written by the bolls framework
+//We use a string parser code adapted from:
+// http://stackoverflow.com/questions/22100662/using-ifstream-to-read-floats
+
+class Vtk_input {
+public:
+    Vtk_input(std::string, int& ); //pass the file name to read, returns an int with the number of bolls
+    // Read x, y, and z component of Pt; has to be written first
+    template<typename Pt, int n_max, template<typename, int> class Solver>
+    void read_positions(Solution<Pt, n_max, Solver>& bolls);
+    // Read polarity from phi and theta of Pt, see polarity.cuh
+    template<typename Pt, int n_max, template<typename, int> class Solver>
+    void read_polarity(Solution<Pt, n_max, Solver>& bolls);
+    // Read not integrated property, see property.cuh
+    template<int n_max, typename Prop>
+    void read_property(Property<n_max, Prop>& property);
+protected:
+    int n_bolls;
+    std::streampos bookmark;
+    std::string file_name;
+};
+
+Vtk_input::Vtk_input(std::string s, int& n) {
+
+    file_name=s;
+
+    std::string line;
+    std::ifstream input_file;
+    std::vector<std::string> items;
+
+    input_file.open(file_name, std::fstream::in);
+
+    //Line 1
+    getline (input_file,line);
+    split(line, ' ', std::back_inserter(items));
+    items.clear();
+    //Line 2
+    getline (input_file,line);
+    split(line, ' ', std::back_inserter(items));
+    items.clear();
+    //Line 3
+    getline (input_file,line);
+    split(line, ' ', std::back_inserter(items));
+    items.clear();
+    //Line 4
+    getline (input_file,line);
+    split(line, ' ', std::back_inserter(items));
+    items.clear();
+    //Line 5
+    getline (input_file,line);
+    //Line 6
+    getline (input_file,line);
+    split(line, ' ', std::back_inserter(items));
+    n_bolls=stoi(items[1]);
+    n=n_bolls;
+    items.clear();
+
+    bookmark = input_file.tellg(); //we save the read position for late read functions
+
+}
+
+template<typename Pt, int n_max, template<typename, int> class Solver>
+void Vtk_input::read_positions(Solution<Pt, n_max, Solver>& bolls) {
+
+    std::ifstream input_file(file_name);
+    assert(input_file.is_open());
+
+    //set the read position to the last line read
+    input_file.seekg(bookmark);
+
+    std::string line;
+    std::vector<std::string> items;
+
+    //read the list of point coordinates
+    for (int i=0 ; i<n_bolls ; i++)
+    {
+      getline (input_file,line);
+      split(line, ' ', std::back_inserter(items));
+      bolls.h_X[i].x=stof(items[0]) ; bolls.h_X[i].y=stof(items[1]) ; bolls.h_X[i].z=stof(items[2]) ;
+      items.clear();
+    }
+
+    //interlude
+    getline (input_file,line); //blank line
+    getline (input_file,line);
+    split(line, ' ', std::back_inserter(items));
+
+    //read the list of VERTICES
+    //that's not useful info actually, just for the sake of
+    //being compatible with VTK format
+    for (int i=0 ; i<n_bolls ; i++)
+    {
+      getline (input_file,line);
+    }
+
+    bookmark=input_file.tellg();
+
+}
+
+template<typename Pt, int n_max, template<typename, int> class Solver>
+void Vtk_input::read_polarity(Solution<Pt, n_max, Solver>& bolls) {
+
+    std::ifstream input_file(file_name);
+    assert(input_file.is_open());
+
+    //set the read position to the last line read
+    input_file.seekg(bookmark);
+
+    std::string line;
+    std::vector<std::string> items;
+
+    getline (input_file,line); //blank line after positions data
+    getline (input_file,line);
+    split(line, ' ', std::back_inserter(items));
+    items.clear();
+    getline (input_file,line);
+    split(line, ' ', std::back_inserter(items));
+    items.clear();
+
+    //read the list of normals
+    float x,y,z,d;
+    for (int i=0 ; i<n_bolls ; i++)
+    {
+      getline (input_file,line);
+      split(line, ' ', std::back_inserter(items));
+      x=stof(items[0]) ; y=stof(items[1]) ; z=stof(items[2]) ;
+      items.clear();
+      d=sqrt(pow(x,2) + pow(y,2) + pow(z,2));
+      if(d==0)
+      {
+        bolls.h_X[i].phi = 0.0f ; bolls.h_X[i].theta = 0.0f ;
+      }
+      else
+      {
+        bolls.h_X[i].phi = atan2(y,x);
+        bolls.h_X[i].theta = acos(z); //Assuming the normals are unit vectors, so no need to divide by length
+      }
+
+    }
+
+    bookmark=input_file.tellg();
+
+}
+
+template<int n_max, typename Prop>
+void Vtk_input::read_property(Property<n_max, Prop>& property) {
+
+  std::ifstream input_file(file_name);
+  assert(input_file.is_open());
+
+  //set the read position to the last line read
+  input_file.seekg(bookmark);
+
+  std::string line;
+  std::vector<std::string> items;
+  getline (input_file,line); //Property header line
+  split(line, ' ', std::back_inserter(items));
+  items.clear();
+
+  getline (input_file,line); //Lookup table
+  split(line, ' ', std::back_inserter(items));
+  items.clear();
+
+  for (int i=0 ; i<n_bolls ; i++)
+  {
+    getline (input_file,line);
+    std::istringstream (line) >> property.h_prop[i] ;
+  }
+
+  bookmark=input_file.tellg();
 }
