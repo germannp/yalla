@@ -216,20 +216,31 @@ int main(int argc, char const *argv[])
   ass << argv[1] << ".cubic_relaxation";
   std::string cubic_out = ass.str();
 
+  int relax_time=stoi(argv[4]);
+  int write_interval=relax_time/10;
+  std::cout<<"relax_time "<<relax_time<<" write interval "<< write_interval<<std::endl;
+
   Vtk_output output(cubic_out);
-  for (auto time_step = 0; time_step <= stoi(argv[4]); time_step++)
+
+  for (auto time_step = 0; time_step <= relax_time; time_step++)
   {
+    if(time_step%write_interval==0 || time_step==relax_time)
+    {
       bolls.copy_to_host();
+    }
 
-      bolls.build_lattice(r_max);
+    bolls.build_lattice(r_max);
 
-      thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
+    thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
 
-      bolls.take_step<relaxation_force>(dt);
+    bolls.take_step<relaxation_force>(dt);
 
-      //write the output
+    //write the output
+    if(time_step%write_interval==0 || time_step==relax_time)
+    {
       output.write_positions(bolls);
       output.write_polarity(bolls);
+    }
 
   }
 
