@@ -160,7 +160,7 @@ int main(int argc, char const *argv[])
 
   //Compute min. and max, positions in x,y,z from mesh file
 
-  float xmin=0.0f,xmax=0.0f,ymin=0.0f,ymax=0.0f,zmin=0.0f,zmax=0.0f;
+  float xmin=10000.0f,xmax=-10000.0f,ymin=100000.0f,ymax=-10000.0f,zmin=1000000.0f,zmax=-10000.0f;
 
   for(std::vector<Facet>::iterator fit = facets.begin(); fit != facets.end(); fit++)
   {
