@@ -13,6 +13,7 @@ struct Facet
   float p2x,p2y,p2z;
   float p3x,p3y,p3z;
   float cx,cy,cz;
+  int n;
 };
 
 extern const char *whitespace;
