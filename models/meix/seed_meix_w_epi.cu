@@ -206,17 +206,15 @@ void seed_epithelium_on_meix_v2(std::vector<Facet> F, Solution<Pt, n_max, Solver
     //std::cout<<"nF "<<nF<<std::endl;
     for(int i=0; i<*bolls.h_n; i++)
     {
-      int j=std::round(nF*(rand()/(RAND_MAX+1.f))); //which facet will fall to
+      int j=rand()%nF; //which facet will fall into
 
       Point V0(F[j].p1x,F[j].p1y,F[j].p1z);
       Point V1(F[j].p2x,F[j].p2y,F[j].p2z);
       Point V2(F[j].p3x,F[j].p3y,F[j].p3z);
-      //int n=F[i].n;
-      //int c=0;
-//std::cout<<"crash0.2"<<" n= "<<n<<"V0x "<<V0.x<<" "<<V0.y<<" "<<V0.z<<std::endl;
+
       float phi=atan2(F[j].ny,F[j].nx);
       float theta= acos(F[j].nz);
-//std::cout<<"crash0.3"<<std::endl;
+
       bool bingo=false;
       while (!bingo)
       {
@@ -226,8 +224,6 @@ void seed_epithelium_on_meix_v2(std::vector<Facet> F, Solution<Pt, n_max, Solver
         if (s+t>1) continue;
 
         float a=1-s-t;
-
-        //std::cout<<"s= "<<s<<" t= "<<t<<" a= "<<a<<" s+t= "<< s+t <<std::endl;
 
         Point p= V0*a + V1*s + V2*t;
 
@@ -241,24 +237,6 @@ void seed_epithelium_on_meix_v2(std::vector<Facet> F, Solution<Pt, n_max, Solver
       }
     }
 
-
-    //for(std::vector<Facet>::iterator fit = F_list.begin(); fit != F_list.end(); fit++)
-    //for(int fit = 0 ; fit <= 10 ; fit++)
-    // for(int fit = 0 ; fit <= F_list.size() ; fit++)
-    // {
-      //f=*fit;
-      // f=F_list[fit];
-      //std::cout<<"cxyz "<<f.cx<<" "<<f.cy<<" "<<f.cz<<std::endl;
-      // float r=sqrt(pow(f.nx,2)+pow(f.ny,2)+pow(f.nz,2));
-      // bolls.h_X[i].x = f.cx;
-      // bolls.h_X[i].y = f.cy;
-      // bolls.h_X[i].z = f.cz;
-      // bolls.h_X[i].phi = atan2(f.ny,f.nx);
-      // bolls.h_X[i].theta = acos(f.nz/r);
-      // i++;
-    // }
-
-    // bolls.copy_to_device();
 }
 
 //writes the whole meix data structure as a vtk file
@@ -403,27 +381,27 @@ int main(int argc, char const *argv[])
 int relax_time=5000;
 int write_interval=1;
 
-// for (auto time_step = 0; time_step <= relax_time; time_step++)
-// {
-//   if(time_step%write_interval==0 || time_step==relax_time)
-//   {
-//     bolls.copy_to_host();
-//   }
-//
-//   bolls.build_lattice(r_max);
-//
-//   thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
-//
-//   bolls.take_step<relaxation_force>(dt);
-//
-//   //write the output
-//   if(time_step%write_interval==0 || time_step==relax_time)
-//   {
+for (auto time_step = 0; time_step <= relax_time; time_step++)
+{
+  if(time_step%write_interval==0 || time_step==relax_time)
+  {
+    bolls.copy_to_host();
+  }
+
+  bolls.build_lattice(r_max);
+
+  thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
+
+  bolls.take_step<relaxation_force>(dt);
+
+  //write the output
+  if(time_step%write_interval==0 || time_step==relax_time)
+  {
     output.write_positions(bolls);
     output.write_polarity(bolls);
-//   }
-//
-// }
+  }
+
+}
 
 
 
