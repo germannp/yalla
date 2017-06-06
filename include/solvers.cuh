@@ -87,7 +87,7 @@ template<typename Pt> __global__ void heun_step(int n_cells, float dt,
 template<typename Pt> __global__ void add_rhs(int n_cells, Pt* d_dX,
         const float3* __restrict__ d_sum_v, const int* __restrict__ d_nNBs) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells) return;
+    if ((i == 0) or (i >= n_cells)) return;
 
     d_dX[i].x += d_sum_v[i].x/d_nNBs[i] - d_sum_v[0].x/d_nNBs[0] - d_dX[0].x;
     d_dX[i].y += d_sum_v[i].y/d_nNBs[i] - d_sum_v[0].y/d_nNBs[0] - d_dX[0].y;
@@ -168,6 +168,8 @@ protected:
         compute_pwints<pw_int>(n, d_X, d_dX, d_old_v, d_sum_v, d_nNBs);
         gen_forces(d_X, d_dX);
         add_rhs<<<(n + 32 - 1)/32, 32>>>(n, d_dX, d_sum_v, d_nNBs);  // ceil int div.
+        float3 h_zeros {0};
+        cudaMemcpy(d_dX, &h_zeros, sizeof(float3), cudaMemcpyHostToDevice);
         euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_X1, d_dX);
 
         // 2nd step
@@ -176,6 +178,7 @@ protected:
         compute_pwints<pw_int>(n, d_X1, d_dX1, d_old_v, d_sum_v, d_nNBs);
         gen_forces(d_X1, d_dX1);
         add_rhs<<<(n + 32 - 1)/32, 32>>>(n, d_dX1, d_sum_v, d_nNBs);
+        cudaMemcpy(d_dX1, &h_zeros, sizeof(float3), cudaMemcpyHostToDevice);
         heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_dX, d_dX1, d_old_v);
     }
     // Compute pwints separately to allow inheritance of the rest
