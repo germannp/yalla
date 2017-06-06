@@ -13,9 +13,10 @@
 #include <string>
 #include <list>
 #include <vector>
+#include <iostream>
 
 #include "meix.h"
-#include "meix_inclusion_test.h"
+//#include "meix_inclusion_test.h"
 
 const auto r_max=1.5;
 const auto r_min=0.6;
@@ -69,58 +70,58 @@ __device__ Cell relaxation_force(Cell Xi, Cell Xj, int i, int j) {
 //In order to visualise the mesh once loaded to the bolls framework
 //we create an epithelial boll on the centre of each facet of the mesh
 //(these bolls go into a different solution object)
-template<typename Pt, int n_max, template<typename, int> class Solver>
-void fill_solver_from_meix(std::vector<Facet> F_list, Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0)
-{
+// template<typename Pt, int n_max, template<typename, int> class Solver>
+// void fill_solver_from_meix(std::vector<Facet> F_list, Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0)
+// {
+//
+//     assert(n_0 < *bolls.h_n);
+//
+//     Facet f;
+//     int i=0;
+//     //for(std::vector<Facet>::iterator fit = F_list.begin(); fit != F_list.end(); fit++)
+//     //for(int fit = 0 ; fit <= 10 ; fit++)
+//     for(int fit = 0 ; fit <= F_list.size() ; fit++)
+//     {
+//       //f=*fit;
+//       f=F_list[fit];
+//       //std::cout<<"cxyz "<<f.cx<<" "<<f.cy<<" "<<f.cz<<std::endl;
+//       float r=sqrt(pow(f.nx,2)+pow(f.ny,2)+pow(f.nz,2));
+//       bolls.h_X[i].x = f.cx;
+//       bolls.h_X[i].y = f.cy;
+//       bolls.h_X[i].z = f.cz;
+//       bolls.h_X[i].phi = atan2(f.ny,f.nx);
+//       bolls.h_X[i].theta = acos(f.nz/r);
+//       i++;
+//     }
+//
+//     bolls.copy_to_device();
+// }
 
-    assert(n_0 < *bolls.h_n);
-
-    Facet f;
-    int i=0;
-    //for(std::vector<Facet>::iterator fit = F_list.begin(); fit != F_list.end(); fit++)
-    //for(int fit = 0 ; fit <= 10 ; fit++)
-    for(int fit = 0 ; fit <= F_list.size() ; fit++)
-    {
-      //f=*fit;
-      f=F_list[fit];
-      //std::cout<<"cxyz "<<f.cx<<" "<<f.cy<<" "<<f.cz<<std::endl;
-      float r=sqrt(pow(f.nx,2)+pow(f.ny,2)+pow(f.nz,2));
-      bolls.h_X[i].x = f.cx;
-      bolls.h_X[i].y = f.cy;
-      bolls.h_X[i].z = f.cz;
-      bolls.h_X[i].phi = atan2(f.ny,f.nx);
-      bolls.h_X[i].theta = acos(f.nz/r);
-      i++;
-    }
-
-    bolls.copy_to_device();
-}
-
-// Insert cells into the solver from an array of 3D points (custom class Point, see meix_inclusion_test.h)
-template<typename Pt, int n_max, template<typename, int> class Solver>
-void fill_solver_from_list(std::vector<Point> points, Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0)
-{
-    assert(n_0 < *bolls.h_n);
-
-    for (auto i = n_0; i < *bolls.h_n; i++) {
-        bolls.h_X[i].x = points[i].x;
-        bolls.h_X[i].y = points[i].y;
-        bolls.h_X[i].z = points[i].z;
-    }
-
-    bolls.copy_to_device();
-}
-
-float meix_get_surfarea(std::vector<Facet>& F, float cell_D,int& n_global) //TODO optimise, this should be done inside meix class
+// // Insert cells into the solver from an array of 3D points (custom class Point, see meix_inclusion_test.h)
+// template<typename Pt, int n_max, template<typename, int> class Solver>
+// void fill_solver_from_list(std::vector<Point> points, Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0)
+// {
+//     assert(n_0 < *bolls.h_n);
+//
+//     for (auto i = n_0; i < *bolls.h_n; i++) {
+//         bolls.h_X[i].x = points[i].x;
+//         bolls.h_X[i].y = points[i].y;
+//         bolls.h_X[i].z = points[i].z;
+//     }
+//
+//     bolls.copy_to_device();
+// }
+//
+float meix_get_surfarea(std::vector<Triangle>& F, float cell_D,int& n_global) //TODO optimise, this should be done inside meix class
 {
   float global_S=0;
   float S;
   n_global=0;
   for (int i=0 ; i<F.size(); i++)
   {
-    Point V0(F[i].p1x,F[i].p1y,F[i].p1z);
-    Point V1(F[i].p2x,F[i].p2y,F[i].p2z);
-    Point V2(F[i].p3x,F[i].p3y,F[i].p3z);
+    Point V0(F[i].V0.x,F[i].V0.y,F[i].V0.z);
+    Point V1(F[i].V1.x,F[i].V1.y,F[i].V1.z);
+    Point V2(F[i].V2.x,F[i].V2.y,F[i].V2.z);
 
     Point AB=V0-V1;
     Point BC=V1-V2;
@@ -137,8 +138,8 @@ float meix_get_surfarea(std::vector<Facet>& F, float cell_D,int& n_global) //TOD
     global_S+=S;
 
     //we infer already how many cells will fit in that facet
-    F[i].n=std::round(cell_D*S);
-    n_global+=F[i].n;
+    int dummy=std::round(cell_D*S);
+    n_global+=dummy;
 
 //std::cout<<i<<" n= "<<F[i].n<<" cell_density= "<<cell_D<<" S= "<<S<<" nglobal= "<<n_global<<std::endl;
 
@@ -149,71 +150,72 @@ float meix_get_surfarea(std::vector<Facet>& F, float cell_D,int& n_global) //TOD
 
 //this function will distribute uniformly random epithelial cells on top of the
 //mesh surface.
-template<typename Pt, int n_max, template<typename, int> class Solver>
-void seed_epithelium_on_meix(std::vector<Facet> F, Solution<Pt, n_max, Solver>& bolls, float cell_D, unsigned int n_0 = 0)
-{
-
-    assert(n_0 < *bolls.h_n);
-    int j=0;
-//std::cout<<"crash0.1"<<std::endl;
-    for(int i=0; i<F.size(); i++)
-    {
-      Point V0(F[i].p1x,F[i].p1y,F[i].p1z);
-      Point V1(F[i].p2x,F[i].p2y,F[i].p2z);
-      Point V2(F[i].p3x,F[i].p3y,F[i].p3z);
-      int n=F[i].n;
-      int c=0;
-//std::cout<<"crash0.2"<<" n= "<<n<<"V0x "<<V0.x<<" "<<V0.y<<" "<<V0.z<<std::endl;
-      float phi=atan2(F[i].ny,F[i].nx);
-      float theta= acos(F[i].nz);
-//std::cout<<"crash0.3"<<std::endl;
-      while (c<n)
-      {
-        // 0<s<1 ; 0<t<1 ; s+t<1
-        float s=rand()/(RAND_MAX+1.f);
-        float t=rand()/(RAND_MAX+1.f);
-        if (s+t>1) continue;
-
-        float a=1-s-t;
-
-        //std::cout<<"s= "<<s<<" t= "<<t<<" a= "<<a<<" s+t= "<< s+t <<std::endl;
-
-        Point p= V0*a + V1*s + V2*t;
-
-        bolls.h_X[j].x = p.x;
-        bolls.h_X[j].y = p.y;
-        bolls.h_X[j].z = p.z;
-        bolls.h_X[j].phi = phi;
-        bolls.h_X[j].theta = theta;
-//std::cout<<i<<" crash0.4 j= "<<j<<" c= "<<c<<" n= "<<n<<std::endl;
-        j++; c++;
-      }
-    }
-
-}
+// template<typename Pt, int n_max, template<typename, int> class Solver>
+// void seed_epithelium_on_meix(std::vector<Facet> F, Solution<Pt, n_max, Solver>& bolls, float cell_D, unsigned int n_0 = 0)
+// {
+//
+//     assert(n_0 < *bolls.h_n);
+//     int j=0;
+// //std::cout<<"crash0.1"<<std::endl;
+//     for(int i=0; i<F.size(); i++)
+//     {
+//       Point V0(F[i].p1x,F[i].p1y,F[i].p1z);
+//       Point V1(F[i].p2x,F[i].p2y,F[i].p2z);
+//       Point V2(F[i].p3x,F[i].p3y,F[i].p3z);
+//       int n=F[i].n;
+//       int c=0;
+// //std::cout<<"crash0.2"<<" n= "<<n<<"V0x "<<V0.x<<" "<<V0.y<<" "<<V0.z<<std::endl;
+//       float phi=atan2(F[i].ny,F[i].nx);
+//       float theta= acos(F[i].nz);
+// //std::cout<<"crash0.3"<<std::endl;
+//       while (c<n)
+//       {
+//         // 0<s<1 ; 0<t<1 ; s+t<1
+//         float s=rand()/(RAND_MAX+1.f);
+//         float t=rand()/(RAND_MAX+1.f);
+//         if (s+t>1) continue;
+//
+//         float a=1-s-t;
+//
+//         //std::cout<<"s= "<<s<<" t= "<<t<<" a= "<<a<<" s+t= "<< s+t <<std::endl;
+//
+//         Point p= V0*a + V1*s + V2*t;
+//
+//         bolls.h_X[j].x = p.x;
+//         bolls.h_X[j].y = p.y;
+//         bolls.h_X[j].z = p.z;
+//         bolls.h_X[j].phi = phi;
+//         bolls.h_X[j].theta = theta;
+// //std::cout<<i<<" crash0.4 j= "<<j<<" c= "<<c<<" n= "<<n<<std::endl;
+//         j++; c++;
+//       }
+//     }
+//
+// }
 
 
 //this function will distribute uniformly random epithelial cells on top of the
 //mesh surface.
 template<typename Pt, int n_max, template<typename, int> class Solver>
-void seed_epithelium_on_meix_v2(std::vector<Facet> F, Solution<Pt, n_max, Solver>& bolls, float cell_D, unsigned int n_0 = 0)
+void seed_epithelium_on_meix_v2(Meix meix, Solution<Pt, n_max, Solver>& bolls, float cell_D, unsigned int n_0 = 0)
 {
 
     assert(n_0 < *bolls.h_n);
 
 //std::cout<<"crash0.1"<<std::endl;
-    int nF=F.size();
+    int nF=meix.Facets.size();
     //std::cout<<"nF "<<nF<<std::endl;
     for(int i=0; i<*bolls.h_n; i++)
     {
       int j=rand()%nF; //which facet will fall into
 
-      Point V0(F[j].p1x,F[j].p1y,F[j].p1z);
-      Point V1(F[j].p2x,F[j].p2y,F[j].p2z);
-      Point V2(F[j].p3x,F[j].p3y,F[j].p3z);
+      Point V0= meix.Facets[j].V0;
+      Point V1= meix.Facets[j].V1;
+      Point V2= meix.Facets[j].V2;
+      Point N= meix.Facets[j].N;
 
-      float phi=atan2(F[j].ny,F[j].nx);
-      float theta= acos(F[j].nz);
+      float phi=atan2(N.y,N.x);
+      float theta= acos(N.z);
 
       bool bingo=false;
       while (!bingo)
@@ -240,13 +242,13 @@ void seed_epithelium_on_meix_v2(std::vector<Facet> F, Solution<Pt, n_max, Solver
 }
 
 //writes the whole meix data structure as a vtk file
-void write_meix_vtk (std::vector<Facet> F, std::string output_tag)
+void write_meix_vtk (Meix meix, std::string output_tag)
 {
   std::string filename="output/"+output_tag+".meix.vtk";
   std::ofstream meix_file(filename);
   assert(meix_file.is_open());
 
-  int n=F.size();
+  int n=meix.Facets.size();
 
   meix_file << "# vtk DataFile Version 3.0\n";
   meix_file << output_tag+".meix" << "\n";
@@ -256,9 +258,9 @@ void write_meix_vtk (std::vector<Facet> F, std::string output_tag)
   meix_file << "\nPOINTS " << 3*n << " float\n";
   for (auto i = 0; i < n; i++)
   {
-    meix_file <<F[i].p1x << " " << F[i].p1y << " " << F[i].p1z << "\n";
-    meix_file <<F[i].p2x << " " << F[i].p2y << " " << F[i].p2z << "\n";
-    meix_file <<F[i].p3x << " " << F[i].p3y << " " << F[i].p3z << "\n";
+    meix_file <<meix.Facets[i].V0.x << " " << meix.Facets[i].V0.y << " " << meix.Facets[i].V0.z << "\n";
+    meix_file <<meix.Facets[i].V1.x << " " << meix.Facets[i].V1.y << " " << meix.Facets[i].V1.z << "\n";
+    meix_file <<meix.Facets[i].V2.x << " " << meix.Facets[i].V2.y << " " << meix.Facets[i].V2.z << "\n";
   }
 
   meix_file << "\nPOLYGONS " << n << " " << 4*n << "\n";
@@ -283,9 +285,10 @@ int main(int argc, char const *argv[])
   std::string file_name=argv[2];
 
   //First, load the mesh file so we can get the maximum dimensions of the system
-  std::vector<Facet> facets0; //store original mesh
-  std::vector<Facet> facets;  //store rescaled mesh
-  GetMeixSTL(file_name,facets0);
+  //std::vector<Facet> facets0; //store original mesh
+  //std::vector<Facet> facets;  //store rescaled mesh
+  //GetMeixSTL(file_name,facets0);
+  Meix meix(file_name);
 
   //we need to rescale because it's too large
   //std::vector<Facet> facets;
@@ -301,10 +304,12 @@ int main(int argc, char const *argv[])
 
   float xmin=10000.0f,xmax=-10000.0f;
   float ymin,ymax,zmin,zmax;
-  for(std::vector<Facet>::iterator fit = facets0.begin(); fit != facets0.end(); fit++)
+  //for(std::vector<Facet>::iterator fit = facets0.begin(); fit != facets0.end(); fit++)
+  for(int i=0 ; i<meix.Facets.size() ; i++)
   {
-    Facet f=*fit;
-    if(f.cx<xmin) xmin=f.cx;  if(f.cx>xmax) xmax=f.cx;
+    //Facet f=*fit;
+    //if(f.cx<xmin) xmin=f.cx;  if(f.cx>xmax) xmax=f.cx;
+    if(meix.Facets[i].C.x<xmin) xmin=meix.Facets[i].C.x;  if(meix.Facets[i].C.x>xmax) xmax=meix.Facets[i].C.x;
     //if(f.cy<ymin) ymin=f.cy;  if(f.cy>ymax) ymax=f.cy;
     //if(f.cz<zmin) zmin=f.cz;  if(f.cz>zmax) zmax=f.cz;
   }
@@ -312,21 +317,26 @@ int main(int argc, char const *argv[])
   //float dy=ymax-ymin;
   //float dz=zmax-zmin;
 
-  float target_dx=stof(argv[3]);
+  float target_dx=std::stof(argv[3]);
   float resc=target_dx/dx;
   std::cout<<"xmax= "<<xmax<<" xmin= "<<xmin<<std::endl;
   std::cout<<"dx= "<<dx<<" target_dx= "<<target_dx<<" rescaling factor resc= "<<resc<<std::endl;
 
-  MeixRescale(facets0, facets, resc);
+  //MeixRescale(facets0, facets, resc);
+  meix.Rescale(resc);
 
   //Compute min. and max, positions in x,y,z from rescaled mesh
   xmin=10000.0f;xmax=-10000.0f;ymin=10000.0f;ymax=-10000.0f;zmin=10000.0f;zmax=-10000.0f;
-  for(std::vector<Facet>::iterator fit = facets.begin(); fit != facets.end(); fit++)
+  //for(std::vector<Facet>::iterator fit = facets.begin(); fit != facets.end(); fit++)
+  for(int i=0 ; i<meix.Facets.size() ; i++)
   {
-    Facet f=*fit;
-    if(f.cx<xmin) xmin=f.cx;  if(f.cx>xmax) xmax=f.cx;
-    if(f.cy<ymin) ymin=f.cy;  if(f.cy>ymax) ymax=f.cy;
-    if(f.cz<zmin) zmin=f.cz;  if(f.cz>zmax) zmax=f.cz;
+    //Facet f=*fit;
+    // if(f.cx<xmin) xmin=f.cx;  if(f.cx>xmax) xmax=f.cx;
+    // if(f.cy<ymin) ymin=f.cy;  if(f.cy>ymax) ymax=f.cy;
+    // if(f.cz<zmin) zmin=f.cz;  if(f.cz>zmax) zmax=f.cz;
+    if(meix.Facets[i].C.x<xmin) xmin=meix.Facets[i].C.x;  if(meix.Facets[i].C.x>xmax) xmax=meix.Facets[i].C.x;
+    if(meix.Facets[i].C.y<ymin) ymin=meix.Facets[i].C.y;  if(meix.Facets[i].C.y>ymax) ymax=meix.Facets[i].C.y;
+    if(meix.Facets[i].C.z<zmin) zmin=meix.Facets[i].C.z;  if(meix.Facets[i].C.z>zmax) zmax=meix.Facets[i].C.z;
   }
   dx=xmax-xmin;
   float dy=ymax-ymin;
@@ -338,22 +348,22 @@ int main(int argc, char const *argv[])
   //effective surface occupied by one cell will be the one of an hexagon with
   //apothem equal to the cell radius
 
-  float cell_radius=stof(argv[4]);
+  float cell_radius=std::stof(argv[4]);
   float cell_S=cell_radius*cell_radius*6.f/sqrt(3.f); //regular hexagon formula
   float cell_density=1.f/cell_S;
 
   //calculate whole Surface area of meix
-  int dummy;
-  float meix_S=meix_get_surfarea(facets,cell_density,dummy);
+  //int dummy;
+  //float meix_S=meix_get_surfarea(meix.Facets,cell_density,dummy);
   //int n_bolls=dummy;
-  int n_bolls=std::round(cell_density*meix_S);
+  int n_bolls=std::round(cell_density*meix.SurfArea);
 
-  std::cout<<"nbolls= "<<n_bolls<<" cell_density= "<<cell_density<<" meix_S= "<<meix_S<<std::endl;
+  std::cout<<"nbolls= "<<n_bolls<<" cell_density= "<<cell_density<<" meix_S= "<<meix.SurfArea<<std::endl;
 
   Solution<Cell, n_max, Lattice_solver> bolls(n_bolls);
 
   //seed the cells onto the meix
-  seed_epithelium_on_meix_v2(facets, bolls, cell_density);
+  seed_epithelium_on_meix_v2(meix, bolls, cell_density);
 
   Property<n_max, Cell_types> type;
   cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
@@ -407,7 +417,7 @@ for (auto time_step = 0; time_step <= relax_time; time_step++)
 
 
   //write down the meix in the vtk file to compare it with the posterior seeding
-  write_meix_vtk(facets,output_tag);
+  write_meix_vtk(meix,output_tag);
 
 
   //Translocation and rotation of the mesh, if convenient?
@@ -545,17 +555,17 @@ for (auto time_step = 0; time_step <= relax_time; time_step++)
 
   //For testing purposes, I want to see the mesh along with the cells, so I will put an epithelial cell at the centre
   //of every facet, just to see where the limits of the mesh are.
-  Solution<Cell, n_max, Lattice_solver> meix(facets.size());
+  //Solution<Cell, n_max, Lattice_solver> meix(facets.size());
 
-  fill_solver_from_meix(facets,meix);
+  //fill_solver_from_meix(facets,meix);
 
-  std::stringstream ss;
-  ss << argv[1] << ".centre_meix" ;
-  std::string meix_out = ss.str();
+  //std::stringstream ss;
+  //ss << argv[1] << ".centre_meix" ;
+  //std::string meix_out = ss.str();
 
-  Vtk_output output_meix(meix_out);
-  output_meix.write_positions(meix);
-  output_meix.write_polarity(meix);
+  //Vtk_output output_meix(meix_out);
+  //output_meix.write_positions(meix);
+  //output_meix.write_polarity(meix);
   //std::cout<<"meix size: number of facets: "<<facets.size()<<std::endl;
   //****************************************************************//
 
