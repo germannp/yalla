@@ -29,11 +29,16 @@ const char* square_of_four() {
     links.h_link[3].a = 3; links.h_link[3].b = 0;
     links.copy_to_device();
 
+    auto com_i = center_of_mass(bolls);
     for (auto i = 0; i < 500; i++) {
         bolls.take_step<no_pw_int>(0.1, forces);
     }
 
     bolls.copy_to_host();
+    auto com_f = center_of_mass(bolls);
+    MU_ASSERT("Momentum in square", MU_ISCLOSE(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in square", MU_ISCLOSE(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in square", MU_ISCLOSE(com_i.z, com_f.z));
 
     MU_ASSERT("Not close to each other in x", MU_ISCLOSE(bolls.h_X[0].x, bolls.h_X[1].x));
     MU_ASSERT("Not close to each other in y", MU_ISCLOSE(bolls.h_X[1].y, bolls.h_X[2].y));

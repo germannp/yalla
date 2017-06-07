@@ -67,6 +67,7 @@ const char* test_line_of_four() {
         bolls.h_X[i].phi = (i - 0.5)*M_PI/3;
     }
     bolls.copy_to_device();
+    auto com_i = center_of_mass(bolls);
     for (auto i = 0; i < 500; i++) {
         bolls.take_step<rigid_cubic_force>(0.5);
     }
@@ -89,6 +90,11 @@ const char* test_line_of_four() {
     MU_ASSERT("Cells not on line", MU_ISCLOSE(r_12.y, r_23.y));
     MU_ASSERT("Cells not on line", MU_ISCLOSE(r_01.z, r_12.z));
     MU_ASSERT("Cells not on line", MU_ISCLOSE(r_12.z, r_23.z));
+
+    auto com_f = center_of_mass(bolls);
+    MU_ASSERT("Momentum in line", MU_ISCLOSE(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in line", MU_ISCLOSE(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in line", MU_ISCLOSE(com_i.z, com_f.z));
 
     return NULL;
 }

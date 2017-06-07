@@ -49,6 +49,7 @@ __device__ float3 clipped_spring(float3 Xi, float3 r, float dist, int i, int j) 
 const char* test_n2n_tetrahedron() {
     Solution<float3, 4, N2n_solver> n2n;
     uniform_sphere(L_0, n2n);
+    auto com_i = center_of_mass(n2n);
     for (auto i = 0; i < 500; i++) {
         n2n.take_step<clipped_spring>(0.1);
     }
@@ -60,12 +61,18 @@ const char* test_n2n_tetrahedron() {
         MU_ASSERT("Spring not relaxed in n2n tetrahedron", MU_ISCLOSE(dist, L_0));
     }
 
+    auto com_f = center_of_mass(n2n);
+    MU_ASSERT("Momentum in n2n tetrahedron", MU_ISCLOSE(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in n2n tetrahedron", MU_ISCLOSE(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in n2n tetrahedron", MU_ISCLOSE(com_i.z, com_f.z));
+
     return NULL;
 }
 
 const char* test_latt_tetrahedron() {
     Solution<float3, 4, Lattice_solver> latt;
     uniform_sphere(L_0, latt);
+    auto com_i = center_of_mass(latt);
     for (auto i = 0; i < 500; i++) {
         latt.take_step<clipped_spring>(0.1);
     }
@@ -77,6 +84,11 @@ const char* test_latt_tetrahedron() {
         auto dist = sqrtf(r.x*r.x + r.y*r.y + r.z*r.z);
         MU_ASSERT("Spring not relaxed in lattice tetrahedron", MU_ISCLOSE(dist, L_0));
     }
+
+    auto com_f = center_of_mass(latt);
+    MU_ASSERT("Momentum in lattice tetrahedron", MU_ISCLOSE(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in lattice tetrahedron", MU_ISCLOSE(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in lattice tetrahedron", MU_ISCLOSE(com_i.z, com_f.z));
 
     return NULL;
 }
@@ -124,10 +136,16 @@ const char* test_generic_forces() {
     n2n.h_X[0] = float3{0, 0, 10};
     n2n.h_X[1] = float3{0, 0, 0};
     n2n.copy_to_device();
+    auto com_i = center_of_mass(n2n);
     n2n.take_step<clipped_spring>(1, push);
 
     n2n.copy_to_host();
-    MU_ASSERT("N2n Generic force failed in x", MU_ISCLOSE(n2n.h_X[1].x, 1));
+    auto com_f = center_of_mass(n2n);
+    MU_ASSERT("Momentum in n2n generic force", MU_ISCLOSE(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in n2n generic force", MU_ISCLOSE(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in n2n generic force", MU_ISCLOSE(com_i.z, com_f.z));
+
+    MU_ASSERT("N2n Generic force failed in x", MU_ISCLOSE(n2n.h_X[1].x, 0.5));
     MU_ASSERT("N2n Generic force failed in y", MU_ISCLOSE(n2n.h_X[1].y, 0));
     MU_ASSERT("N2n Generic force failed in z", MU_ISCLOSE(n2n.h_X[1].z, 0));
 
@@ -135,10 +153,16 @@ const char* test_generic_forces() {
     latt.h_X[0] = float3{0, 0, 10};
     latt.h_X[1] = float3{0, 0, 0};
     latt.copy_to_device();
+    com_i = center_of_mass(latt);
     latt.take_step<clipped_spring>(1, push);
 
     latt.copy_to_host();
-    MU_ASSERT("Lattice Generic force failed in x", MU_ISCLOSE(latt.h_X[1].x, 1));
+    com_f = center_of_mass(latt);
+    MU_ASSERT("Momentum in lattice generic force", MU_ISCLOSE(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in lattice generic force", MU_ISCLOSE(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in lattice generic force", MU_ISCLOSE(com_i.z, com_f.z));
+
+    MU_ASSERT("Lattice Generic force failed in x", MU_ISCLOSE(latt.h_X[1].x, 0.5));
     MU_ASSERT("Lattice Generic force failed in y", MU_ISCLOSE(latt.h_X[1].y, 0));
     MU_ASSERT("Lattice Generic force failed in z", MU_ISCLOSE(latt.h_X[1].z, 0));
 

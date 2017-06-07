@@ -5,6 +5,7 @@
 #include <functional>
 #include <thrust/fill.h>
 #include <thrust/sort.h>
+#include <thrust/reduce.h>
 #include <thrust/execution_policy.h>
 
 #include "cudebug.cuh"
@@ -60,38 +61,46 @@ public:
 
 // 2nd order solver for the equation v = F + <v(t - dt)> for x, y, and z (see
 // http://dx.doi.org/10.1007/s10237-014-0613-5) where <v> is the mean velocity
-// of the neighbours. The 0th boll is kept fixed. Solves dw/dt = F_w for other
-// variables in Pt.
-template<typename Pt> __global__ void euler_step(int n_cells, float dt,
-        const Pt* __restrict__ d_X0, Pt* d_X, Pt* d_dX) {
+// of the neighbours. The center of mass is kept fixed. Solves dw/dt = F_w for
+// other variables in Pt.
+template<typename Pt> __global__ void euler_step(const int n_cells, const float dt,
+        const Pt* __restrict__ d_X0, const Pt mean_dX, Pt* d_dX, Pt* d_X) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
+
+    d_dX[i].x -= mean_dX.x;
+    d_dX[i].y -= mean_dX.y;
+    d_dX[i].z -= mean_dX.z;
 
     D_ASSERT(d_dX[i].x == d_dX[i].x);  // For NaN f != f
     d_X[i] = d_X0[i] + d_dX[i]*dt;
 }
 
-template<typename Pt> __global__ void heun_step(int n_cells, float dt,
-        Pt* d_X, const Pt* __restrict__ d_dX, Pt* d_dX1, float3* d_old_v) {
+template<typename Pt> __global__ void heun_step(const int n_cells, const float dt,
+        const Pt* __restrict__ d_dX, const Pt mean_dX1, Pt* d_dX1, Pt* d_X, float3* d_old_v) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
+
+    d_dX1[i].x -= mean_dX1.x;
+    d_dX1[i].y -= mean_dX1.y;
+    d_dX1[i].z -= mean_dX1.z;
 
     D_ASSERT(d_dX1[i].x == d_dX1[i].x);
     d_X[i] += (d_dX[i] + d_dX1[i])*0.5*dt;
 
-    d_old_v[i].x = (d_dX[i].x + d_dX1[i].x)*0.5/1.0;
-    d_old_v[i].y = (d_dX[i].y + d_dX1[i].y)*0.5/1.0;
-    d_old_v[i].z = (d_dX[i].z + d_dX1[i].z)*0.5/1.0;
+    d_old_v[i].x = (d_dX[i].x + d_dX1[i].x)*0.5;
+    d_old_v[i].y = (d_dX[i].y + d_dX1[i].y)*0.5;
+    d_old_v[i].z = (d_dX[i].z + d_dX1[i].z)*0.5;
 }
 
-template<typename Pt> __global__ void add_rhs(int n_cells, Pt* d_dX,
-        const float3* __restrict__ d_sum_v, const int* __restrict__ d_nNBs) {
+template<typename Pt> __global__ void add_rhs(const int n_cells,
+        const float3* __restrict__ d_sum_v, const int* __restrict__ d_nNBs, Pt* d_dX) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if ((i == 0) or (i >= n_cells)) return;
+    if (i >= n_cells) return;
 
-    d_dX[i].x += d_sum_v[i].x/d_nNBs[i] - d_sum_v[0].x/d_nNBs[0] - d_dX[0].x;
-    d_dX[i].y += d_sum_v[i].y/d_nNBs[i] - d_sum_v[0].y/d_nNBs[0] - d_dX[0].y;
-    d_dX[i].z += d_sum_v[i].z/d_nNBs[i] - d_sum_v[0].z/d_nNBs[0] - d_dX[0].z;
+    d_dX[i].x += d_sum_v[i].x/d_nNBs[i];
+    d_dX[i].y += d_sum_v[i].y/d_nNBs[i];
+    d_dX[i].z += d_sum_v[i].z/d_nNBs[i];
 }
 
 
@@ -167,19 +176,18 @@ protected:
         thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
         compute_pwints<pw_int>(n, d_X, d_dX, d_old_v, d_sum_v, d_nNBs);
         gen_forces(d_X, d_dX);
-        add_rhs<<<(n + 32 - 1)/32, 32>>>(n, d_dX, d_sum_v, d_nNBs);  // ceil int div.
-        float3 h_zeros {0};
-        cudaMemcpy(d_dX, &h_zeros, sizeof(float3), cudaMemcpyHostToDevice);
-        euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_X1, d_dX);
+        add_rhs<<<(n + 32 - 1)/32, 32>>>(n, d_sum_v, d_nNBs, d_dX);  // ceil int div.
+        auto mean_dX = thrust::reduce(thrust::device, d_dX, d_dX + n, Pt {0})/n;
+        euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, mean_dX, d_dX, d_X1);
 
         // 2nd step
         thrust::fill(thrust::device, d_nNBs, d_nNBs + n, 0);
         thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
         compute_pwints<pw_int>(n, d_X1, d_dX1, d_old_v, d_sum_v, d_nNBs);
         gen_forces(d_X1, d_dX1);
-        add_rhs<<<(n + 32 - 1)/32, 32>>>(n, d_dX1, d_sum_v, d_nNBs);
-        cudaMemcpy(d_dX1, &h_zeros, sizeof(float3), cudaMemcpyHostToDevice);
-        heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, d_dX, d_dX1, d_old_v);
+        add_rhs<<<(n + 32 - 1)/32, 32>>>(n, d_sum_v, d_nNBs, d_dX1);
+        auto mean_dX1 = thrust::reduce(thrust::device, d_dX1, d_dX1 + n, Pt {0})/n;
+        heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_dX, mean_dX1, d_dX1, d_X, d_old_v);
     }
     // Compute pwints separately to allow inheritance of the rest
     template<Pairwise_interaction<Pt> pw_int>
