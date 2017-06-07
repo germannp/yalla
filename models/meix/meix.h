@@ -124,6 +124,7 @@ class Meix
   public:
     std::vector<Triangle>Facets;
     float SurfArea;
+    int n;
 
     Meix(std::string);
     void Rescale(float);

@@ -258,7 +258,10 @@ Meix::Meix(std::string file_name)
     Triangle f=*fit;
     Facets.push_back(f);
   }
+  
+  n=Facets.size();
   CalcSurfArea();
+
 
 }
 
@@ -281,7 +284,7 @@ void Meix::Rescale(float resc)
 void Meix::CalcSurfArea()
 {
   float global_S=0.f;
-  for (int i=0 ; i<Facets.size(); i++)
+  for (int i=0 ; i<n; i++)
   {
 
     Point V0(Facets[i].V0.x,Facets[i].V0.y,Facets[i].V0.z);
@@ -320,7 +323,7 @@ void Meix::InclusionTest(std::vector<Point>& points , int* inclusion, Point dire
     Point p_1=p_0+direction;
     Ray R(p_0, p_1);
     int intersection_count=0;
-    for (int j=0 ; j<Facets.size() ; j++)
+    for (int j=0 ; j<n ; j++)
     {
       Point * intersect=new Point(0.0f,0.0f,0.0f);
       int test=intersect3D_RayTriangle( R, Facets[j], intersect );

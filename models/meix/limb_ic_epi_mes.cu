@@ -89,7 +89,6 @@ void uniform_cubic_rectangle(float x0,float y0,float z0,float dx,float dy,float 
 void seed_epithelium_on_meix(Meix& meix, std::vector<Cell>& cells, float n_epi)
 {
 
-//std::cout<<"crash0.1"<<std::endl;
     int nF=meix.Facets.size();
     //std::cout<<"nF "<<nF<<std::endl;
     for(int i=0; i< n_epi; i++)
@@ -124,7 +123,7 @@ void seed_epithelium_on_meix(Meix& meix, std::vector<Cell>& cells, float n_epi)
         c.phi = phi;
         c.theta = theta;
         cells.push_back(c);
-//std::cout<<i<<" crash0.4 j= "<<j<<" c= "<<c<<" n= "<<n<<std::endl;
+
         bingo=true;
       }
     }
@@ -211,6 +210,30 @@ int main(int argc, char const *argv[])
 
   //First, load the mesh file so we can get the maximum dimensions of the system
   Meix meix(file_name);
+std::cout<<"crash0"<<std::endl;
+  //Mesh translation, we're gonna put its centre on the origin of coordinates
+  //first, calculate centroid of the mesh
+  Point centroid;
+  for (int i=0 ; i<meix.n ; i++)
+  {
+    centroid=centroid+meix.Facets[i].C;
+  }
+  centroid=centroid*(1.f/float(meix.n));
+  //translation
+  Point new_centroid;
+  for (int i=0 ; i<meix.n ; i++)
+  {
+    meix.Facets[i].V0=meix.Facets[i].V0-centroid;
+    meix.Facets[i].V1=meix.Facets[i].V1-centroid;
+    meix.Facets[i].V2=meix.Facets[i].V2-centroid;
+    meix.Facets[i].C=meix.Facets[i].C-centroid;
+    new_centroid=new_centroid+meix.Facets[i].C;
+  }
+
+  new_centroid=new_centroid*(1.f/float(meix.n));
+
+  std::cout<<"old centroid= "<<centroid.x<<" "<<centroid.y<<" "<<centroid.z<<std::endl;
+  std::cout<<"new centroid= "<<new_centroid.x<<" "<<new_centroid.y<<" "<<new_centroid.z<<std::endl;
 
   //Compute max length in X axis to know how much we need to rescale
   //**********************************************************************
@@ -289,33 +312,28 @@ int main(int argc, char const *argv[])
   std::cout<<"relax_time "<<relax_time<<" write interval "<< write_interval<<std::endl;
 
   Vtk_output cubic_output(cubic_out);
-  // std::cout<<"crash0"<<std::endl;
+
   for (auto time_step = 0; time_step <= relax_time; time_step++)
   {
-    // std::cout<<"crash1"<<std::endl;
     if(time_step%write_interval==0 || time_step==relax_time)
     {
-      // std::cout<<"crash2"<<std::endl;
       cube.copy_to_host();
     }
-// std::cout<<"crash3"<<std::endl;
+
     cube.build_lattice(r_max);
-// std::cout<<"crash4"<<std::endl;
+
     // thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_cube, 0);
 
     cube.take_step<relaxation_force>(dt);
-// std::cout<<"crash5"<<std::endl;
+
     //write the output
     if(time_step%write_interval==0 || time_step==relax_time)
     {
-      // std::cout<<"crash6"<<std::endl;
       cubic_output.write_positions(cube);
       cubic_output.write_polarity(cube);
-      // std::cout<<"crash7"<<std::endl;
     }
 
   }
-
 
   //Find the bolls that are inside the mesh and store their positions
   //METHOD: Shooting a ray from a ball and counting how many triangles intersects.
