@@ -52,7 +52,7 @@ int main(int argc, char const *argv[]) {
     Solution<float3, n_cells, Lattice_solver> bolls;
     uniform_sphere(r_min, bolls);
     Links<n_cells*prots_per_cell> protrusions;
-    auto intercalation = std::bind(linear_force<n_cells*prots_per_cell>, protrusions,
+    auto intercalation = std::bind(link_forces<n_cells*prots_per_cell>, protrusions,
         std::placeholders::_1, std::placeholders::_2);
 
     // Integrate cell positions

@@ -35,6 +35,31 @@ __device__ Po_cell lb_force(Po_cell Xi, Po_cell r, float dist, int i, int j) {
 }
 
 
+__device__ void protrusion_force(const Po_cell* __restrict__ d_X, const int a, const int b,
+        const float strength, Po_cell* d_dX) {
+    auto r = d_X[a] - d_X[b];
+    auto dist = norm3df(r.x, r.y, r.z);
+
+    atomicAdd(&d_dX[a].x, -strength*r.x/dist);
+    atomicAdd(&d_dX[a].y, -strength*r.y/dist);
+    atomicAdd(&d_dX[a].z, -strength*r.z/dist);
+    atomicAdd(&d_dX[b].x, strength*r.x/dist);
+    atomicAdd(&d_dX[b].y, strength*r.y/dist);
+    atomicAdd(&d_dX[b].z, strength*r.z/dist);
+
+    Polarity r_hat {acosf(-r.z/dist), atan2(-r.y, -r.x)};
+    auto Fa = pcp_force(d_X[a], r_hat);
+    atomicAdd(&d_dX[a].theta, strength*Fa.theta);
+    atomicAdd(&d_dX[a].phi, strength*Fa.phi);
+
+    // r_hat.theta = acosf(r.z/dist);
+    // r_hat.phi = atan2(r.y, r.x);
+    auto Fb = pcp_force(d_X[b], r_hat);
+    atomicAdd(&d_dX[b].theta, strength*Fb.theta);
+    atomicAdd(&d_dX[b].phi, strength*Fb.phi);
+}
+
+
 __global__ void update_protrusions(const Lattice<n_cells>* __restrict__ d_lattice,
         const Po_cell* __restrict d_X, Link* d_link, curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
@@ -79,14 +104,14 @@ int main(int argc, char const *argv[]) {
     Solution<Po_cell, n_cells, Lattice_solver> bolls;
     uniform_sphere(0.733333, bolls);
     for (auto i = 0; i < n_cells; i++) {
-        bolls.h_X[i].theta = M_PI/2;
-        auto phi = atan2(-bolls.h_X[i].y, -bolls.h_X[i].x);
-        bolls.h_X[i].phi = phi + M_PI/2;
+        bolls.h_X[i].y /= 3;
+        bolls.h_X[i].theta = acos(2.*rand()/(RAND_MAX + 1.) - 1.);
+        bolls.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
     }
     bolls.copy_to_device();
     Links<static_cast<int>(n_cells*prots_per_cell)> protrusions;
     auto intercalation = std::bind(
-        linear_force<static_cast<int>(n_cells*prots_per_cell), Po_cell>,
+        link_forces<static_cast<int>(n_cells*prots_per_cell), Po_cell, protrusion_force>,
         protrusions, std::placeholders::_1, std::placeholders::_2);
 
     // Simulate elongation

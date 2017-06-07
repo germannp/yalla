@@ -62,29 +62,40 @@ public:
 
 
 template<typename Pt>
-__global__ void link_force(const Pt* __restrict__ d_X, Pt* d_dX,
+using Link_force = void (const Pt* __restrict__ d_X, const int a, const int b,
+    const float strength, Pt* d_dX);
+
+template<typename Pt>
+__device__ void linear_force(const Pt* __restrict__ d_X, const int a, const int b,
+        const float strength, Pt* d_dX) {
+    auto r = d_X[a] - d_X[b];
+    auto dist = norm3df(r.x, r.y, r.z);
+
+    atomicAdd(&d_dX[a].x, -strength*r.x/dist);
+    atomicAdd(&d_dX[a].y, -strength*r.y/dist);
+    atomicAdd(&d_dX[a].z, -strength*r.z/dist);
+    atomicAdd(&d_dX[b].x, strength*r.x/dist);
+    atomicAdd(&d_dX[b].y, strength*r.y/dist);
+    atomicAdd(&d_dX[b].z, strength*r.z/dist);
+}
+
+template<typename Pt, Link_force<Pt> force>
+__global__ void link(const Pt* __restrict__ d_X, Pt* d_dX,
         const Link* __restrict__ d_link, int n_links, float strength) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_links) return;
 
-    auto j = d_link[i].a;
-    auto k = d_link[i].b;
-    if (j == k) return;
+    auto a = d_link[i].a;
+    auto b = d_link[i].b;
+    if (a == b) return;
 
-    auto r = d_X[j] - d_X[k];
-    auto dist = norm3df(r.x, r.y, r.z);
-    atomicAdd(&d_dX[j].x, -strength*r.x/dist);
-    atomicAdd(&d_dX[j].y, -strength*r.y/dist);
-    atomicAdd(&d_dX[j].z, -strength*r.z/dist);
-    atomicAdd(&d_dX[k].x, strength*r.x/dist);
-    atomicAdd(&d_dX[k].y, strength*r.y/dist);
-    atomicAdd(&d_dX[k].z, strength*r.z/dist);
+    force(d_X, a, b, strength, d_dX);
 }
 
 // Passing pointers to non-static members needs some std::bind (or std::mem_func),
 // see http://stackoverflow.com/questions/37924781/. I prefer binding a seperate function.
-template<int n_links, typename Pt = float3>
-void linear_force(Links<n_links>& links, const Pt* __restrict__ d_X, Pt* d_dX) {
-    link_force<<<(links.get_d_n() + 32 - 1)/32, 32>>>(d_X, d_dX, links.d_link,
-        links.get_d_n(), links.strength);
+template<int n_links, typename Pt = float3, Link_force<Pt> force = linear_force<Pt>>
+void link_forces(Links<n_links>& links, const Pt* __restrict__ d_X, Pt* d_dX) {
+    link<Pt, force><<<(links.get_d_n() + 32 - 1)/32, 32>>>(
+        d_X, d_dX, links.d_link, links.get_d_n(), links.strength);
 }

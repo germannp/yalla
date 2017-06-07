@@ -161,7 +161,7 @@ int main(int argc, char const *argv[]) {
     Links<static_cast<int>(n_max*prots_per_cell)> protrusions(protrusion_strength,
         n_0*prots_per_cell);
     auto intercalation = std::bind(
-        linear_force<static_cast<int>(n_max*prots_per_cell), Lb_cell>,
+        link_forces<static_cast<int>(n_max*prots_per_cell), Lb_cell>,
         protrusions, std::placeholders::_1, std::placeholders::_2);
 
     // Relax
