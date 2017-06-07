@@ -21,7 +21,7 @@ const auto r_min=0.6;
 
 const auto dt = 0.05*r_min*r_min;
 
-const auto n_0 = 1000;
+//const auto n_0 = 1000;
 const auto n_max = 65000;
 
 enum Cell_types {mesenchyme, epithelium};
@@ -156,7 +156,7 @@ void epithelium_mesenchyme_assembly(std::vector<Point>& mes_cells, std::vector<C
     bolls.h_X[n_mes+i].z = epi_cells[i].z;
     bolls.h_X[n_mes+i].theta = epi_cells[i].theta;
     bolls.h_X[n_mes+i].phi = epi_cells[i].phi;
-    type.h_prop[i]=epithelium;
+    type.h_prop[n_mes+i]=epithelium;
   }
 
   bolls.copy_to_device();
