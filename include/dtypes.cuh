@@ -4,6 +4,8 @@
 #include <type_traits>
 
 
+template<typename Pt> struct Is_vector: public std::false_type {};
+
 // float3
 __device__ __host__ float3 operator+=(float3& a, const float3& b) {
     a.x += b.x; a.y += b.y; a.z += b.z;
@@ -15,6 +17,8 @@ __device__ __host__ float3 operator*=(float3& a, const float b) {
     return a;
 }
 
+template<> struct Is_vector<float3>: public std::true_type {};
+
 // float4
 __device__ __host__ float4 operator+=(float4& a, const float4& b) {
     a.x += b.x; a.y += b.y; a.z += b.z; a.w += b.w;
@@ -25,6 +29,8 @@ __device__ __host__ float4 operator*=(float4& a, const float b) {
     a.x *= b; a.y *= b; a.z *= b; a.w *= b;
     return a;
 }
+
+template<> struct Is_vector<float4>: public std::true_type {};
 
 
 // MAKE_PT(Pt, ...) makes data type Pt with x, y, z, and __VA_ARGS__ as members
@@ -44,7 +50,9 @@ struct Pt { \
         MAP(COMP_WISE_MULTIPLY, x, y, z, __VA_ARGS__) \
         return a; \
     } \
-}
+}; \
+\
+template<> struct Is_vector<Pt>: public std::true_type {} \
 
 // ... where MAP(MACRO, ...) maps MACRO onto __VA_ARGS__, inspired by
 // http://stackoverflow.com/questions/11761703/
@@ -70,7 +78,7 @@ MAKE_PT(Po_cell, theta, phi);
 
 // Generalize += and *= to +, -=, -, *, /= and /
 template<typename Pt> __device__ __host__
-typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+typename std::enable_if<Is_vector<Pt>::value, Pt>::type
 operator+(const Pt& a, const Pt& b) {
     auto sum = a;
     sum += b;
@@ -78,14 +86,14 @@ operator+(const Pt& a, const Pt& b) {
 }
 
 template<typename Pt> __device__ __host__
-typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+typename std::enable_if<Is_vector<Pt>::value, Pt>::type
 operator-=(Pt& a, const Pt& b) {
     a += -1*b;
     return a;
 }
 
 template<typename Pt> __device__ __host__
-typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+typename std::enable_if<Is_vector<Pt>::value, Pt>::type
 operator-(const Pt& a, const Pt& b) {
     auto diff = a;
     diff -= b;
@@ -93,13 +101,13 @@ operator-(const Pt& a, const Pt& b) {
 }
 
 template<typename Pt> __device__ __host__
-typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+typename std::enable_if<Is_vector<Pt>::value, Pt>::type
 operator-(const Pt& a) {
     return -1*a;
 }
 
 template<typename Pt> __device__ __host__
-typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+typename std::enable_if<Is_vector<Pt>::value, Pt>::type
 operator*(const Pt& a, const float b) {
     auto prod = a;
     prod *= b;
@@ -107,7 +115,7 @@ operator*(const Pt& a, const float b) {
 }
 
 template<typename Pt> __device__ __host__
-typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+typename std::enable_if<Is_vector<Pt>::value, Pt>::type
 operator*(const float b, const Pt& a) {
     auto prod = a;
     prod *= b;
@@ -115,14 +123,14 @@ operator*(const float b, const Pt& a) {
 }
 
 template<typename Pt> __device__ __host__
-typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+typename std::enable_if<Is_vector<Pt>::value, Pt>::type
 operator/=(Pt& a, const float b) {
     a *= 1./b;
     return a;
 }
 
 template<typename Pt> __device__ __host__
-typename std::enable_if<std::is_class<Pt>::value || std::is_enum<Pt>::value, Pt>::type
+typename std::enable_if<Is_vector<Pt>::value, Pt>::type
 operator/(const Pt& a, const float b) {
     auto quot = a;
     quot /= b;
