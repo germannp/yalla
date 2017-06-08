@@ -17,7 +17,7 @@
 #include "meix.h"
 
 const auto r_max=1.0;
-const auto r_min=0.6;
+const auto r_min=0.8;
 
 const auto dt = 0.05*r_min*r_min;
 
@@ -46,7 +46,8 @@ __device__ Cell relaxation_force(Cell Xi, Cell Xj, int i, int j) {
     auto dist = norm3df(r.x, r.y, r.z);
     if (dist > r_max) return dF;
 
-    auto F = 2*(r_min - dist)*(r_max - dist) + powf(r_max - dist, 2);
+    //auto F = 2*(r_min - dist)*(r_max - dist) + powf(r_max - dist, 2);
+    auto F = 2.f*(r_min - dist);
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
@@ -362,7 +363,7 @@ int main(int argc, char const *argv[])
   std::vector<Cell> epi_cells;
 
   //seed the cells onto the meix
-  seed_epithelium_on_meix(meix, epi_cells,n_bolls_epi);
+  seed_epithelium_on_meix(meix, epi_cells, n_bolls_epi);
 
   int n_bolls_total=n_bolls_mes+n_bolls_epi;
   Solution<Cell, n_max, Lattice_solver> bolls(n_bolls_total);
@@ -387,7 +388,7 @@ int main(int argc, char const *argv[])
 Vtk_output output(output_tag);
 
 relax_time=std::stoi(argv[6]);
-write_interval=relax_time/10;
+write_interval=1;//relax_time/10;
 
 for (auto time_step = 0; time_step <= relax_time; time_step++)
 {
