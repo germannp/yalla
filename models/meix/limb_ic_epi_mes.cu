@@ -22,15 +22,13 @@ const auto r_min=0.6;
 const auto dt = 0.05*r_min*r_min;
 
 //const auto n_0 = 1000;
-const auto n_max = 65000;
+const auto n_max = 150000;
 
 enum Cell_types {mesenchyme, epithelium};
 
 __device__ Cell_types* d_type;
  // __device__ int* d_mes_nbs;  // number of mesenchymal neighbours
  // __device__ int* d_epi_nbs;
-
-//__device__ Cell_types* d_cube_type;
 
 
 MAKE_PT(Cell, x, y, z, theta, phi);
@@ -72,7 +70,7 @@ void uniform_cubic_rectangle(float x0,float y0,float z0,float dx,float dy,float 
     assert(n_0 < *bolls.h_n);
 
     for (auto i = n_0; i < *bolls.h_n; i++) {
-      //std::cout<<"crash5.1.3 "<< i<<std::endl;
+
         bolls.h_X[i].x = x0+dx*(rand()/(RAND_MAX+1.));
         bolls.h_X[i].y = y0+dy*(rand()/(RAND_MAX+1.));
         bolls.h_X[i].z = z0+dz*(rand()/(RAND_MAX+1.));
@@ -163,37 +161,6 @@ void epithelium_mesenchyme_assembly(std::vector<Point>& mes_cells, std::vector<C
 
 }
 
-//writes the whole meix data structure as a vtk file
-void write_meix_vtk (Meix meix, std::string output_tag)
-{
-  std::string filename="output/"+output_tag+".meix.vtk";
-  std::ofstream meix_file(filename);
-  assert(meix_file.is_open());
-
-  int n=meix.Facets.size();
-
-  meix_file << "# vtk DataFile Version 3.0\n";
-  meix_file << output_tag+".meix" << "\n";
-  meix_file << "ASCII\n";
-  meix_file << "DATASET POLYDATA\n";
-
-  meix_file << "\nPOINTS " << 3*n << " float\n";
-  for (auto i = 0; i < n; i++)
-  {
-    meix_file <<meix.Facets[i].V0.x << " " << meix.Facets[i].V0.y << " " << meix.Facets[i].V0.z << "\n";
-    meix_file <<meix.Facets[i].V1.x << " " << meix.Facets[i].V1.y << " " << meix.Facets[i].V1.z << "\n";
-    meix_file <<meix.Facets[i].V2.x << " " << meix.Facets[i].V2.y << " " << meix.Facets[i].V2.z << "\n";
-  }
-
-  meix_file << "\nPOLYGONS " << n << " " << 4*n << "\n";
-  for (auto i = 0; i < 3*n; i+=3)
-  {
-    meix_file << "3 " << i <<" "<<i+1 <<" "<<i+2 << "\n";
-  }
-  meix_file.close();
-
-}
-
 int main(int argc, char const *argv[])
 {
 
@@ -210,7 +177,7 @@ int main(int argc, char const *argv[])
 
   //First, load the mesh file so we can get the maximum dimensions of the system
   Meix meix(file_name);
-std::cout<<"crash0"<<std::endl;
+
   //Mesh translation, we're gonna put its centre on the origin of coordinates
   //first, calculate centroid of the mesh
   Point centroid;
@@ -244,7 +211,7 @@ std::cout<<"crash0"<<std::endl;
   float ymin,ymax,zmin,zmax;
   float dx,dy,dz;
 
-  for(int i=0 ; i<meix.Facets.size() ; i++)
+  for(int i=0 ; i<meix.n ; i++)
   {
     if(meix.Facets[i].C.x<xmin) xmin=meix.Facets[i].C.x;  if(meix.Facets[i].C.x>xmax) xmax=meix.Facets[i].C.x;
   }
@@ -255,15 +222,21 @@ std::cout<<"crash0"<<std::endl;
   std::cout<<"xmax= "<<xmax<<" xmin= "<<xmin<<std::endl;
   std::cout<<"dx= "<<dx<<" target_dx= "<<target_dx<<" rescaling factor resc= "<<resc<<std::endl;
 
-  meix.Rescale(resc);
+  //meix is the reference shape, and will be used to seed the epithelium
+  meix.Rescale_relative(resc);
+  //meix_mesench will be transformed from the main meix (rescaled), and will be
+  //used to fill with mesenchyme
+  Meix meix_mesench=meix;
+  //meix_mesench.Rescale_absolute(-0.4f);
+  meix_mesench.Rescale_relative(0.9f);
 
   //Compute min. and max, positions in x,y,z from rescaled mesh
   xmin=10000.0f;xmax=-10000.0f;ymin=10000.0f;ymax=-10000.0f;zmin=10000.0f;zmax=-10000.0f;
-  for(int i=0 ; i<meix.Facets.size() ; i++)
+  for(int i=0 ; i<meix_mesench.n ; i++)
   {
-    if(meix.Facets[i].C.x<xmin) xmin=meix.Facets[i].C.x;  if(meix.Facets[i].C.x>xmax) xmax=meix.Facets[i].C.x;
-    if(meix.Facets[i].C.y<ymin) ymin=meix.Facets[i].C.y;  if(meix.Facets[i].C.y>ymax) ymax=meix.Facets[i].C.y;
-    if(meix.Facets[i].C.z<zmin) zmin=meix.Facets[i].C.z;  if(meix.Facets[i].C.z>zmax) zmax=meix.Facets[i].C.z;
+    if(meix_mesench.Facets[i].C.x<xmin) xmin=meix_mesench.Facets[i].C.x;  if(meix_mesench.Facets[i].C.x>xmax) xmax=meix_mesench.Facets[i].C.x;
+    if(meix_mesench.Facets[i].C.y<ymin) ymin=meix_mesench.Facets[i].C.y;  if(meix_mesench.Facets[i].C.y>ymax) ymax=meix_mesench.Facets[i].C.y;
+    if(meix_mesench.Facets[i].C.z<zmin) zmin=meix_mesench.Facets[i].C.z;  if(meix_mesench.Facets[i].C.z>zmax) zmax=meix_mesench.Facets[i].C.z;
   }
   dx=xmax-xmin;
   dy=ymax-ymin;
@@ -350,9 +323,9 @@ std::cout<<"crash0"<<std::endl;
   //Setup the list of inclusion test results
   int* results=new int[n_bolls_cube];
   //Set direction of ray
-  Point dir=Point(1.0f,0.0f,0.0f);
+  Point dir=Point(0.0f,1.0f,0.0f);
 
-  meix.InclusionTest(points , results, dir);
+  meix_mesench.InclusionTest(points , results, dir);
 
   //Make a new list with the ones that are inside
   std::vector<Point> mes_cells;
@@ -440,7 +413,9 @@ for (auto time_step = 0; time_step <= relax_time; time_step++)
 }
 
   //write down the meix in the vtk file to compare it with the posterior seeding
-  write_meix_vtk(meix,output_tag);
+  meix.WriteVtk(output_tag);
+  //write down the mesenchymal mesh in the vtk file to compare it with the posterior filling
+  meix_mesench.WriteVtk(output_tag+"mesench");
 
   return 0;
 }

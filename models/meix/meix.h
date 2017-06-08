@@ -127,9 +127,11 @@ class Meix
     int n;
 
     Meix(std::string);
-    void Rescale(float);
+    void Rescale_relative(float);
+    void Rescale_absolute(float);
     void CalcSurfArea();
     void InclusionTest(std::vector<Point>& , int* , Point);
+    void WriteVtk(std::string);
 
     ~Meix();
 };

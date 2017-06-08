@@ -2,6 +2,7 @@
 #include <list>
 #include <vector>
 #include <string>
+#include <cassert>
 #include "meix.h"
 #include "strtk.hpp"   // http://www.partow.net/programming/strtk
 
@@ -258,7 +259,7 @@ Meix::Meix(std::string file_name)
     Triangle f=*fit;
     Facets.push_back(f);
   }
-  
+
   n=Facets.size();
   CalcSurfArea();
 
@@ -267,7 +268,7 @@ Meix::Meix(std::string file_name)
 
 //*******************************************************************************************************
 
-void Meix::Rescale(float resc)
+void Meix::Rescale_relative(float resc)
 {
   for (int i=0 ; i<Facets.size(); i++)
   {
@@ -278,6 +279,39 @@ void Meix::Rescale(float resc)
   }
   CalcSurfArea();
 }
+
+//*******************************************************************************************************
+
+void Meix::Rescale_absolute(float l)
+{
+  Point r;
+  float d,resc;
+  for (int i=0 ; i<Facets.size() ; i++)
+  {
+    //V0
+    r=Facets[i].V0;
+    d=sqrt(r.x*r.x + r.y*r.y + r.z*r.z);
+    resc=(d+l)/d;
+    Facets[i].V0=Facets[i].V0*resc;
+    //V1
+    r=Facets[i].V1;
+    d=sqrt(r.x*r.x + r.y*r.y + r.z*r.z);
+    resc=(d+l)/d;
+    Facets[i].V1=Facets[i].V1*resc;
+    //V2
+    r=Facets[i].V2;
+    d=sqrt(r.x*r.x + r.y*r.y + r.z*r.z);
+    resc=(d+l)/d;
+    Facets[i].V2=Facets[i].V2*resc;
+    //C
+    r=Facets[i].C;
+    d=sqrt(r.x*r.x + r.y*r.y + r.z*r.z);
+    resc=(d+l)/d;
+    Facets[i].C=Facets[i].C*resc;
+  }
+  CalcSurfArea();
+}
+
 
 //********************************************************************************************************
 
@@ -339,6 +373,37 @@ void Meix::InclusionTest(std::vector<Point>& points , int* inclusion, Point dire
     }
     //std::cout<<"i "<<i<<" inclusion "<<inclusion[i]<<endl;
   }
+
+}
+
+//**********************************************************************************
+
+//writes the whole meix data structure as a vtk file
+void Meix::WriteVtk (std::string output_tag)
+{
+  std::string filename="output/"+output_tag+".meix.vtk";
+  std::ofstream meix_file(filename);
+  assert(meix_file.is_open());
+
+  meix_file << "# vtk DataFile Version 3.0\n";
+  meix_file << output_tag+".meix" << "\n";
+  meix_file << "ASCII\n";
+  meix_file << "DATASET POLYDATA\n";
+
+  meix_file << "\nPOINTS " << 3*n << " float\n";
+  for (auto i = 0; i < n; i++)
+  {
+    meix_file <<Facets[i].V0.x << " " << Facets[i].V0.y << " " << Facets[i].V0.z << "\n";
+    meix_file <<Facets[i].V1.x << " " << Facets[i].V1.y << " " << Facets[i].V1.z << "\n";
+    meix_file <<Facets[i].V2.x << " " << Facets[i].V2.y << " " << Facets[i].V2.z << "\n";
+  }
+
+  meix_file << "\nPOLYGONS " << n << " " << 4*n << "\n";
+  for (auto i = 0; i < 3*n; i+=3)
+  {
+    meix_file << "3 " << i <<" "<<i+1 <<" "<<i+2 << "\n";
+  }
+  meix_file.close();
 
 }
 
