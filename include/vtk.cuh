@@ -173,6 +173,7 @@ void Vtk_output::write_property(Property<n_max, Prop>& property) {
 }
 
 
+// Files have to be read in the same order as they have been written.
 class Vtk_input {
 public:
     Vtk_input(std::string filename);
