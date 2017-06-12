@@ -4,22 +4,19 @@
 #include "minunit.cuh"
 
 
-MAKE_PT(descht, x);
-
-__device__ descht oscillator(descht Xi, descht Xj, int i, int j) {
-    descht dF {0};
+__device__ float4 oscillator(float4 Xi, float4 r, float dist, int i, int j) {
+    float4 dF {0};
     if (i == j) return dF;
 
-    if (i == 0) return Xj;
+    if (i == 0) return Xi - r;
 
-    return -Xj;
+    return - (Xi - r);
 }
 
-Solution<descht, 2, N2n_solver> oscillation;
-
 const char* test_oscillation() {
-    oscillation.h_X[0].x = 1;
-    oscillation.h_X[1].x = 0;
+    Solution<float4, 2, N2n_solver> oscillation;
+    oscillation.h_X[0].w = 1;
+    oscillation.h_X[1].w = 0;
     oscillation.copy_to_device();
 
     auto n_steps = 100;
@@ -27,40 +24,34 @@ const char* test_oscillation() {
         oscillation.take_step<oscillator>(2*M_PI/n_steps);
         oscillation.copy_to_host();
         MU_ASSERT("Oscillator off circle", MU_ISCLOSE(
-            powf(oscillation.h_X[0].x, 2) + powf(oscillation.h_X[1].x, 2), 1));
+            powf(oscillation.h_X[0].w, 2) + powf(oscillation.h_X[1].w, 2), 1));
     }
     oscillation.copy_to_host();
-    MU_ASSERT("Oscillator final cosine", MU_ISCLOSE(oscillation.h_X[0].x, 1));
+    MU_ASSERT("Oscillator final cosine", MU_ISCLOSE(oscillation.h_X[0].w, 1));
     // The sine is substantially less precise ;-)
 
     return NULL;
 }
 
 
-const auto n_max = 1000;
 const auto L_0 = 0.5;
 
-__device__ float3 spring_force(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 clipped_spring(float3 Xi, float3 r, float dist, int i, int j) {
     float3 dF {0};
     if (i == j) return dF;
 
-    auto r = Xi - Xj;
-    auto dist = norm3df(r.x, r.y, r.z);
-    if (dist > 1) return dF;
+    if (dist >= 1) return dF;
 
     dF = r*(L_0 - dist)/dist;
     return dF;
 }
 
-Solution<float3, n_max, N2n_solver> n2n;
-Solution<float3, n_max, Lattice_solver> latt;
-
 const char* test_n2n_tetrahedron() {
-    *n2n.h_n = 4;
+    Solution<float3, 4, N2n_solver> n2n;
     uniform_sphere(L_0, n2n);
     auto com_i = center_of_mass(n2n);
     for (auto i = 0; i < 500; i++) {
-        n2n.take_step<spring_force>(0.1);
+        n2n.take_step<clipped_spring>(0.1);
     }
 
     n2n.copy_to_host();
@@ -79,11 +70,11 @@ const char* test_n2n_tetrahedron() {
 }
 
 const char* test_latt_tetrahedron() {
-    *latt.h_n = 4;
+    Solution<float3, 4, Lattice_solver> latt;
     uniform_sphere(L_0, latt);
     auto com_i = center_of_mass(latt);
     for (auto i = 0; i < 500; i++) {
-        latt.take_step<spring_force>(0.1);
+        latt.take_step<clipped_spring>(0.1);
     }
 
     latt.copy_to_host();
@@ -102,9 +93,11 @@ const char* test_latt_tetrahedron() {
     return NULL;
 }
 
+const auto n_max = 50;
+
 const char* test_compare_methods() {
-    *n2n.h_n = n_max;
-    *latt.h_n = n_max;
+    Solution<float3, n_max, N2n_solver> n2n;
+    Solution<float3, n_max, Lattice_solver> latt;
     uniform_sphere(0.733333, n2n);
     for (auto i = 0; i < n_max; i++) {
         latt.h_X[i].x = n2n.h_X[i].x;
@@ -112,8 +105,8 @@ const char* test_compare_methods() {
         latt.h_X[i].z = n2n.h_X[i].z;
     }
     latt.copy_to_device();
-    n2n.take_step<spring_force>(0.5);
-    latt.take_step<spring_force>(0.5);
+    n2n.take_step<clipped_spring>(0.5);
+    latt.take_step<clipped_spring>(0.5);
 
     n2n.copy_to_host();
     latt.copy_to_host();
@@ -127,35 +120,51 @@ const char* test_compare_methods() {
 }
 
 
-__global__ void push(float3* d_dX) {
+__global__ void push_cell(float3* d_dX) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= 1) return;
+    if (i != 0) return;
 
-    d_dX[0] = float3{1, 0, 0};
+    d_dX[1] = float3{1, 0, 0};
 }
 
-void push_genforce(const float3* __restrict__ d_X, float3* d_dX) {
-    push<<<1, 1>>>(d_dX);
+void push(const float3* __restrict__ d_X, float3* d_dX) {
+    push_cell<<<1, 1>>>(d_dX);
 }
 
 const char* test_generic_forces() {
-    n2n.h_X[0] = float3{0, 0, 0};
+    Solution<float3, 2, N2n_solver> n2n;
+    n2n.h_X[0] = float3{0, 0, 10};
+    n2n.h_X[1] = float3{0, 0, 0};
     n2n.copy_to_device();
-    n2n.take_step<spring_force>(1, push_genforce);
+    auto com_i = center_of_mass(n2n);
+    n2n.take_step<clipped_spring>(1, push);
 
     n2n.copy_to_host();
-    MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n.h_X[0].x, 1));
-    MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n.h_X[0].y, 0));
-    MU_ASSERT("N2n Generic force failed", MU_ISCLOSE(n2n.h_X[0].z, 0));
+    auto com_f = center_of_mass(n2n);
+    MU_ASSERT("Momentum in n2n generic force", MU_ISCLOSE(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in n2n generic force", MU_ISCLOSE(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in n2n generic force", MU_ISCLOSE(com_i.z, com_f.z));
 
-    latt.h_X[0] = float3{0, 0, 0};
+    MU_ASSERT("N2n Generic force failed in x", MU_ISCLOSE(n2n.h_X[1].x, 0.5));
+    MU_ASSERT("N2n Generic force failed in y", MU_ISCLOSE(n2n.h_X[1].y, 0));
+    MU_ASSERT("N2n Generic force failed in z", MU_ISCLOSE(n2n.h_X[1].z, 0));
+
+    Solution<float3, 2, Lattice_solver> latt;
+    latt.h_X[0] = float3{0, 0, 10};
+    latt.h_X[1] = float3{0, 0, 0};
     latt.copy_to_device();
-    latt.take_step<spring_force>(1, push_genforce);
+    com_i = center_of_mass(latt);
+    latt.take_step<clipped_spring>(1, push);
 
     latt.copy_to_host();
-    MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt.h_X[0].x, 1));
-    MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt.h_X[0].y, 0));
-    MU_ASSERT("Lattice Generic force failed", MU_ISCLOSE(latt.h_X[0].z, 0));
+    com_f = center_of_mass(latt);
+    MU_ASSERT("Momentum in lattice generic force", MU_ISCLOSE(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in lattice generic force", MU_ISCLOSE(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in lattice generic force", MU_ISCLOSE(com_i.z, com_f.z));
+
+    MU_ASSERT("Lattice Generic force failed in x", MU_ISCLOSE(latt.h_X[1].x, 0.5));
+    MU_ASSERT("Lattice Generic force failed in y", MU_ISCLOSE(latt.h_X[1].y, 0));
+    MU_ASSERT("Lattice Generic force failed in z", MU_ISCLOSE(latt.h_X[1].z, 0));
 
     return NULL;
 }
@@ -181,6 +190,7 @@ __global__ void double_lattice(const Lattice<n_max>* __restrict__ d_lattice) {
 }
 
 const char* test_lattice_spacing() {
+    Solution<float3, 1000, Lattice_solver> latt;
     for (auto i = 0; i < 10; i++) {
         for (auto j = 0; j < 10; j++) {
             for (auto k = 0; k < 10; k++) {

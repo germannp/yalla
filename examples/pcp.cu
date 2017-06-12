@@ -13,15 +13,13 @@ const auto n_cells = 500;
 const auto n_time_steps = 300;
 const auto dt = 0.025;
 
-MAKE_PT(Po_cell4, x, y, z, w, theta, phi);
+MAKE_PT(Po_cell4, w, theta, phi);
 
 
-__device__ Po_cell4 biased_pcp(Po_cell4 Xi, Po_cell4 Xj, int i, int j) {
+__device__ Po_cell4 biased_pcp(Po_cell4 Xi, Po_cell4 r, float dist, int i, int j) {
     Po_cell4 dF {0};
     if (i == j) return dF;
 
-    auto r = Xi - Xj;
-    auto dist = norm3df(r.x, r.y, r.z);
     if (dist > r_max) return dF;
 
     auto F = 2*(r_min - dist)*(r_max - dist) + powf(r_max - dist, 2);
@@ -31,12 +29,12 @@ __device__ Po_cell4 biased_pcp(Po_cell4 Xi, Po_cell4 Xj, int i, int j) {
     dF.w = i == 0 ? 0 : -r.w*D;
 
     // U_PCP = - Σ(n_i . n_j)^2/2
-    dF += pcp_force(Xi, Xj);
+    dF += pcp_force(Xi, Xi - r);
     if (r.w > 0) return dF;
 
     // U_WNT = - ΣXj.w*(n_i . r_ij/r)^2/2 to bias along w
     Polarity rhat {acosf(-r.z/dist), atan2(-r.y, -r.x)};
-    dF += Xj.w*pcp_force(Xi, rhat);
+    dF += (Xi.w - r.w)*pcp_force(Xi, rhat);
     return dF;
 }
 

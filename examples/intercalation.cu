@@ -13,16 +13,14 @@ const auto r_max = 1.f;
 const auto r_min = 0.5f;
 const auto n_cells = 500u;
 const auto prots_per_cell = 1;
-const auto n_time_steps = 1000u;
+const auto n_time_steps = 250u;
 const auto dt = 0.2f;
 
 
-__device__ float3 clipped_cubic(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 clipped_cubic(float3 Xi, float3 r, float dist, int i, int j) {
     float3 dF {0};
     if (i == j) return dF;
 
-    auto r = Xi - Xj;
-    auto dist = norm3df(r.x, r.y, r.z);
     if (dist > r_max) return dF;
 
     auto F = 2*(r_min - dist)*(r_max - dist) + (r_max - dist)*(r_max - dist);
@@ -54,7 +52,7 @@ int main(int argc, char const *argv[]) {
     Solution<float3, n_cells, Lattice_solver> bolls;
     uniform_sphere(r_min, bolls);
     Links<n_cells*prots_per_cell> protrusions;
-    auto intercalation = std::bind(linear_force<n_cells*prots_per_cell>, protrusions,
+    auto intercalation = std::bind(link_forces<n_cells*prots_per_cell>, protrusions,
         std::placeholders::_1, std::placeholders::_2);
 
     // Integrate cell positions

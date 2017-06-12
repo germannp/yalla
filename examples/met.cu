@@ -14,12 +14,10 @@ const auto dt = 0.1;
 
 
 // Cubic potential plus k*(n_i . r_ij/r)^2/2 for all r_ij <= r_max
-__device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell Xj, int i, int j) {
+__device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell r, float dist, int i, int j) {
     Po_cell dF {0};
     if (i == j) return dF;
 
-    auto r = Xi - Xj;
-    auto dist = norm3df(r.x, r.y, r.z);
     if (dist > r_max) return dF;
 
     auto F = 2*(r_min - dist)*(r_max - dist) + powf(r_max - dist, 2);
@@ -27,7 +25,7 @@ __device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell Xj, int i, int j) {
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
 
-    dF += rigidity_force(Xi, Xj)*0.2;
+    dF += rigidity_force(Xi, r, dist)*0.2;
     return dF;
 }
 

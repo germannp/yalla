@@ -13,12 +13,10 @@ const auto n_time_steps = 300u;
 const auto dt = 0.05;
 
 
-__device__ float3 differential_adhesion(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 differential_adhesion(float3 Xi, float3 r, float dist, int i, int j) {
     float3 dF {0};
     if (i == j) return dF;
 
-    auto r = Xi - Xj;
-    auto dist = norm3df(r.x, r.y, r.z);
     if (dist > r_max) return dF;
 
     auto strength = (1 + 2*(j < n_cells/2))*(1 + 2*(i < n_cells/2));

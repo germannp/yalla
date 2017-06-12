@@ -6,7 +6,7 @@
 #include "minunit.cuh"
 
 
-__device__ float3 no_pw_int(float3 Xi, float3 Xj, int i, int j) {
+__device__ float3 no_pw_int(float3 Xi, float3 r, float dist, int i, int j) {
     float3 dF {0};
     return dF;
 }
@@ -15,7 +15,7 @@ __device__ float3 no_pw_int(float3 Xi, float3 Xj, int i, int j) {
 const char* square_of_four() {
     Solution<float3, 4, N2n_solver> bolls;
     Links<4> links;
-    auto forces = std::bind(linear_force<4>, links,
+    auto forces = std::bind(link_forces<4>, links,
         std::placeholders::_1, std::placeholders::_2);
 
     bolls.h_X[0].x = 1;  bolls.h_X[0].y = 1;  bolls.h_X[0].z = 0;
@@ -40,9 +40,9 @@ const char* square_of_four() {
     MU_ASSERT("Momentum in square", MU_ISCLOSE(com_i.y, com_f.y));
     MU_ASSERT("Momentum in square", MU_ISCLOSE(com_i.z, com_f.z));
 
-    MU_ASSERT("Not close to origin in x", MU_ISCLOSE(bolls.h_X[0].x, 0));
-    MU_ASSERT("Not close to origin in y", MU_ISCLOSE(bolls.h_X[0].y, 0));
-    MU_ASSERT("Not close to origin in z", MU_ISCLOSE(bolls.h_X[0].z, 0));
+    MU_ASSERT("Not close to each other in x", MU_ISCLOSE(bolls.h_X[0].x, bolls.h_X[1].x));
+    MU_ASSERT("Not close to each other in y", MU_ISCLOSE(bolls.h_X[1].y, bolls.h_X[2].y));
+    MU_ASSERT("Not close to each other in z", MU_ISCLOSE(bolls.h_X[2].z, bolls.h_X[3].z));
 
     return NULL;
 }

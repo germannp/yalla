@@ -26,19 +26,17 @@ const auto n_time_steps = 500;
 const auto dt = 0.2;
 enum Cell_types {mesoderm, mesenchyme, ectoderm, aer};
 
-MAKE_PT(Lb_cell, x, y, z, w, f, theta, phi);
+MAKE_PT(Lb_cell, w, f, theta, phi);
 
 
 __device__ Cell_types* d_type;
 __device__ int* d_mes_nbs;  // number of mesenchymal neighbours
 __device__ int* d_epi_nbs;
 
-__device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell Xj, int i, int j) {
+__device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
     Lb_cell dF {0};
     if (i == j) return dF;
 
-    auto r = Xi - Xj;
-    auto dist = norm3df(r.x, r.y, r.z);
     if (dist > r_max) return dF;
 
     float F;
@@ -55,7 +53,7 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell Xj, int i, int j) {
     else if (d_type[i] > mesenchyme and d_type[j] > mesenchyme) d_epi_nbs[i] += 1;
     else { d_mes_nbs[i] += 1; return dF; }
 
-    dF += rigidity_force(Xi, Xj)*0.2;
+    dF += rigidity_force(Xi, r, dist)*0.2;
     return dF;
 }
 
