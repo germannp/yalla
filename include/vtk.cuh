@@ -285,8 +285,7 @@ void Vtk_input::read_polarity(Solution<Pt, n_max, Solver>& bolls) {
         if(dist == 0) {
             bolls.h_X[i].phi = 0.0f;
             bolls.h_X[i].theta = 0.0f;
-        }
-        else {
+        } else {
             bolls.h_X[i].phi = atan2(y, x);
             bolls.h_X[i].theta = acos(z);  // The normals are unit vectors, so no need to divide by length
         }

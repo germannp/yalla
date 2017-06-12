@@ -71,12 +71,11 @@ __device__ Cell epi_turing_mes_noturing(Cell Xi, Cell r, float dist, int i, int 
 
     float r_max;
     float r_min;
-    if(d_type[i] == d_type[j]) {
+    if (d_type[i] == d_type[j]) {
         r_min=r_min_homotypic;
         if (d_type[i]==epithelium) r_max = r_max_epi;
         else r_max = r_max_mes;
-    }
-    else {
+    } else {
         r_min = r_min_heterotypic;
         r_max = r_max_mes;
     }
@@ -97,8 +96,7 @@ __device__ Cell epi_turing_mes_noturing(Cell Xi, Cell r, float dist, int i, int 
         if(-dF.v > Xi.v) dF.v=0.0f;
 
         dF += rigidity_force(Xi, r, dist)*0.2;
-    }
-    else {
+    } else {
         dF.v = -D_v*r.v;  // inhibitor diffuses towards the mesenchyme to induce proliferation
     }
 
