@@ -175,7 +175,7 @@ void Vtk_output::write_property(Property<n_max, Prop>& property) {
 
 class Vtk_input {
 public:
-    Vtk_input(std::string filename, int& n_bolls);
+    Vtk_input(std::string filename);
     template<typename Pt, int n_max, template<typename, int> class Solver>
     void read_positions(Solution<Pt, n_max, Solver>& bolls);
     // Read polarity of Pt, see polarity.cuh
@@ -184,9 +184,9 @@ public:
     // Read not integrated property, see property.cuh
     template<int n_max, typename Prop>
     void read_property(Property<n_max, Prop>& property);
+    int n_bolls;
 
 protected:
-    int n_bolls;
     std::streampos bookmark;
     std::string file_name;
 };
@@ -209,9 +209,8 @@ std::vector<std::string> split(const std::string &s, char delim) {
     return elems;
 }
 
-Vtk_input::Vtk_input(std::string s, int& n) {
-
-    file_name=s;
+Vtk_input::Vtk_input(std::string filename) {
+    file_name=filename;
 
     std::string line;
     std::ifstream input_file;
@@ -241,7 +240,6 @@ Vtk_input::Vtk_input(std::string s, int& n) {
     getline(input_file,line);
     split(line, ' ', std::back_inserter(items));
     n_bolls = stoi(items[1]);
-    n = n_bolls;
     items.clear();
 
     // Save the read position for later read functions
@@ -250,7 +248,6 @@ Vtk_input::Vtk_input(std::string s, int& n) {
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
 void Vtk_input::read_positions(Solution<Pt, n_max, Solver>& bolls) {
-
     std::ifstream input_file(file_name);
     assert(input_file.is_open());
 
@@ -280,7 +277,6 @@ void Vtk_input::read_positions(Solution<Pt, n_max, Solver>& bolls) {
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
 void Vtk_input::read_polarity(Solution<Pt, n_max, Solver>& bolls) {
-
     std::ifstream input_file(file_name);
     assert(input_file.is_open());
 

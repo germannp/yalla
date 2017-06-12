@@ -6,8 +6,7 @@
 
 
 Vtk_output output("test_vtk");
-int n;
-Vtk_input input("output/test_vtk_1.vtk", n);
+Vtk_input input("output/test_vtk_1.vtk");
 
 const char* test_solution_io() {
     const auto n_cells = 100;
