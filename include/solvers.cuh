@@ -72,7 +72,6 @@ template<typename Pt> __global__ void euler_step(const int n_cells, const float 
     d_dX[i].y -= mean_dX.y;
     d_dX[i].z -= mean_dX.z;
 
-    D_ASSERT(d_dX[i].x == d_dX[i].x);  // For NaN f != f
     d_X[i] = d_X0[i] + d_dX[i]*dt;
 }
 
@@ -85,7 +84,6 @@ template<typename Pt> __global__ void heun_step(const int n_cells, const float d
     d_dX1[i].y -= mean_dX1.y;
     d_dX1[i].z -= mean_dX1.z;
 
-    D_ASSERT(d_dX1[i].x == d_dX1[i].x);
     d_X[i] += (d_dX[i] + d_dX1[i])*0.5*dt;
 
     d_old_v[i].x = (d_dX[i].x + d_dX1[i].x)*0.5;
@@ -97,6 +95,9 @@ template<typename Pt> __global__ void add_rhs(const int n_cells,
         const float3* __restrict__ d_sum_v, const int* __restrict__ d_nNBs, Pt* d_dX) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
+
+    D_ASSERT(d_dX[i].x == d_dX[i].x);  // For NaN f != f
+    D_ASSERT(d_sum_v[i].x == d_sum_v[i].x);
 
     d_dX[i].x += d_sum_v[i].x/d_nNBs[i];
     d_dX[i].y += d_sum_v[i].y/d_nNBs[i];
