@@ -218,26 +218,7 @@ Vtk_input::Vtk_input(std::string filename) {
 
     input_file.open(file_name, std::fstream::in);
 
-    //Line 1
-    getline(input_file,line);
-    split(line, ' ', std::back_inserter(items));
-    items.clear();
-    //Line 2
-    getline(input_file,line);
-    split(line, ' ', std::back_inserter(items));
-    items.clear();
-    //Line 3
-    getline(input_file,line);
-    split(line, ' ', std::back_inserter(items));
-    items.clear();
-    //Line 4
-    getline(input_file,line);
-    split(line, ' ', std::back_inserter(items));
-    items.clear();
-    //Line 5
-    getline(input_file,line);
-    //Line 6
-    getline(input_file,line);
+    for (auto i = 0; i < 6; i++) getline(input_file,line);
     split(line, ' ', std::back_inserter(items));
     n_bolls = stoi(items[1]);
     items.clear();
@@ -272,7 +253,7 @@ void Vtk_input::read_positions(Solution<Pt, n_max, Solver>& bolls) {
     // Skip redundant list of vertices
     for (int i = 0; i < n_bolls; i++) getline(input_file, line);
 
-    bookmark=input_file.tellg();
+    bookmark = input_file.tellg();
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
@@ -310,7 +291,7 @@ void Vtk_input::read_polarity(Solution<Pt, n_max, Solver>& bolls) {
         }
     }
 
-    bookmark=input_file.tellg();
+    bookmark = input_file.tellg();
 }
 
 template<int n_max, typename Prop>
@@ -335,5 +316,5 @@ void Vtk_input::read_property(Property<n_max, Prop>& property) {
         std::istringstream (line) >> property.h_prop[i] ;
     }
 
-    bookmark=input_file.tellg();
+    bookmark = input_file.tellg();
 }
