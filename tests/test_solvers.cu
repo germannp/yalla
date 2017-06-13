@@ -120,6 +120,10 @@ const char* test_compare_methods() {
 }
 
 
+__device__ float3 no_pw_int(float3 Xi, float3 r, float dist, int i, int j) {
+    return float3 {0};
+}
+
 __global__ void push_cell(float3* d_dX) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i != 0) return;
@@ -137,7 +141,7 @@ const char* test_generic_forces() {
     n2n.h_X[1] = float3{0, 0, 0};
     n2n.copy_to_device();
     auto com_i = center_of_mass(n2n);
-    n2n.take_step<clipped_spring>(1, push);
+    n2n.take_step<no_pw_int>(1, push);
 
     n2n.copy_to_host();
     auto com_f = center_of_mass(n2n);
@@ -165,6 +169,31 @@ const char* test_generic_forces() {
     MU_ASSERT("Lattice Generic force failed in x", MU_ISCLOSE(latt.h_X[1].x, 0.5));
     MU_ASSERT("Lattice Generic force failed in y", MU_ISCLOSE(latt.h_X[1].y, 0));
     MU_ASSERT("Lattice Generic force failed in z", MU_ISCLOSE(latt.h_X[1].z, 0));
+
+    return NULL;
+}
+
+
+__device__ float global_friction(float3 Xi, float3 r, float dist, int i, int j) {
+    return 0;
+}
+
+const char* test_friction() {
+    Solution<float3, 2, Lattice_solver> bolls;
+
+    bolls.h_X[0] = float3{0,  0, 0};
+    bolls.h_X[1] = float3{.5, 0, 0};
+    bolls.copy_to_device();
+    for (auto i = 0; i < 10; i++) bolls.take_step<no_pw_int, global_friction>(0.05, push);
+    bolls.copy_to_host();
+    MU_ASSERT("Global friction", MU_ISCLOSE(bolls.h_X[1].x - bolls.h_X[0].x, 1));
+
+    bolls.h_X[0] = float3{0,  0, 0};
+    bolls.h_X[1] = float3{.5, 0, 0};
+    bolls.copy_to_device();
+    for (auto i = 0; i < 10; i++) bolls.take_step<no_pw_int>(0.05, push);
+    bolls.copy_to_host();
+    MU_ASSERT("Local friction", MU_ISCLOSE(bolls.h_X[1].x - bolls.h_X[0].x, 0.75));
 
     return NULL;
 }
@@ -219,6 +248,7 @@ const char* all_tests() {
     MU_RUN_TEST(test_latt_tetrahedron);
     MU_RUN_TEST(test_compare_methods);
     MU_RUN_TEST(test_generic_forces);
+    MU_RUN_TEST(test_friction);
     MU_RUN_TEST(test_lattice_spacing);
     return NULL;
 }
