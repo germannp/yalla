@@ -17,7 +17,7 @@
 template<typename Pt>
 using Pairwise_interaction = Pt (Pt Xi, Pt r, float dist, int i, int j);
 
-// Similarly a pairwise friction coefficient can be specified, see
+// Similarly, a pairwise friction coefficient can be specified, see
 // http://dx.doi.org/10.1007/s10237-014-0613-5. By default bolls closer
 // than 1 exert friction on each other.
 template<typename Pt>
