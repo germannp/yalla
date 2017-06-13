@@ -21,7 +21,7 @@ const char* test_solution_io() {
         bolls_to_write.h_X[i].theta = acos(2.*rand()/(RAND_MAX + 1.) - 1);
     }
 
-    output.write_positions(bolls_to_write);
+    output.write_positions(bolls_to_write); printf("\n\n");
     input.read_positions(bolls_to_read);
     output.write_polarity(bolls_to_write);
     input.read_polarity(bolls_to_read);
