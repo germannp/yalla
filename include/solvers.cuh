@@ -295,6 +295,7 @@ public:
     void build_lattice(float cube_size) {
         build_lattice(this->d_X, cube_size);
     }
+
 protected:
     Lattice_solver(): N2n_solver<Pt, n_max>() {
         cudaMalloc(&d_lattice, sizeof(Lattice<n_max>));
