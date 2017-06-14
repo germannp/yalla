@@ -135,6 +135,14 @@ int intersect3D_RayTriangle( Ray R, Triangle T, Point* I )
 
 //**************************************************************************
 
+Meix::Meix()
+{
+    SurfArea=0.f;
+    n=0;
+}
+
+//**************************************************************************
+
 Meix::Meix(std::string file_name)
 {
   SurfArea=0.f; //initialise
@@ -308,6 +316,13 @@ void Meix::Rescale_absolute(float l)
     d=sqrt(r.x*r.x + r.y*r.y + r.z*r.z);
     resc=(d+l)/d;
     Facets[i].C=Facets[i].C*resc;
+
+    //recalculate normal
+    Point v=Facets[i].V1-Facets[i].V0;
+    Point u=Facets[i].V2-Facets[i].V0;
+    Point n(u.y*v.z-u.z*v.y, u.z*v.x-u.x*v.z, u.x*v.y-u.y*v.x);
+    float d=sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
+    Facets[i].N=n*(1.f/d);
   }
   CalcSurfArea();
 }

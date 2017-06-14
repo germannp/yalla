@@ -19,6 +19,7 @@
 const auto r_max=1.0;
 const auto r_min=0.8;
 
+
 const auto dt = 0.05*r_min*r_min;
 
 //const auto n_0 = 1000;
@@ -27,40 +28,58 @@ const auto n_max = 150000;
 enum Cell_types {mesenchyme, epithelium};
 
 __device__ Cell_types* d_type;
- // __device__ int* d_mes_nbs;  // number of mesenchymal neighbours
- // __device__ int* d_epi_nbs;
+__device__ int* d_freeze;
+__device__ int* d_mes_nbs;  // number of mesenchymal neighbours
+__device__ int* d_epi_nbs;
 
 
-MAKE_PT(Cell, x, y, z, theta, phi);
+MAKE_PT(Cell, theta, phi);
 
-__device__ Cell relaxation_force(Cell Xi, Cell Xj, int i, int j) {
+__device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j) {
     Cell dF {0};
 
     if(i==j) return dF;
 
-    //FOR TESTING PURPOSES ONLY //we use epithelium type to reproduce the mesh within the bolls framework
-    //if(d_type[i]==epithelium || d_type[j]==epithelium) return dF;
-    //*************************//
+    if(d_freeze[i]==1) return dF; //frozen cells don't experience force so don't move
 
-    auto r = Xi - Xj;
-    auto dist = norm3df(r.x, r.y, r.z);
+    // auto r = Xi - Xj;
+    // auto dist = norm3df(r.x, r.y, r.z);
     if (dist > r_max) return dF;
 
     //auto F = 2*(r_min - dist)*(r_max - dist) + powf(r_max - dist, 2);
-    auto F = 2.f*(r_min - dist);
+    float k;
+    if(r_min-dist>0) //different coefficients for repulsion and adhesion
+    {
+      if(d_type[i]==epithelium && d_type[j]==mesenchyme)
+      {k=8.f;} //epi. mesench. contact
+      else
+      {k=8.f;} //any other contact
+    }else{
+      if(d_type[i]==epithelium && d_type[j]==mesenchyme)
+      {k=4.f;} //epi. mesench. contact
+      else
+      {k=2.f;} //any other contact
+    }
+    // auto F = k*(r_min - dist)*(r_max - dist) + powf(r_max - dist, 2);
+    auto F = k*(r_min - dist);
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
 
     if(d_type[i]==epithelium && d_type[j]==epithelium)
     {
-      dF += rigidity_force(Xi, Xj)*0.2;//*3;
+      dF += rigidity_force(Xi, r, dist)*0.3f;//*3;
     }
 
-    // if (d_type[j] == epithelium) {atomicAdd(&d_epi_nbs[i],1);}
-    // else {atomicAdd(&d_mes_nbs[i],1);}
+    if (d_type[j] == epithelium) {atomicAdd(&d_epi_nbs[i],1);}
+    else {atomicAdd(&d_mes_nbs[i],1);}
 
     return dF;
+}
+
+__device__ float freeze_friction(Cell Xi, Cell r, float dist, int i, int j) {
+    if(d_freeze[i]==1) return 1;
+    return 0;
 }
 
 // Distribute bolls uniformly random in rectangular cube
@@ -128,10 +147,56 @@ void seed_epithelium_on_meix(Meix& meix, std::vector<Cell>& cells, float n_epi)
     }
 }
 
+void seed_epithelium_on_meix_v2(Meix& meix, std::vector<Cell>& cells, float n_epi)
+{
+
+    int nF=meix.Facets.size();
+    //std::cout<<"nF "<<nF<<std::endl;
+    for(int i=0; i< n_epi; i++)
+    {
+      int j=rand()%nF; //which facet will fall into
+
+      Point V0= meix.Facets[j].V0;
+      Point V1= meix.Facets[j].V1;
+      Point V2= meix.Facets[j].V2;
+      Point N= meix.Facets[j].N;
+
+      float phi=atan2(N.y,N.x);
+      float theta= acos(N.z);
+
+      bool bingo=false;
+      while (!bingo)
+      {
+        // 0<s<1 ; 0<t<1 ; s+t<1
+        float x1=rand()/(RAND_MAX+1.f);
+        float x2=rand()/(RAND_MAX+1.f);
+        //if (s+t>1) continue;
+
+        //float a=1-s-t;
+        float r0=1.f-sqrt(x2);
+        float r1=(1.f-x1)*sqrt(x2);
+        float r2=x1*sqrt(x2);
+
+        Point p= V0*r0 + V1*r1 + V2*r2;
+
+        Cell c;
+
+        c.x = p.x;
+        c.y = p.y;
+        c.z = p.z;
+        c.phi = phi;
+        c.theta = theta;
+        cells.push_back(c);
+
+        bingo=true;
+      }
+    }
+}
+
 //*****************************************************************************
 
-template<typename Pt, int n_max, template<typename, int> class Solver, typename Prop>
-void epithelium_mesenchyme_assembly(std::vector<Point>& mes_cells, std::vector<Cell>& epi_cells, Property<n_max, Prop>& type, Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0)
+template<typename Pt, int n_max, template<typename, int> class Solver, typename Prop, typename Prep>
+void epithelium_mesenchyme_assembly(std::vector<Point>& mes_cells, std::vector<Cell>& epi_cells, Property<n_max,Prep>& type, Property<n_max,Prop>& freeze, Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0)
 {
   assert(n_0 < *bolls.h_n);
   int n_mes=mes_cells.size();
@@ -145,6 +210,7 @@ void epithelium_mesenchyme_assembly(std::vector<Point>& mes_cells, std::vector<C
     bolls.h_X[i].theta = 0.f;
     bolls.h_X[i].phi = 0.f;
     type.h_prop[i]=mesenchyme;
+    freeze.h_prop[i]=1;
   }
 
   for (int i=0 ; i<n_epi ; i++)
@@ -155,10 +221,12 @@ void epithelium_mesenchyme_assembly(std::vector<Point>& mes_cells, std::vector<C
     bolls.h_X[n_mes+i].theta = epi_cells[i].theta;
     bolls.h_X[n_mes+i].phi = epi_cells[i].phi;
     type.h_prop[n_mes+i]=epithelium;
+    freeze.h_prop[n_mes+i]=0;
   }
 
   bolls.copy_to_device();
   type.copy_to_device();
+  freeze.copy_to_device();
 
 }
 
@@ -228,8 +296,11 @@ int main(int argc, char const *argv[])
   //meix_mesench will be transformed from the main meix (rescaled), and will be
   //used to fill with mesenchyme
   Meix meix_mesench=meix;
-  //meix_mesench.Rescale_absolute(-0.4f);
-  meix_mesench.Rescale_relative(0.9f);
+  meix_mesench.Rescale_absolute(-r_min);
+  //float m_resc=1-(2*r_min/target_dx);
+  // if(m_resc<0.9f) m_resc=0.9f;
+  // std::cout<<"mesench meix rescaling factor m_resc= "<<m_resc<<std::endl;
+  // meix_mesench.Rescale_relative(m_resc);
 
   //Compute min. and max, positions in x,y,z from rescaled mesh
   xmin=10000.0f;xmax=-10000.0f;ymin=10000.0f;ymax=-10000.0f;zmin=10000.0f;zmax=-10000.0f;
@@ -251,8 +322,8 @@ int main(int argc, char const *argv[])
 
   //const float packing_factor=0.74048f;
   float cube_vol=dx*dy*dz;
-  float r_boll=0.3f;
-  float boll_vol=4./3.*M_PI*pow(r_boll,3);
+  float r_boll=0.4f;
+  float boll_vol=4./3.*M_PI*pow(r_boll,3);//packing_factor;
   int n_bolls_cube=cube_vol/boll_vol;
 
   std::cout<<"cube dims "<<dx<<" "<<dy<<" "<<dz<<std::endl;
@@ -262,19 +333,27 @@ int main(int argc, char const *argv[])
   //Fill the rectangle with bolls
   uniform_cubic_rectangle(xmin,ymin,zmin,dx,dy,dz,cube);
 
+  //Variable indicating cell type
   Property<n_max, Cell_types> type;
   cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
+  //Variable that indicates which cells are 'frozen', so don't move
+  Property<n_max, int> freeze("freeze");
+  cudaMemcpyToSymbol(d_freeze, &freeze.d_prop, sizeof(d_freeze));
+
   for (auto i = 0; i < n_bolls_cube; i++)
   {
       type.h_prop[i] = mesenchyme;
+      freeze.h_prop[i] = 0;
   }
 
   cube.copy_to_device();
   type.copy_to_device();
-  // Property<n_max, int> n_mes_nbs;
-  // cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
-  // Property<n_max, int> n_epi_nbs;
-  // cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
+  freeze.copy_to_device();
+
+  Property<n_max, int> n_mes_nbs;
+  cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
+  Property<n_max, int> n_epi_nbs;
+  cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
 
   // We run the solver on bolls so the cube of bolls relaxes
   std::stringstream ass;
@@ -294,11 +373,10 @@ int main(int argc, char const *argv[])
       cube.copy_to_host();
     }
 
-    cube.build_lattice(r_max);
+    thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + n_bolls_cube, 0);
+    thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_cube, 0);
 
-    // thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_cube, 0);
-
-    cube.take_step<relaxation_force>(dt);
+    cube.take_step<relaxation_force, freeze_friction>(dt);
 
     //write the output
     if(time_step%write_interval==0 || time_step==relax_time)
@@ -363,32 +441,19 @@ int main(int argc, char const *argv[])
   std::vector<Cell> epi_cells;
 
   //seed the cells onto the meix
-  seed_epithelium_on_meix(meix, epi_cells, n_bolls_epi);
+  seed_epithelium_on_meix_v2(meix, epi_cells, n_bolls_epi);
 
   int n_bolls_total=n_bolls_mes+n_bolls_epi;
   Solution<Cell, n_max, Lattice_solver> bolls(n_bolls_total);
-  // Property<n_max, Cell_types> type;
-  // cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
 
-  epithelium_mesenchyme_assembly(mes_cells, epi_cells, type,bolls);
+  epithelium_mesenchyme_assembly(mes_cells, epi_cells, type, freeze, bolls);
 
-  // for (int i = 0; i < n_bolls; i++)
-  // {
-  //     type.h_prop[i] = epithelium;
-  // }
-  // bolls.copy_to_device();
-  // type.copy_to_device();
-
-  // Property<n_max, int> n_mes_nbs;
-  // cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
-  // Property<n_max, int> n_epi_nbs;
-  // cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
-
+  std::cout<<"n_bolls_total= "<<n_bolls_total<<std::endl;
 
 Vtk_output output(output_tag);
 
 relax_time=std::stoi(argv[6]);
-write_interval=1;//relax_time/10;
+write_interval=relax_time/10;
 
 for (auto time_step = 0; time_step <= relax_time; time_step++)
 {
@@ -397,11 +462,10 @@ for (auto time_step = 0; time_step <= relax_time; time_step++)
     bolls.copy_to_host();
   }
 
-  bolls.build_lattice(r_max);
+  thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + n_bolls_total, 0);
+  thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_total, 0);
 
-  //thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
-
-  bolls.take_step<relaxation_force>(dt);
+  bolls.take_step<relaxation_force, freeze_friction>(dt);
 
   //write the output
   if(time_step%write_interval==0 || time_step==relax_time)
@@ -409,14 +473,39 @@ for (auto time_step = 0; time_step <= relax_time; time_step++)
     output.write_positions(bolls);
     output.write_polarity(bolls);
     output.write_property(type);
+    output.write_property(freeze);
   }
 
 }
 
+//We eliminate the epithelial cells that have separated from the mesenchyme
+bolls.copy_to_host();
+n_mes_nbs.copy_to_host();
+std::vector<Cell> epi_trimmed;
+for(int i=n_bolls_mes ; i<n_bolls_total ; i++)
+{
+  if(n_mes_nbs.h_prop[i]>0)
+  {
+    epi_trimmed.push_back(bolls.h_X[i]);
+  }
+}
+
+int n_bolls_trimmed=epi_trimmed.size();
+Solution<Cell, n_max, Lattice_solver> bolls_trimmed(n_bolls_trimmed);
+for(int i=0 ; i<n_bolls_trimmed ; i++)
+{
+  bolls_trimmed.h_X[i]=epi_trimmed[i];
+}
+std::cout<<"we trimmed "<<n_bolls_epi-n_bolls_trimmed<<" epi. cells"<<std::endl;
+
+  Vtk_output output_trimmed(output_tag+".trimmed");
+  output_trimmed.write_positions(bolls_trimmed);
+  output_trimmed.write_polarity(bolls_trimmed);
+
   //write down the meix in the vtk file to compare it with the posterior seeding
   meix.WriteVtk(output_tag);
   //write down the mesenchymal mesh in the vtk file to compare it with the posterior filling
-  meix_mesench.WriteVtk(output_tag+"mesench");
+  meix_mesench.WriteVtk(output_tag+".mesench");
 
   return 0;
 }

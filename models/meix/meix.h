@@ -126,6 +126,7 @@ class Meix
     float SurfArea;
     int n;
 
+    Meix();
     Meix(std::string);
     void Rescale_relative(float);
     void Rescale_absolute(float);
