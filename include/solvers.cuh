@@ -118,6 +118,58 @@ template<typename Pt> __global__ void add_rhs(const int n_cells,
     }
 }
 
+template<typename Pt, int n_max, template<typename, int> class Computer>
+class Order2_solver: public Computer<Pt, n_max> {
+protected:
+    Pt *d_X, *d_dX, *d_X1, *d_dX1;
+    float3 *d_old_v, *d_sum_v;
+    float *d_sum_friction;
+    int *d_n;
+    Order2_solver() {
+        cudaMalloc(&d_X, n_max*sizeof(Pt));
+        cudaMalloc(&d_dX, n_max*sizeof(Pt));
+        cudaMalloc(&d_X1, n_max*sizeof(Pt));
+        cudaMalloc(&d_dX1, n_max*sizeof(Pt));
+
+        cudaMalloc(&d_old_v, n_max*sizeof(float3));
+        thrust::fill(thrust::device, d_old_v, d_old_v + n_max, float3 {0});
+        cudaMalloc(&d_sum_v, n_max*sizeof(float3));
+
+        cudaMalloc(&d_n, sizeof(int));
+        cudaMalloc(&d_sum_friction, n_max*sizeof(int));
+    }
+    int get_d_n() {
+        int n;
+        cudaMemcpy(&n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
+        assert(n <= n_max);
+        return n;
+    }
+    template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
+    void take_step(float dt, Generic_forces<Pt> gen_forces) {
+        auto n = get_d_n();
+
+        // 1st step
+        thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
+        thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
+        Computer<Pt, n_max>::template pwints<pw_int, pw_friction>(
+            n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
+        gen_forces(d_X, d_dX);
+        add_rhs<<<(n + 32 - 1)/32, 32>>>(n, d_sum_v, d_sum_friction, d_dX);  // ceil int div.
+        auto mean_dX = thrust::reduce(thrust::device, d_dX, d_dX + n, Pt {0})/n;
+        euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, mean_dX, d_dX, d_X1);
+
+        // 2nd step
+        thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
+        thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
+        Computer<Pt, n_max>::template pwints<pw_int, pw_friction>(
+            n, d_X1, d_dX1, d_old_v, d_sum_v, d_sum_friction);
+        gen_forces(d_X1, d_dX1);
+        add_rhs<<<(n + 32 - 1)/32, 32>>>(n, d_sum_v, d_sum_friction, d_dX1);
+        auto mean_dX1 = thrust::reduce(thrust::device, d_dX1, d_dX1 + n, Pt {0})/n;
+        heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_dX, mean_dX1, d_dX1, d_X, d_old_v);
+    }
+};
+
 
 // Compute pairwise interactions and frictions one thread per point, to TILE_SIZE points
 // at a time, after http://http.developer.nvidia.com/GPUGems3/gpugems3_ch31.html.
@@ -156,61 +208,17 @@ __global__ void compute_tiles(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
     }
 }
 
-template<typename Pt, int n_max> class N2n_solver {
+template<typename Pt, int n_max> class N2n_computer {
 protected:
-    Pt *d_X, *d_dX, *d_X1, *d_dX1;
-    float3 *d_old_v, *d_sum_v;
-    float *d_sum_friction;
-    int *d_n;
-    N2n_solver() {
-        cudaMalloc(&d_X, n_max*sizeof(Pt));
-        cudaMalloc(&d_dX, n_max*sizeof(Pt));
-        cudaMalloc(&d_X1, n_max*sizeof(Pt));
-        cudaMalloc(&d_dX1, n_max*sizeof(Pt));
-
-        cudaMalloc(&d_old_v, n_max*sizeof(float3));
-        thrust::fill(thrust::device, d_old_v, d_old_v + n_max, float3 {0});
-        cudaMalloc(&d_sum_v, n_max*sizeof(float3));
-
-        cudaMalloc(&d_n, sizeof(int));
-        cudaMalloc(&d_sum_friction, n_max*sizeof(int));
-    }
-    int get_d_n() {
-        int n;
-        cudaMemcpy(&n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
-        assert(n <= n_max);
-        return n;
-    }
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
-    void take_step(float dt, Generic_forces<Pt> gen_forces) {
-        auto n = get_d_n();
-
-        // 1st step
-        thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
-        thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
-        compute_pwints<pw_int, pw_friction>(n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
-        gen_forces(d_X, d_dX);
-        add_rhs<<<(n + 32 - 1)/32, 32>>>(n, d_sum_v, d_sum_friction, d_dX);  // ceil int div.
-        auto mean_dX = thrust::reduce(thrust::device, d_dX, d_dX + n, Pt {0})/n;
-        euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, mean_dX, d_dX, d_X1);
-
-        // 2nd step
-        thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
-        thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
-        compute_pwints<pw_int, pw_friction>(n, d_X1, d_dX1, d_old_v, d_sum_v, d_sum_friction);
-        gen_forces(d_X1, d_dX1);
-        add_rhs<<<(n + 32 - 1)/32, 32>>>(n, d_sum_v, d_sum_friction, d_dX1);
-        auto mean_dX1 = thrust::reduce(thrust::device, d_dX1, d_dX1 + n, Pt {0})/n;
-        heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_dX, mean_dX1, d_dX1, d_X, d_old_v);
-    }
-    // Compute pwints separately to allow inheritance of the rest
-    template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
-    void compute_pwints(int n, Pt* d_X, Pt* d_dX, const float3* __restrict__ d_old_v,
+    void pwints(int n, Pt* d_X, Pt* d_dX, const float3* __restrict__ d_old_v,
             float3* d_sum_v, float* d_sum_friction) {
         compute_tiles<Pt, pw_int, pw_friction><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
             n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
     }
 };
+
+template<typename Pt, int n_max> using N2n_solver = Order2_solver<Pt, n_max, N2n_computer>;
 
 
 // Compute pairwise interactions and frictions with sorting based lattice ONLY for
@@ -232,7 +240,7 @@ public:
     }
 };
 
-__constant__ int d_moore_nhood[27];  // Yes, this is a waste if no Lattice_solver is used
+__constant__ int d_moore_nhood[27];  // Yes, this is a waste if no Lattice_computer is used
 
 template<typename Pt, int n_max>
 __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ d_X,
@@ -288,16 +296,13 @@ __global__ void compute_lattice_pwints(int n_cells, const Pt* __restrict__ d_X, 
     d_dX[d_lattice->d_cell_id[i]] = F;
 }
 
-template<typename Pt, int n_max> class Lattice_solver: public N2n_solver<Pt, n_max> {
+template<typename Pt, int n_max> class Lattice_computer {
 public:
     Lattice<n_max> lattice;
     Lattice<n_max> *d_lattice;
-    void build_lattice(float cube_size) {
-        build_lattice(this->d_X, cube_size);
-    }
 
 protected:
-    Lattice_solver(): N2n_solver<Pt, n_max>() {
+    Lattice_computer() {
         cudaMalloc(&d_lattice, sizeof(Lattice<n_max>));
         cudaMemcpy(d_lattice, &lattice, sizeof(Lattice<n_max>), cudaMemcpyHostToDevice);
 
@@ -315,8 +320,7 @@ protected:
         }
         cudaMemcpyToSymbol(d_moore_nhood, &h_moore_nhood, 27*sizeof(int));
     }
-    void build_lattice(const Pt* __restrict__ d_X, float cube_size = CUBE_SIZE) {
-        auto n = this->get_d_n();
+    void build_lattice(int n, const Pt* __restrict__ d_X, float cube_size = CUBE_SIZE) {
         compute_cube_ids<<<(n + 32 - 1)/32, 32>>>(n, d_X, d_lattice, cube_size);
         thrust::fill(thrust::device, lattice.d_cube_start, lattice.d_cube_start + N_CUBES, -1);
         thrust::fill(thrust::device, lattice.d_cube_end, lattice.d_cube_end + N_CUBES, -2);
@@ -325,10 +329,12 @@ protected:
         compute_cube_start_and_end<<<(n + 32 - 1)/32, 32>>>(n, d_lattice);
     }
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
-    void compute_pwints(int n, Pt* d_X, Pt* d_dX, const float3* __restrict__ d_old_v,
+    void pwints(int n, Pt* d_X, Pt* d_dX, const float3* __restrict__ d_old_v,
             float3* d_sum_v, float* d_sum_friction) {
-        build_lattice(d_X);
-        compute_lattice_pwints<Pt, pw_int, pw_friction><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
-            n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
+        build_lattice(n, d_X);
+        compute_lattice_pwints<Pt, n_max, pw_int, pw_friction><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
+            n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction, d_lattice);
     }
 };
+
+template<typename Pt, int n_max> using Lattice_solver = Order2_solver<Pt, n_max, Lattice_computer>;
