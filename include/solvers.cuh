@@ -176,7 +176,7 @@ protected:
 const auto TILE_SIZE = 32;
 
 template<typename Pt, Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
-__global__ void compute_tiles(int n, const Pt* __restrict__ d_X, Pt* d_dX,
+__global__ void compute_tiles(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
         const float3* __restrict__ d_old_v, float3* d_sum_v, float* d_sum_friction) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
 
@@ -211,7 +211,7 @@ __global__ void compute_tiles(int n, const Pt* __restrict__ d_X, Pt* d_dX,
 template<typename Pt, int n_max> class N2n_computer {
 protected:
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
-    void pwints(int n, Pt* d_X, Pt* d_dX, const float3* __restrict__ d_old_v,
+    void pwints(const int n, Pt* d_X, Pt* d_dX, const float3* __restrict__ d_old_v,
             float3* d_sum_v, float* d_sum_friction) {
         compute_tiles<Pt, pw_int, pw_friction><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
             n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
@@ -230,8 +230,8 @@ const auto LATTICE_SIZE = 50;
 const auto N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
 template<typename Pt>
-__global__ void compute_cube_ids(int n, const Pt* __restrict__ d_X,
-        int* d_cube_id, int* d_point_id, float cube_size) {
+__global__ void compute_cube_ids(const int n, const float cube_size,
+        const Pt* __restrict__ d_X, int* d_cube_id, int* d_point_id) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n) return;
 
@@ -245,7 +245,7 @@ __global__ void compute_cube_ids(int n, const Pt* __restrict__ d_X,
     d_point_id[i] = i;
 }
 
-__global__ void compute_cube_start_and_end(int n, int* d_cube_id,
+__global__ void compute_cube_start_and_end(const int n, const int* __restrict__ d_cube_id,
         int* d_cube_start, int* d_cube_end) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n) return;
@@ -267,15 +267,15 @@ public:
         cudaMalloc(&d_cube_end, N_CUBES*sizeof(int));
     }
     template<typename Pt>
-    void build(int n, const Pt* __restrict__ d_X, float cube_size = CUBE_SIZE) {
-        compute_cube_ids<<<(n + 32 - 1)/32, 32>>>(n, d_X, d_cube_id, d_point_id, cube_size);
+    void build(const int n, const Pt* __restrict__ d_X, const float cube_size = CUBE_SIZE) {
+        compute_cube_ids<<<(n + 32 - 1)/32, 32>>>(n, cube_size, d_X, d_cube_id, d_point_id);
         thrust::fill(thrust::device, d_cube_start, d_cube_start + N_CUBES, -1);
         thrust::fill(thrust::device, d_cube_end, d_cube_end + N_CUBES, -2);
         thrust::sort_by_key(thrust::device, d_cube_id, d_cube_id + n, d_point_id);
         compute_cube_start_and_end<<<(n + 32 - 1)/32, 32>>>(n, d_cube_id, d_cube_start, d_cube_end);
     }
     template<typename Pt, int n_max_solution, template<typename, int> class Solver>
-    void build(Solution<Pt, n_max_solution, Solver>& bolls, float cube_size = CUBE_SIZE) {
+    void build(Solution<Pt, n_max_solution, Solver>& bolls, const float cube_size = CUBE_SIZE) {
         auto n = bolls.get_d_n();
         assert(n <= n_max);
         build(n, bolls.d_X, cube_size);
@@ -286,9 +286,9 @@ public:
 __constant__ int d_moore_nhood[27];  // This is wasted if no Lattice_computer is used
 
 template<typename Pt, int n_max, Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
-__global__ void compute_lattice_pwints(int n, const Pt* __restrict__ d_X, Pt* d_dX,
-        const float3* __restrict__ d_old_v, float3* d_sum_v, float* d_sum_friction,
-        const Lattice<n_max>* __restrict__ d_lattice) {
+__global__ void compute_lattice_pwints(const int n, const Pt* __restrict__ d_X,
+        const float3* __restrict__ d_old_v, const Lattice<n_max>* __restrict__ d_lattice,
+        Pt* d_dX, float3* d_sum_v, float* d_sum_friction) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n) return;
 
@@ -338,7 +338,7 @@ protected:
             float3* d_sum_v, float* d_sum_friction) {
         lattice.build(n, d_X);
         compute_lattice_pwints<Pt, n_max, pw_int, pw_friction><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
-            n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction, d_lattice);
+            n, d_X, d_old_v, d_lattice, d_dX, d_sum_v, d_sum_friction);
     }
 };
 
