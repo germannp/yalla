@@ -287,7 +287,7 @@ __global__ void compute_lattice_pwints(int n_cells, const Pt* __restrict__ d_X, 
             auto dist = norm3df(r.x, r.y, r.z);
             if (dist < CUBE_SIZE) {
                 F += pw_int(Xi, r, dist, d_lattice->d_cell_id[i], d_lattice->d_cell_id[k]);
-                auto friction = pw_friction(d_X[i], r, dist, i, j);
+                auto friction = pw_friction(Xi, r, dist, d_lattice->d_cell_id[i], d_lattice->d_cell_id[k]);
                 d_sum_friction[d_lattice->d_cell_id[i]] += friction;
                 d_sum_v[d_lattice->d_cell_id[i]] += friction*d_old_v[d_lattice->d_cell_id[k]];
             }
