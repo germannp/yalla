@@ -105,8 +105,8 @@ const char* test_compare_methods() {
         latt.h_X[i].z = n2n.h_X[i].z;
     }
     latt.copy_to_device();
-    n2n.take_step<clipped_spring>(0.5);
-    latt.take_step<clipped_spring>(0.5);
+    for (auto i = 0; i < 2; i++) n2n.take_step<clipped_spring>(0.5);
+    for (auto i = 0; i < 2; i++) latt.take_step<clipped_spring>(0.5);
 
     n2n.copy_to_host();
     latt.copy_to_host();
