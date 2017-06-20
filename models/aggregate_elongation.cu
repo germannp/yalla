@@ -71,8 +71,8 @@ __global__ void update_protrusions(const Grid<n_cells>* __restrict__ d_grid,
     auto cells_in_cube = d_grid->d_cube_end[rand_nb_cube] - d_grid->d_cube_start[rand_nb_cube];
     if (cells_in_cube < 1) return;
 
-    auto a = d_grid->d_cell_id[j];
-    auto b = d_grid->d_cell_id[d_grid->d_cube_start[rand_nb_cube]
+    auto a = d_grid->d_point_id[j];
+    auto b = d_grid->d_point_id[d_grid->d_cube_start[rand_nb_cube]
         + min(static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube), cells_in_cube - 1)];
     D_ASSERT(a >= 0); D_ASSERT(a < n_cells);
     D_ASSERT(b >= 0); D_ASSERT(b < n_cells);
@@ -104,7 +104,7 @@ int main(int argc, char const *argv[]) {
     Solution<Po_cell, n_cells, Grid_solver> bolls;
     uniform_sphere(0.733333, bolls);
     for (auto i = 0; i < n_cells; i++) {
-        bolls.h_X[i].y /= 3;
+        bolls.h_X[i].y /= 5;
         bolls.h_X[i].theta = acos(2.*rand()/(RAND_MAX + 1.) - 1.);
         bolls.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
     }
@@ -116,12 +116,13 @@ int main(int argc, char const *argv[]) {
 
     // Simulate elongation
     Vtk_output output("aggregate");
+    Grid<n_cells> grid;
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
         protrusions.copy_to_host();
 
-        bolls.build_grid(r_protrusion);
-        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_grid,
+        grid.build(bolls, r_protrusion);
+        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(grid.d_grid,
             bolls.d_X, protrusions.d_link, protrusions.d_state);
         bolls.take_step<lb_force>(dt, intercalation);
 

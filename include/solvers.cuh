@@ -260,11 +260,15 @@ __global__ void compute_cube_start_and_end(const int n, const int* __restrict__ 
 template<int n_max> class Grid {
 public:
     int *d_cube_id, *d_point_id, *d_cube_start, *d_cube_end;
+    Grid<n_max> *d_grid;
     Grid() {
         cudaMalloc(&d_cube_id, n_max*sizeof(int));
         cudaMalloc(&d_point_id, n_max*sizeof(int));
         cudaMalloc(&d_cube_start, N_CUBES*sizeof(int));
         cudaMalloc(&d_cube_end, N_CUBES*sizeof(int));
+
+        cudaMalloc(&d_grid, sizeof(Grid<n_max>));
+        cudaMemcpy(d_grid, this, sizeof(Grid<n_max>), cudaMemcpyHostToDevice);
     }
     template<typename Pt>
     void build(const int n, const Pt* __restrict__ d_X, const float cube_size = CUBE_SIZE) {
@@ -314,11 +318,7 @@ __global__ void compute_grid_pwints(const int n, const Pt* __restrict__ d_X,
 template<typename Pt, int n_max> class Grid_computer {
 protected:
     Grid<n_max> grid;
-    Grid<n_max> *d_grid;
     Grid_computer() {
-        cudaMalloc(&d_grid, sizeof(Grid<n_max>));
-        cudaMemcpy(d_grid, &grid, sizeof(Grid<n_max>), cudaMemcpyHostToDevice);
-
         int h_moore_nhood[27];
         h_moore_nhood[0] = - 1;
         h_moore_nhood[1] = 0;
@@ -338,7 +338,7 @@ protected:
             float3* d_sum_v, float* d_sum_friction) {
         grid.build(n, d_X);
         compute_grid_pwints<Pt, n_max, pw_int, pw_friction><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
-            n, d_X, d_old_v, d_grid, d_dX, d_sum_v, d_sum_friction);
+            n, d_X, d_old_v, grid.d_grid, d_dX, d_sum_v, d_sum_friction);
     }
 };
 

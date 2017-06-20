@@ -81,8 +81,8 @@ __global__ void update_protrusions(const Grid<n_max>* __restrict__ d_grid,
     auto cells_in_cube = d_grid->d_cube_end[rand_nb_cube] - d_grid->d_cube_start[rand_nb_cube];
     if (cells_in_cube < 1) return;
 
-    auto a = d_grid->d_cell_id[j];
-    auto b = d_grid->d_cell_id[d_grid->d_cube_start[rand_nb_cube]
+    auto a = d_grid->d_point_id[j];
+    auto b = d_grid->d_point_id[d_grid->d_cube_start[rand_nb_cube]
         + min(static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube), cells_in_cube - 1)];
     D_ASSERT(a >= 0); D_ASSERT(a < n_cells);
     D_ASSERT(b >= 0); D_ASSERT(b < n_cells);
@@ -165,9 +165,10 @@ int main(int argc, char const *argv[]) {
         protrusions, std::placeholders::_1, std::placeholders::_2);
 
     // Relax
+    Grid<n_max> grid;
     for (auto time_step = 0; time_step <= 200; time_step++) {
-        bolls.build_grid(r_protrusion);
-        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_grid,
+        grid.build(bolls, r_protrusion);
+        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(grid.d_grid,
             bolls.d_X, bolls.get_d_n(), protrusions.d_link, protrusions.d_state);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
         bolls.take_step<lb_force>(dt, intercalation);
@@ -210,8 +211,8 @@ int main(int argc, char const *argv[]) {
                 proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(0.733333, bolls.d_X,
                     bolls.d_n, protrusions.d_state);
                 protrusions.set_d_n(bolls.get_d_n()*prots_per_cell);
-                bolls.build_grid(r_protrusion);
-                update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_grid,
+                grid.build(bolls, r_protrusion);
+                update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(grid.d_grid,
                     bolls.d_X, bolls.get_d_n(), protrusions.d_link, protrusions.d_state);
                 thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
                 thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
