@@ -179,21 +179,35 @@ __device__ float global_friction(float3 Xi, float3 r, float dist, int i, int j) 
 }
 
 const char* test_friction() {
-    Solution<float3, 2, Lattice_solver> bolls;
+    Solution<float3, 2, N2n_solver> n2n;
+    n2n.h_X[0] = float3{0,  0, 0};
+    n2n.h_X[1] = float3{.5, 0, 0};
+    n2n.copy_to_device();
+    for (auto i = 0; i < 10; i++) n2n.take_step<no_pw_int, global_friction>(0.05, push);
+    n2n.copy_to_host();
+    MU_ASSERT("N2n global friction", MU_ISCLOSE(n2n.h_X[1].x - n2n.h_X[0].x, 1));
 
-    bolls.h_X[0] = float3{0,  0, 0};
-    bolls.h_X[1] = float3{.5, 0, 0};
-    bolls.copy_to_device();
-    for (auto i = 0; i < 10; i++) bolls.take_step<no_pw_int, global_friction>(0.05, push);
-    bolls.copy_to_host();
-    MU_ASSERT("Global friction", MU_ISCLOSE(bolls.h_X[1].x - bolls.h_X[0].x, 1));
+    n2n.h_X[0] = float3{0,  0, 0};
+    n2n.h_X[1] = float3{.5, 0, 0};
+    n2n.copy_to_device();
+    for (auto i = 0; i < 10; i++) n2n.take_step<no_pw_int>(0.05, push);
+    n2n.copy_to_host();
+    MU_ASSERT("N2n local friction", MU_ISCLOSE(n2n.h_X[1].x - n2n.h_X[0].x, 0.75));
 
-    bolls.h_X[0] = float3{0,  0, 0};
-    bolls.h_X[1] = float3{.5, 0, 0};
-    bolls.copy_to_device();
-    for (auto i = 0; i < 10; i++) bolls.take_step<no_pw_int>(0.05, push);
-    bolls.copy_to_host();
-    MU_ASSERT("Local friction", MU_ISCLOSE(bolls.h_X[1].x - bolls.h_X[0].x, 0.75));
+    Solution<float3, 2, Lattice_solver> latt;
+    latt.h_X[0] = float3{0,  0, 0};
+    latt.h_X[1] = float3{.5, 0, 0};
+    latt.copy_to_device();
+    for (auto i = 0; i < 10; i++) latt.take_step<no_pw_int, global_friction>(0.05, push);
+    latt.copy_to_host();
+    MU_ASSERT("Lattice global friction", MU_ISCLOSE(latt.h_X[1].x - latt.h_X[0].x, 1));
+
+    latt.h_X[0] = float3{0,  0, 0};
+    latt.h_X[1] = float3{.5, 0, 0};
+    latt.copy_to_device();
+    for (auto i = 0; i < 10; i++) latt.take_step<no_pw_int>(0.05, push);
+    latt.copy_to_host();
+    MU_ASSERT("Lattice local friction", MU_ISCLOSE(latt.h_X[1].x - latt.h_X[0].x, 0.75));
 
     return NULL;
 }
