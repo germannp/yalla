@@ -119,13 +119,13 @@ template<typename Pt> __global__ void add_rhs(const int n, const float3* __restr
 }
 
 template<typename Pt, int n_max, template<typename, int> class Computer>
-class Order2_solver: public Computer<Pt, n_max> {
+class Heun_solver: public Computer<Pt, n_max> {
 protected:
     Pt *d_X, *d_dX, *d_X1, *d_dX1;
     float3 *d_old_v, *d_sum_v;
     float *d_sum_friction;
     int *d_n;
-    Order2_solver() {
+    Heun_solver() {
         cudaMalloc(&d_X, n_max*sizeof(Pt));
         cudaMalloc(&d_dX, n_max*sizeof(Pt));
         cudaMalloc(&d_X1, n_max*sizeof(Pt));
@@ -208,7 +208,7 @@ __global__ void compute_tiles(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
     }
 }
 
-template<typename Pt, int n_max> class N2n_computer {
+template<typename Pt, int n_max> class Tile_computer {
 protected:
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
     void pwints(const int n, Pt* d_X, Pt* d_dX, const float3* __restrict__ d_old_v,
@@ -218,16 +218,16 @@ protected:
     }
 };
 
-template<typename Pt, int n_max> using N2n_solver = Order2_solver<Pt, n_max, N2n_computer>;
+template<typename Pt, int n_max> using Tile_solver = Heun_solver<Pt, n_max, Tile_computer>;
 
 
-// Compute pairwise interactions and frictions with sorting based lattice ONLY for
+// Compute pairwise interactions and frictions with sorting based grid ONLY for
 // bolls closer than CUBE_SIZE. Scales linearly in n, faster with maybe 7k bolls.
 // After http://developer.download.nvidia.com/compute/cuda/1.1-Beta/x86_website/
 // projects/particles/doc/particles.pdf
 const auto CUBE_SIZE = 1.f;
-const auto LATTICE_SIZE = 50;
-const auto N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
+const auto GRID_SIZE = 50;
+const auto N_CUBES = GRID_SIZE*GRID_SIZE*GRID_SIZE;
 
 template<typename Pt>
 __global__ void compute_cube_ids(const int n, const float cube_size,
@@ -236,9 +236,9 @@ __global__ void compute_cube_ids(const int n, const float cube_size,
     if (i >= n) return;
 
     auto id = static_cast<int>(
-        (floor(d_X[i].x/cube_size) + LATTICE_SIZE/2) +
-        (floor(d_X[i].y/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE +
-        (floor(d_X[i].z/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE*LATTICE_SIZE);
+        (floor(d_X[i].x/cube_size) + GRID_SIZE/2) +
+        (floor(d_X[i].y/cube_size) + GRID_SIZE/2)*GRID_SIZE +
+        (floor(d_X[i].z/cube_size) + GRID_SIZE/2)*GRID_SIZE*GRID_SIZE);
     D_ASSERT(id >= 0);
     D_ASSERT(id < N_CUBES);
     d_cube_id[i] = id;
@@ -257,10 +257,10 @@ __global__ void compute_cube_start_and_end(const int n, const int* __restrict__ 
     if (cube != next) d_cube_end[cube] = i;
 }
 
-template<int n_max> class Lattice {
+template<int n_max> class Grid {
 public:
     int *d_cube_id, *d_point_id, *d_cube_start, *d_cube_end;
-    Lattice() {
+    Grid() {
         cudaMalloc(&d_cube_id, n_max*sizeof(int));
         cudaMalloc(&d_point_id, n_max*sizeof(int));
         cudaMalloc(&d_cube_start, N_CUBES*sizeof(int));
@@ -283,63 +283,63 @@ public:
 };
 
 
-__constant__ int d_moore_nhood[27];  // This is wasted if no Lattice_computer is used
+__constant__ int d_moore_nhood[27];  // This is wasted if no Grid_computer is used
 
 template<typename Pt, int n_max, Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
-__global__ void compute_lattice_pwints(const int n, const Pt* __restrict__ d_X,
-        const float3* __restrict__ d_old_v, const Lattice<n_max>* __restrict__ d_lattice,
+__global__ void compute_grid_pwints(const int n, const Pt* __restrict__ d_X,
+        const float3* __restrict__ d_old_v, const Grid<n_max>* __restrict__ d_grid,
         Pt* d_dX, float3* d_sum_v, float* d_sum_friction) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n) return;
 
-    auto Xi = d_X[d_lattice->d_point_id[i]];
+    auto Xi = d_X[d_grid->d_point_id[i]];
     Pt F {0};
     for (auto j = 0; j < 27; j++) {
-        auto cube = d_lattice->d_cube_id[i] + d_moore_nhood[j];
-        for (auto k = d_lattice->d_cube_start[cube]; k <= d_lattice->d_cube_end[cube]; k++) {
-            auto Xj = d_X[d_lattice->d_point_id[k]];
+        auto cube = d_grid->d_cube_id[i] + d_moore_nhood[j];
+        for (auto k = d_grid->d_cube_start[cube]; k <= d_grid->d_cube_end[cube]; k++) {
+            auto Xj = d_X[d_grid->d_point_id[k]];
             auto r = Xi - Xj;
             auto dist = norm3df(r.x, r.y, r.z);
             if (dist < CUBE_SIZE) {
-                F += pw_int(Xi, r, dist, d_lattice->d_point_id[i], d_lattice->d_point_id[k]);
-                auto friction = pw_friction(Xi, r, dist, d_lattice->d_point_id[i], d_lattice->d_point_id[k]);
-                d_sum_friction[d_lattice->d_point_id[i]] += friction;
-                d_sum_v[d_lattice->d_point_id[i]] += friction*d_old_v[d_lattice->d_point_id[k]];
+                F += pw_int(Xi, r, dist, d_grid->d_point_id[i], d_grid->d_point_id[k]);
+                auto friction = pw_friction(Xi, r, dist, d_grid->d_point_id[i], d_grid->d_point_id[k]);
+                d_sum_friction[d_grid->d_point_id[i]] += friction;
+                d_sum_v[d_grid->d_point_id[i]] += friction*d_old_v[d_grid->d_point_id[k]];
             }
         }
     }
-    d_dX[d_lattice->d_point_id[i]] = F;
+    d_dX[d_grid->d_point_id[i]] = F;
 }
 
-template<typename Pt, int n_max> class Lattice_computer {
+template<typename Pt, int n_max> class Grid_computer {
 protected:
-    Lattice<n_max> lattice;
-    Lattice<n_max> *d_lattice;
-    Lattice_computer() {
-        cudaMalloc(&d_lattice, sizeof(Lattice<n_max>));
-        cudaMemcpy(d_lattice, &lattice, sizeof(Lattice<n_max>), cudaMemcpyHostToDevice);
+    Grid<n_max> grid;
+    Grid<n_max> *d_grid;
+    Grid_computer() {
+        cudaMalloc(&d_grid, sizeof(Grid<n_max>));
+        cudaMemcpy(d_grid, &grid, sizeof(Grid<n_max>), cudaMemcpyHostToDevice);
 
         int h_moore_nhood[27];
         h_moore_nhood[0] = - 1;
         h_moore_nhood[1] = 0;
         h_moore_nhood[2] = 1;
         for (auto i = 0; i < 3; i++) {
-            h_moore_nhood[i + 3] = h_moore_nhood[i % 3] - LATTICE_SIZE;
-            h_moore_nhood[i + 6] = h_moore_nhood[i % 3] + LATTICE_SIZE;
+            h_moore_nhood[i + 3] = h_moore_nhood[i % 3] - GRID_SIZE;
+            h_moore_nhood[i + 6] = h_moore_nhood[i % 3] + GRID_SIZE;
         }
         for (auto i = 0; i < 9; i++) {
-            h_moore_nhood[i +  9] = h_moore_nhood[i % 9] - LATTICE_SIZE*LATTICE_SIZE;
-            h_moore_nhood[i + 18] = h_moore_nhood[i % 9] + LATTICE_SIZE*LATTICE_SIZE;
+            h_moore_nhood[i +  9] = h_moore_nhood[i % 9] - GRID_SIZE*GRID_SIZE;
+            h_moore_nhood[i + 18] = h_moore_nhood[i % 9] + GRID_SIZE*GRID_SIZE;
         }
         cudaMemcpyToSymbol(d_moore_nhood, &h_moore_nhood, 27*sizeof(int));
     }
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
     void pwints(int n, Pt* d_X, Pt* d_dX, const float3* __restrict__ d_old_v,
             float3* d_sum_v, float* d_sum_friction) {
-        lattice.build(n, d_X);
-        compute_lattice_pwints<Pt, n_max, pw_int, pw_friction><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
-            n, d_X, d_old_v, d_lattice, d_dX, d_sum_v, d_sum_friction);
+        grid.build(n, d_X);
+        compute_grid_pwints<Pt, n_max, pw_int, pw_friction><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
+            n, d_X, d_old_v, d_grid, d_dX, d_sum_v, d_sum_friction);
     }
 };
 
-template<typename Pt, int n_max> using Lattice_solver = Order2_solver<Pt, n_max, Lattice_computer>;
+template<typename Pt, int n_max> using Grid_solver = Heun_solver<Pt, n_max, Grid_computer>;

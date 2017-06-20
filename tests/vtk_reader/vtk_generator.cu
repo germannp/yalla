@@ -108,7 +108,7 @@ __device__ Cell relaxation_force(Cell Xi, Cell Xj, int i, int j) {
 
 int main(int argc, char const *argv[]) {
 
-    Solution<Cell, n_max, Lattice_solver> bolls(n_0);
+    Solution<Cell, n_max, Grid_solver> bolls(n_0);
     uniform_sphere(0.5, bolls);
     //uniform_circle(0.5, bolls);
     Property<n_max, Cell_types> type;
@@ -136,7 +136,7 @@ int main(int argc, char const *argv[]) {
 
     // Relax
     for (auto time_step = 0; time_step <= 500; time_step++) {
-        bolls.build_lattice(r_max);
+        bolls.build_grid(r_max);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
         bolls.take_step<relaxation_force>(dt);
     }
@@ -174,7 +174,7 @@ int main(int argc, char const *argv[]) {
     Vtk_output output("test");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
-        bolls.build_lattice(r_max);
+        bolls.build_grid(r_max);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
 

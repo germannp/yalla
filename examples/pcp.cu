@@ -41,7 +41,7 @@ __device__ Po_cell4 biased_pcp(Po_cell4 Xi, Po_cell4 r, float dist, int i, int j
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<Po_cell4, n_cells, Lattice_solver> bolls;
+    Solution<Po_cell4, n_cells, Grid_solver> bolls;
     for (auto i = 0; i < n_cells; i++) {
         bolls.h_X[i].w = (i == 0)*10;
         bolls.h_X[i].theta = acos(2.*rand()/(RAND_MAX + 1.) - 1.);

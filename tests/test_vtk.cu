@@ -10,8 +10,8 @@ Vtk_input input("output/test_vtk_1.vtk");
 
 const char* test_solution_io() {
     const auto n_cells = 100;
-    Solution<Po_cell, n_cells, N2n_solver> bolls_to_write;
-    Solution<Po_cell, n_cells, N2n_solver> bolls_to_read;
+    Solution<Po_cell, n_cells, Tile_solver> bolls_to_write;
+    Solution<Po_cell, n_cells, Tile_solver> bolls_to_read;
 
     for (auto i = 0; i < n_cells; i++) {
         bolls_to_write.h_X[i].x = rand()/(RAND_MAX + 1.);

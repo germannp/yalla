@@ -70,19 +70,19 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
 }
 
 
-__global__ void update_protrusions(const Lattice<n_max>* __restrict__ d_lattice,
+__global__ void update_protrusions(const Grid<n_max>* __restrict__ d_grid,
         const Lb_cell* __restrict d_X, int n_cells, Link* d_link, curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells*prots_per_cell) return;
 
     auto j = static_cast<int>((i + 0.5)/prots_per_cell);
-    auto rand_nb_cube = d_lattice->d_cube_id[j]
+    auto rand_nb_cube = d_grid->d_cube_id[j]
         + d_moore_nhood[min(static_cast<int>(curand_uniform(&d_state[i])*27), 26)];
-    auto cells_in_cube = d_lattice->d_cube_end[rand_nb_cube] - d_lattice->d_cube_start[rand_nb_cube];
+    auto cells_in_cube = d_grid->d_cube_end[rand_nb_cube] - d_grid->d_cube_start[rand_nb_cube];
     if (cells_in_cube < 1) return;
 
-    auto a = d_lattice->d_cell_id[j];
-    auto b = d_lattice->d_cell_id[d_lattice->d_cube_start[rand_nb_cube]
+    auto a = d_grid->d_cell_id[j];
+    auto b = d_grid->d_cell_id[d_grid->d_cube_start[rand_nb_cube]
         + min(static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube), cells_in_cube - 1)];
     D_ASSERT(a >= 0); D_ASSERT(a < n_cells);
     D_ASSERT(b >= 0); D_ASSERT(b < n_cells);
@@ -142,7 +142,7 @@ __global__ void proliferate(float mean_distance, Lb_cell* d_X, int* d_n_cells,
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<Lb_cell, n_max, Lattice_solver> bolls(n_0);
+    Solution<Lb_cell, n_max, Grid_solver> bolls(n_0);
     uniform_sphere(0.733333, bolls);
     Property<n_max, Cell_types> type;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
@@ -166,8 +166,8 @@ int main(int argc, char const *argv[]) {
 
     // Relax
     for (auto time_step = 0; time_step <= 200; time_step++) {
-        bolls.build_lattice(r_protrusion);
-        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
+        bolls.build_grid(r_protrusion);
+        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_grid,
             bolls.d_X, bolls.get_d_n(), protrusions.d_link, protrusions.d_state);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
         bolls.take_step<lb_force>(dt, intercalation);
@@ -210,8 +210,8 @@ int main(int argc, char const *argv[]) {
                 proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(0.733333, bolls.d_X,
                     bolls.d_n, protrusions.d_state);
                 protrusions.set_d_n(bolls.get_d_n()*prots_per_cell);
-                bolls.build_lattice(r_protrusion);
-                update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
+                bolls.build_grid(r_protrusion);
+                update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_grid,
                     bolls.d_X, bolls.get_d_n(), protrusions.d_link, protrusions.d_state);
                 thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
                 thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);

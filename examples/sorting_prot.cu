@@ -61,7 +61,7 @@ __global__ void update_protrusions(const float3* __restrict__ d_X, Link* d_link,
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<float3, n_cells, Lattice_solver> bolls;
+    Solution<float3, n_cells, Grid_solver> bolls;
     uniform_sphere(r_min, bolls);
     Links<n_protrusions> protrusions;
     auto prot_forces = std::bind(link_forces<n_protrusions>, protrusions,

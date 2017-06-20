@@ -193,7 +193,7 @@ int main(int argc, char const *argv[])
   std::cout<<"dims "<<dx<<" "<<dy<<" "<<dz<<std::endl;
   std::cout<<"nbolls in cube "<<n_bolls_cube<<std::endl;
 
-  Solution<Cell, n_max, Lattice_solver> bolls(n_bolls_cube);
+  Solution<Cell, n_max, Grid_solver> bolls(n_bolls_cube);
   //Fill the rectangle with bolls
   uniform_cubic_rectangle(xmin,ymin,zmin,dx,dy,dz,bolls);
 
@@ -229,7 +229,7 @@ int main(int argc, char const *argv[])
       bolls.copy_to_host();
     }
 
-    bolls.build_lattice(r_max);
+    bolls.build_grid(r_max);
 
     thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
 
@@ -277,7 +277,7 @@ int main(int argc, char const *argv[])
 
   std::cout<<"bolls_in_cube "<<n_bolls_cube<<" bolls after fit "<<n_bolls_fit<<std::endl;
 
-  Solution<Cell, n_max, Lattice_solver> balls(n_bolls_fit);
+  Solution<Cell, n_max, Grid_solver> balls(n_bolls_fit);
   fill_solver_from_list(points_fit,balls);
 
   //Write fitted morphology on output file
@@ -291,9 +291,9 @@ int main(int argc, char const *argv[])
   // {
   //     balls.copy_to_host();
   //
-  //     balls.build_lattice(r_max);
+  //     balls.build_grid(r_max);
   //
-  //     // update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
+  //     // update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_grid,
   //     //     bolls.d_X, bolls.get_d_n(), protrusions.d_link, protrusions.d_state);
   //     thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
   //     // bolls.take_step<lb_force>(dt, intercalation);
@@ -309,7 +309,7 @@ int main(int argc, char const *argv[])
 
   //For testing purposes, I want to see the mesh along with the cells, so I will put an epithelial cell at the centre
   //of every facet, just to see where the limits of the mesh are.
-  Solution<Cell, n_max, Lattice_solver> meix(facets.size());
+  Solution<Cell, n_max, Grid_solver> meix(facets.size());
 
   fill_solver_from_meix(facets,meix);
 

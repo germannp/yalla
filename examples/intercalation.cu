@@ -49,7 +49,7 @@ __global__ void update_protrusions(const float3* __restrict__ d_X, Link* d_link,
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<float3, n_cells, Lattice_solver> bolls;
+    Solution<float3, n_cells, Grid_solver> bolls;
     uniform_sphere(r_min, bolls);
     Links<n_cells*prots_per_cell> protrusions;
     auto intercalation = std::bind(link_forces<n_cells*prots_per_cell>, protrusions,

@@ -60,19 +60,19 @@ __device__ void protrusion_force(const Po_cell* __restrict__ d_X, const int a, c
 }
 
 
-__global__ void update_protrusions(const Lattice<n_cells>* __restrict__ d_lattice,
+__global__ void update_protrusions(const Grid<n_cells>* __restrict__ d_grid,
         const Po_cell* __restrict d_X, Link* d_link, curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells*prots_per_cell) return;
 
     auto j = static_cast<int>((i + 0.5)/prots_per_cell);
-    auto rand_nb_cube = d_lattice->d_cube_id[j]
+    auto rand_nb_cube = d_grid->d_cube_id[j]
         + d_moore_nhood[min(static_cast<int>(curand_uniform(&d_state[i])*27), 26)];
-    auto cells_in_cube = d_lattice->d_cube_end[rand_nb_cube] - d_lattice->d_cube_start[rand_nb_cube];
+    auto cells_in_cube = d_grid->d_cube_end[rand_nb_cube] - d_grid->d_cube_start[rand_nb_cube];
     if (cells_in_cube < 1) return;
 
-    auto a = d_lattice->d_cell_id[j];
-    auto b = d_lattice->d_cell_id[d_lattice->d_cube_start[rand_nb_cube]
+    auto a = d_grid->d_cell_id[j];
+    auto b = d_grid->d_cell_id[d_grid->d_cube_start[rand_nb_cube]
         + min(static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube), cells_in_cube - 1)];
     D_ASSERT(a >= 0); D_ASSERT(a < n_cells);
     D_ASSERT(b >= 0); D_ASSERT(b < n_cells);
@@ -101,7 +101,7 @@ __global__ void update_protrusions(const Lattice<n_cells>* __restrict__ d_lattic
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Lattice_solver> bolls;
+    Solution<Po_cell, n_cells, Grid_solver> bolls;
     uniform_sphere(0.733333, bolls);
     for (auto i = 0; i < n_cells; i++) {
         bolls.h_X[i].y /= 3;
@@ -120,8 +120,8 @@ int main(int argc, char const *argv[]) {
         bolls.copy_to_host();
         protrusions.copy_to_host();
 
-        bolls.build_lattice(r_protrusion);
-        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
+        bolls.build_grid(r_protrusion);
+        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_grid,
             bolls.d_X, protrusions.d_link, protrusions.d_state);
         bolls.take_step<lb_force>(dt, intercalation);
 

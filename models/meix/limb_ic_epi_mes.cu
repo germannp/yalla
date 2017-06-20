@@ -258,7 +258,7 @@ int main(int argc, char const *argv[])
   std::cout<<"cube dims "<<dx<<" "<<dy<<" "<<dz<<std::endl;
   std::cout<<"nbolls in cube "<<n_bolls_cube<<std::endl;
 
-  Solution<Cell, n_max, Lattice_solver> cube(n_bolls_cube);
+  Solution<Cell, n_max, Grid_solver> cube(n_bolls_cube);
   //Fill the rectangle with bolls
   uniform_cubic_rectangle(xmin,ymin,zmin,dx,dy,dz,cube);
 
@@ -294,7 +294,7 @@ int main(int argc, char const *argv[])
       cube.copy_to_host();
     }
 
-    cube.build_lattice(r_max);
+    cube.build_grid(r_max);
 
     // thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_cube, 0);
 
@@ -366,7 +366,7 @@ int main(int argc, char const *argv[])
   seed_epithelium_on_meix(meix, epi_cells, n_bolls_epi);
 
   int n_bolls_total=n_bolls_mes+n_bolls_epi;
-  Solution<Cell, n_max, Lattice_solver> bolls(n_bolls_total);
+  Solution<Cell, n_max, Grid_solver> bolls(n_bolls_total);
   // Property<n_max, Cell_types> type;
   // cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
 
@@ -397,7 +397,7 @@ for (auto time_step = 0; time_step <= relax_time; time_step++)
     bolls.copy_to_host();
   }
 
-  bolls.build_lattice(r_max);
+  bolls.build_grid(r_max);
 
   //thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
 

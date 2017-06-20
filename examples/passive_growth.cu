@@ -84,7 +84,7 @@ __global__ void proliferate(float rate, float mean_distance, Po_cell* d_X, int* 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<Po_cell, n_max, Lattice_solver> bolls(n_0);
+    Solution<Po_cell, n_max, Grid_solver> bolls(n_0);
     uniform_sphere(mean_dist, bolls);
     Property<n_max, Cell_types> type;
     for (auto i = 0; i < n_0; i++) type.h_prop[i] = mesenchyme;

@@ -57,7 +57,7 @@ __device__ Epi_cell epithelium_w_turing(Epi_cell Xi, Epi_cell r, float dist, int
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<Epi_cell, n_cells, Lattice_solver> bolls;
+    Solution<Epi_cell, n_cells, Grid_solver> bolls;
     for (int i = 0; i < n_cells; i++) {
         bolls.h_X[i].theta = M_PI/2;
         bolls.h_X[i].u = rand()/(RAND_MAX + 1.)/5 - 0.1;

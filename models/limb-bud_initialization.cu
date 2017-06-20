@@ -93,7 +93,7 @@ __global__ void proliferate(int n_0, Lb_cell* d_X, int* d_n_cells, curandState* 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<Lb_cell, n_max, Lattice_solver> bolls(n_0);
+    Solution<Lb_cell, n_max, Grid_solver> bolls(n_0);
     uniform_circle(r_max/2, bolls);
     Property<n_max, Cell_types> type;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));

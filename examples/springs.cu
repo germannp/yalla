@@ -22,7 +22,7 @@ __device__ float3 spring_force(float3 Xi, float3 r, float dist, int i, int j) {
 
 int main(int argc, const char* argv[]) {
     // Prepare initial state
-    Solution<float3, n_cells, N2n_solver> bolls;
+    Solution<float3, n_cells, Tile_solver> bolls;
     uniform_sphere(L_0, bolls);
 
     // Integrate positions

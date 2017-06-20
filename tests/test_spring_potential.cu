@@ -73,7 +73,7 @@ int main(int argc, char const *argv[]) {
 
     auto n_time_steps = std::stoi(argv[2]);
 
-    Solution<Cell, n_max, Lattice_solver> bolls(n_0);
+    Solution<Cell, n_max, Grid_solver> bolls(n_0);
     uniform_sphere(0.5, bolls);
     Property<n_max, Cell_types> type;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
@@ -92,7 +92,7 @@ int main(int argc, char const *argv[]) {
     for (auto time_step = 0; time_step <= 1000; time_step++) {
         bolls.copy_to_host();
 
-        bolls.build_lattice(r_max);
+        bolls.build_grid(r_max);
 
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
 
@@ -143,7 +143,7 @@ int main(int argc, char const *argv[]) {
         //
         // printf("\n****TIME STEP******** %d\n",time_step);
 
-        bolls.build_lattice(r_max);
+        bolls.build_grid(r_max);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
 

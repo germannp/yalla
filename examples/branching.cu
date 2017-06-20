@@ -151,7 +151,7 @@ int main(int argc, char const *argv[]) {
     auto n_time_steps = std::stoi(argv[2]);
 
     // Initial state
-    Solution<Cell, n_max, Lattice_solver> bolls(n_0);
+    Solution<Cell, n_max, Grid_solver> bolls(n_0);
     uniform_sphere(0.5, bolls);
     Property<n_max, Cell_types> type;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
@@ -214,7 +214,7 @@ int main(int argc, char const *argv[]) {
 
         proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(0.75, bolls.d_X,
             bolls.d_n, d_state);
-        bolls.build_lattice(r_max_max);
+        bolls.build_grid(r_max_max);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
 

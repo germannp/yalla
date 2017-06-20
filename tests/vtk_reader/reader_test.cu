@@ -39,7 +39,7 @@ int main ()
 
   cout<<"system size= "<<n<<endl;
 
-  Solution<Cell, n_max, Lattice_solver> bolls(n);
+  Solution<Cell, n_max, Grid_solver> bolls(n);
 
   input.read_positions(bolls);
   input.read_polarity(bolls);
