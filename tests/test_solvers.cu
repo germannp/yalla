@@ -213,43 +213,42 @@ const char* test_friction() {
 }
 
 
-template<int n_max>
-__global__ void single_lattice(const Lattice<n_max>* __restrict__ d_lattice) {
+__global__ void single_lattice(const int* __restrict__ d_cube_id) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= 1000) return;
 
     auto expected_cube = (LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE)/2
         + (LATTICE_SIZE*LATTICE_SIZE)/2 + LATTICE_SIZE/2
         + i%10 + (i%100/10)*LATTICE_SIZE + (i/100)*LATTICE_SIZE*LATTICE_SIZE;
-    D_ASSERT(d_lattice->d_cube_id[i] == expected_cube);
+    D_ASSERT(d_cube_id[i] == expected_cube);
 }
 
-template<int n_max>
-__global__ void double_lattice(const Lattice<n_max>* __restrict__ d_lattice) {
+__global__ void double_lattice(const int* __restrict__ d_cube_id) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= 1000 - 8) return;
 
-    D_ASSERT(d_lattice->d_cube_id[i] == d_lattice->d_cube_id[i - i%8]);
+    D_ASSERT(d_cube_id[i] == d_cube_id[i - i%8]);
 }
 
 const char* test_lattice_spacing() {
-    Solution<float3, 1000, Lattice_solver> latt;
+    Solution<float3, 1000, Lattice_solver> bolls;
     for (auto i = 0; i < 10; i++) {
         for (auto j = 0; j < 10; j++) {
             for (auto k = 0; k < 10; k++) {
-                latt.h_X[100*i + 10*j + k].x = k + 0.5;
-                latt.h_X[100*i + 10*j + k].y = j + 0.5;
-                latt.h_X[100*i + 10*j + k].z = i + 0.5;
+                bolls.h_X[100*i + 10*j + k].x = k + 0.5;
+                bolls.h_X[100*i + 10*j + k].y = j + 0.5;
+                bolls.h_X[100*i + 10*j + k].z = i + 0.5;
             }
         }
     }
-    latt.copy_to_device();
+    bolls.copy_to_device();
 
-    latt.build_lattice(1);
-    single_lattice<<<256, 4>>>(latt.d_lattice);
+    Lattice<1000> lattice;
+    lattice.build(bolls, 1);
+    single_lattice<<<256, 4>>>(lattice.d_cube_id);
 
-    latt.build_lattice(2);
-    double_lattice<<<256, 4>>>(latt.d_lattice);
+    lattice.build(bolls, 2);
+    double_lattice<<<256, 4>>>(lattice.d_cube_id);
     cudaDeviceSynchronize();  // Wait for device to exit
 
     return NULL;

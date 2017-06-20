@@ -229,22 +229,9 @@ const auto CUBE_SIZE = 1.f;
 const auto LATTICE_SIZE = 50;
 const auto N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
-template<int n_max>struct Lattice {
-public:
-    int *d_cube_id, *d_cell_id, *d_cube_start, *d_cube_end;
-    Lattice() {
-        cudaMalloc(&d_cube_id, n_max*sizeof(int));
-        cudaMalloc(&d_cell_id, n_max*sizeof(int));
-        cudaMalloc(&d_cube_start, N_CUBES*sizeof(int));
-        cudaMalloc(&d_cube_end, N_CUBES*sizeof(int));
-    }
-};
-
-__constant__ int d_moore_nhood[27];  // Yes, this is a waste if no Lattice_computer is used
-
-template<typename Pt, int n_max>
+template<typename Pt>
 __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ d_X,
-        Lattice<n_max>* d_lattice, float cube_size) {
+        int* d_cube_id, int* d_cell_id, float cube_size) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
@@ -254,21 +241,49 @@ __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ d_X,
         (floor(d_X[i].z/cube_size) + LATTICE_SIZE/2)*LATTICE_SIZE*LATTICE_SIZE);
     D_ASSERT(id >= 0);
     D_ASSERT(id < N_CUBES);
-    d_lattice->d_cube_id[i] = id;
-    d_lattice->d_cell_id[i] = i;
+    d_cube_id[i] = id;
+    d_cell_id[i] = i;
 }
 
-template<int n_max>
-__global__ void compute_cube_start_and_end(int n_cells, Lattice<n_max>* d_lattice) {
+__global__ void compute_cube_start_and_end(int n_cells, int* d_cube_id,
+        int* d_cube_start, int* d_cube_end) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells) return;
 
-    auto cube = d_lattice->d_cube_id[i];
-    auto prev = i > 0 ? d_lattice->d_cube_id[i - 1] : -1;
-    if (cube != prev) d_lattice->d_cube_start[cube] = i;
-    auto next = i < n_cells - 1 ? d_lattice->d_cube_id[i + 1] : d_lattice->d_cube_id[i] + 1;
-    if (cube != next) d_lattice->d_cube_end[cube] = i;
+    auto cube = d_cube_id[i];
+    auto prev = i > 0 ? d_cube_id[i - 1] : -1;
+    if (cube != prev) d_cube_start[cube] = i;
+    auto next = i < n_cells - 1 ? d_cube_id[i + 1] : d_cube_id[i] + 1;
+    if (cube != next) d_cube_end[cube] = i;
 }
+
+template<int n_max> class Lattice {
+public:
+    int *d_cube_id, *d_cell_id, *d_cube_start, *d_cube_end;
+    Lattice() {
+        cudaMalloc(&d_cube_id, n_max*sizeof(int));
+        cudaMalloc(&d_cell_id, n_max*sizeof(int));
+        cudaMalloc(&d_cube_start, N_CUBES*sizeof(int));
+        cudaMalloc(&d_cube_end, N_CUBES*sizeof(int));
+    }
+    template<typename Pt>
+    void build(int n, const Pt* __restrict__ d_X, float cube_size = CUBE_SIZE) {
+        compute_cube_ids<<<(n + 32 - 1)/32, 32>>>(n, d_X, d_cube_id, d_cell_id, cube_size);
+        thrust::fill(thrust::device, d_cube_start, d_cube_start + N_CUBES, -1);
+        thrust::fill(thrust::device, d_cube_end, d_cube_end + N_CUBES, -2);
+        thrust::sort_by_key(thrust::device, d_cube_id, d_cube_id + n, d_cell_id);
+        compute_cube_start_and_end<<<(n + 32 - 1)/32, 32>>>(n, d_cube_id, d_cube_start, d_cube_end);
+    }
+    template<typename Pt, int n_max_solution, template<typename, int> class Solver>
+    void build(Solution<Pt, n_max_solution, Solver>& bolls, float cube_size = CUBE_SIZE) {
+        auto n = bolls.get_d_n();
+        assert(n <= n_max);
+        build(n, bolls.d_X, cube_size);
+    }
+};
+
+
+__constant__ int d_moore_nhood[27];  // This is wasted if no Lattice_computer is used
 
 template<typename Pt, int n_max, Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
 __global__ void compute_lattice_pwints(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
@@ -297,11 +312,9 @@ __global__ void compute_lattice_pwints(int n_cells, const Pt* __restrict__ d_X, 
 }
 
 template<typename Pt, int n_max> class Lattice_computer {
-public:
+protected:
     Lattice<n_max> lattice;
     Lattice<n_max> *d_lattice;
-
-protected:
     Lattice_computer() {
         cudaMalloc(&d_lattice, sizeof(Lattice<n_max>));
         cudaMemcpy(d_lattice, &lattice, sizeof(Lattice<n_max>), cudaMemcpyHostToDevice);
@@ -320,18 +333,10 @@ protected:
         }
         cudaMemcpyToSymbol(d_moore_nhood, &h_moore_nhood, 27*sizeof(int));
     }
-    void build_lattice(int n, const Pt* __restrict__ d_X, float cube_size = CUBE_SIZE) {
-        compute_cube_ids<<<(n + 32 - 1)/32, 32>>>(n, d_X, d_lattice, cube_size);
-        thrust::fill(thrust::device, lattice.d_cube_start, lattice.d_cube_start + N_CUBES, -1);
-        thrust::fill(thrust::device, lattice.d_cube_end, lattice.d_cube_end + N_CUBES, -2);
-        thrust::sort_by_key(thrust::device, lattice.d_cube_id, lattice.d_cube_id + n,
-            lattice.d_cell_id);
-        compute_cube_start_and_end<<<(n + 32 - 1)/32, 32>>>(n, d_lattice);
-    }
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
     void pwints(int n, Pt* d_X, Pt* d_dX, const float3* __restrict__ d_old_v,
             float3* d_sum_v, float* d_sum_friction) {
-        build_lattice(n, d_X);
+        lattice.build(n, d_X);
         compute_lattice_pwints<Pt, n_max, pw_int, pw_friction><<<(n + TILE_SIZE - 1)/TILE_SIZE, TILE_SIZE>>>(
             n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction, d_lattice);
     }
