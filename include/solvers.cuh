@@ -47,7 +47,7 @@ class Solution: public Solver<Pt, n_max> {
 public:
     Pt *h_X = (Pt*)malloc(n_max*sizeof(Pt));  // Current variables on host
     Pt *d_X = Solver<Pt, n_max>::d_X;         // Variables on device (GPU)
-    int *h_n = (int*)malloc(sizeof(int));     // Number of bolls
+    int *h_n = (int*)malloc(sizeof(int));     // Number of points
     int *d_n = Solver<Pt, n_max>::d_n;
     Solution(int n_0 = n_max) {
         *h_n = n_0;
@@ -75,10 +75,10 @@ public:
 // 2nd order solver for the equation v = F + <v(t - dt)> for x, y, and z, where
 // <v> is the mean velocity of the neighbours weighted by the friction coefficients.
 // The center of mass is kept fixed. Solves dw/dt = F_w for other variables in Pt.
-template<typename Pt> __global__ void euler_step(const int n_cells, const float dt,
+template<typename Pt> __global__ void euler_step(const int n, const float dt,
         const Pt* __restrict__ d_X0, const Pt mean_dX, Pt* d_dX, Pt* d_X) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells) return;
+    if (i >= n) return;
 
     d_dX[i].x -= mean_dX.x;
     d_dX[i].y -= mean_dX.y;
@@ -87,10 +87,10 @@ template<typename Pt> __global__ void euler_step(const int n_cells, const float 
     d_X[i] = d_X0[i] + d_dX[i]*dt;
 }
 
-template<typename Pt> __global__ void heun_step(const int n_cells, const float dt,
+template<typename Pt> __global__ void heun_step(const int n, const float dt,
         const Pt* __restrict__ d_dX, const Pt mean_dX1, Pt* d_dX1, Pt* d_X, float3* d_old_v) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells) return;
+    if (i >= n) return;
 
     d_dX1[i].x -= mean_dX1.x;
     d_dX1[i].y -= mean_dX1.y;
@@ -103,10 +103,10 @@ template<typename Pt> __global__ void heun_step(const int n_cells, const float d
     d_old_v[i].z = (d_dX[i].z + d_dX1[i].z)*0.5;
 }
 
-template<typename Pt> __global__ void add_rhs(const int n_cells,
-        const float3* __restrict__ d_sum_v, const float* __restrict__ d_sum_friction, Pt* d_dX) {
+template<typename Pt> __global__ void add_rhs(const int n, const float3* __restrict__ d_sum_v,
+        const float* __restrict__ d_sum_friction, Pt* d_dX) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells) return;
+    if (i >= n) return;
 
     D_ASSERT(d_dX[i].x == d_dX[i].x);  // For NaN f != f
     D_ASSERT(d_sum_v[i].x == d_sum_v[i].x);
@@ -176,23 +176,23 @@ protected:
 const auto TILE_SIZE = 32;
 
 template<typename Pt, Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
-__global__ void compute_tiles(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
+__global__ void compute_tiles(int n, const Pt* __restrict__ d_X, Pt* d_dX,
         const float3* __restrict__ d_old_v, float3* d_sum_v, float* d_sum_friction) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
 
     __shared__ Pt shX[TILE_SIZE];
 
     Pt Fi {0};
-    for (auto tile_start = 0; tile_start < n_cells; tile_start += TILE_SIZE) {
+    for (auto tile_start = 0; tile_start < n; tile_start += TILE_SIZE) {
         auto j = tile_start + threadIdx.x;
-        if (j < n_cells) {
+        if (j < n) {
             shX[threadIdx.x] = d_X[j];
         }
         __syncthreads();
 
         for (auto k = 0; k < TILE_SIZE; k++) {
             auto j = tile_start + k;
-            if ((i < n_cells) and (j < n_cells)) {
+            if ((i < n) and (j < n)) {
                 auto r = d_X[i] - shX[k];
                 auto dist = norm3df(r.x, r.y, r.z);
                 Fi += pw_int(d_X[i], r, dist, i, j);
@@ -203,7 +203,7 @@ __global__ void compute_tiles(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
         }
     }
 
-    if (i < n_cells) {
+    if (i < n) {
         d_dX[i] = Fi;
     }
 }
@@ -230,10 +230,10 @@ const auto LATTICE_SIZE = 50;
 const auto N_CUBES = LATTICE_SIZE*LATTICE_SIZE*LATTICE_SIZE;
 
 template<typename Pt>
-__global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ d_X,
-        int* d_cube_id, int* d_cell_id, float cube_size) {
+__global__ void compute_cube_ids(int n, const Pt* __restrict__ d_X,
+        int* d_cube_id, int* d_point_id, float cube_size) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells) return;
+    if (i >= n) return;
 
     auto id = static_cast<int>(
         (floor(d_X[i].x/cube_size) + LATTICE_SIZE/2) +
@@ -242,36 +242,36 @@ __global__ void compute_cube_ids(int n_cells, const Pt* __restrict__ d_X,
     D_ASSERT(id >= 0);
     D_ASSERT(id < N_CUBES);
     d_cube_id[i] = id;
-    d_cell_id[i] = i;
+    d_point_id[i] = i;
 }
 
-__global__ void compute_cube_start_and_end(int n_cells, int* d_cube_id,
+__global__ void compute_cube_start_and_end(int n, int* d_cube_id,
         int* d_cube_start, int* d_cube_end) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells) return;
+    if (i >= n) return;
 
     auto cube = d_cube_id[i];
     auto prev = i > 0 ? d_cube_id[i - 1] : -1;
     if (cube != prev) d_cube_start[cube] = i;
-    auto next = i < n_cells - 1 ? d_cube_id[i + 1] : d_cube_id[i] + 1;
+    auto next = i < n - 1 ? d_cube_id[i + 1] : d_cube_id[i] + 1;
     if (cube != next) d_cube_end[cube] = i;
 }
 
 template<int n_max> class Lattice {
 public:
-    int *d_cube_id, *d_cell_id, *d_cube_start, *d_cube_end;
+    int *d_cube_id, *d_point_id, *d_cube_start, *d_cube_end;
     Lattice() {
         cudaMalloc(&d_cube_id, n_max*sizeof(int));
-        cudaMalloc(&d_cell_id, n_max*sizeof(int));
+        cudaMalloc(&d_point_id, n_max*sizeof(int));
         cudaMalloc(&d_cube_start, N_CUBES*sizeof(int));
         cudaMalloc(&d_cube_end, N_CUBES*sizeof(int));
     }
     template<typename Pt>
     void build(int n, const Pt* __restrict__ d_X, float cube_size = CUBE_SIZE) {
-        compute_cube_ids<<<(n + 32 - 1)/32, 32>>>(n, d_X, d_cube_id, d_cell_id, cube_size);
+        compute_cube_ids<<<(n + 32 - 1)/32, 32>>>(n, d_X, d_cube_id, d_point_id, cube_size);
         thrust::fill(thrust::device, d_cube_start, d_cube_start + N_CUBES, -1);
         thrust::fill(thrust::device, d_cube_end, d_cube_end + N_CUBES, -2);
-        thrust::sort_by_key(thrust::device, d_cube_id, d_cube_id + n, d_cell_id);
+        thrust::sort_by_key(thrust::device, d_cube_id, d_cube_id + n, d_point_id);
         compute_cube_start_and_end<<<(n + 32 - 1)/32, 32>>>(n, d_cube_id, d_cube_start, d_cube_end);
     }
     template<typename Pt, int n_max_solution, template<typename, int> class Solver>
@@ -286,29 +286,29 @@ public:
 __constant__ int d_moore_nhood[27];  // This is wasted if no Lattice_computer is used
 
 template<typename Pt, int n_max, Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
-__global__ void compute_lattice_pwints(int n_cells, const Pt* __restrict__ d_X, Pt* d_dX,
+__global__ void compute_lattice_pwints(int n, const Pt* __restrict__ d_X, Pt* d_dX,
         const float3* __restrict__ d_old_v, float3* d_sum_v, float* d_sum_friction,
         const Lattice<n_max>* __restrict__ d_lattice) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= n_cells) return;
+    if (i >= n) return;
 
-    auto Xi = d_X[d_lattice->d_cell_id[i]];
+    auto Xi = d_X[d_lattice->d_point_id[i]];
     Pt F {0};
     for (auto j = 0; j < 27; j++) {
         auto cube = d_lattice->d_cube_id[i] + d_moore_nhood[j];
         for (auto k = d_lattice->d_cube_start[cube]; k <= d_lattice->d_cube_end[cube]; k++) {
-            auto Xj = d_X[d_lattice->d_cell_id[k]];
+            auto Xj = d_X[d_lattice->d_point_id[k]];
             auto r = Xi - Xj;
             auto dist = norm3df(r.x, r.y, r.z);
             if (dist < CUBE_SIZE) {
-                F += pw_int(Xi, r, dist, d_lattice->d_cell_id[i], d_lattice->d_cell_id[k]);
-                auto friction = pw_friction(Xi, r, dist, d_lattice->d_cell_id[i], d_lattice->d_cell_id[k]);
-                d_sum_friction[d_lattice->d_cell_id[i]] += friction;
-                d_sum_v[d_lattice->d_cell_id[i]] += friction*d_old_v[d_lattice->d_cell_id[k]];
+                F += pw_int(Xi, r, dist, d_lattice->d_point_id[i], d_lattice->d_point_id[k]);
+                auto friction = pw_friction(Xi, r, dist, d_lattice->d_point_id[i], d_lattice->d_point_id[k]);
+                d_sum_friction[d_lattice->d_point_id[i]] += friction;
+                d_sum_v[d_lattice->d_point_id[i]] += friction*d_old_v[d_lattice->d_point_id[k]];
             }
         }
     }
-    d_dX[d_lattice->d_cell_id[i]] = F;
+    d_dX[d_lattice->d_point_id[i]] = F;
 }
 
 template<typename Pt, int n_max> class Lattice_computer {
