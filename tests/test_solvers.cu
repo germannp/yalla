@@ -149,9 +149,9 @@ const char* test_generic_forces() {
     MU_ASSERT("Momentum in n2n generic force", MU_ISCLOSE(com_i.y, com_f.y));
     MU_ASSERT("Momentum in n2n generic force", MU_ISCLOSE(com_i.z, com_f.z));
 
-    MU_ASSERT("N2n Generic force failed in x", MU_ISCLOSE(n2n.h_X[1].x, 0.5));
-    MU_ASSERT("N2n Generic force failed in y", MU_ISCLOSE(n2n.h_X[1].y, 0));
-    MU_ASSERT("N2n Generic force failed in z", MU_ISCLOSE(n2n.h_X[1].z, 0));
+    MU_ASSERT("N2n generic force failed in x", MU_ISCLOSE(n2n.h_X[1].x, 0.5));
+    MU_ASSERT("N2n generic force failed in y", MU_ISCLOSE(n2n.h_X[1].y, 0));
+    MU_ASSERT("N2n generic force failed in z", MU_ISCLOSE(n2n.h_X[1].z, 0));
 
     Solution<float3, 2, Lattice_solver> latt;
     latt.h_X[0] = float3{0, 0, 10};
@@ -166,9 +166,9 @@ const char* test_generic_forces() {
     MU_ASSERT("Momentum in lattice generic force", MU_ISCLOSE(com_i.y, com_f.y));
     MU_ASSERT("Momentum in lattice generic force", MU_ISCLOSE(com_i.z, com_f.z));
 
-    MU_ASSERT("Lattice Generic force failed in x", MU_ISCLOSE(latt.h_X[1].x, 0.5));
-    MU_ASSERT("Lattice Generic force failed in y", MU_ISCLOSE(latt.h_X[1].y, 0));
-    MU_ASSERT("Lattice Generic force failed in z", MU_ISCLOSE(latt.h_X[1].z, 0));
+    MU_ASSERT("Lattice generic force failed in x", MU_ISCLOSE(latt.h_X[1].x, 0.5));
+    MU_ASSERT("Lattice generic force failed in y", MU_ISCLOSE(latt.h_X[1].y, 0));
+    MU_ASSERT("Lattice generic force failed in z", MU_ISCLOSE(latt.h_X[1].z, 0));
 
     return NULL;
 }
