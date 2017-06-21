@@ -52,8 +52,6 @@ __device__ void protrusion_force(const Po_cell* __restrict__ d_X, const int a, c
     atomicAdd(&d_dX[a].theta, strength*Fa.theta);
     atomicAdd(&d_dX[a].phi, strength*Fa.phi);
 
-    // r_hat.theta = acosf(r.z/dist);
-    // r_hat.phi = atan2(r.y, r.x);
     auto Fb = pcp_force(d_X[b], r_hat);
     atomicAdd(&d_dX[b].theta, strength*Fb.theta);
     atomicAdd(&d_dX[b].phi, strength*Fb.phi);
