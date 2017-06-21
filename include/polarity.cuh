@@ -33,23 +33,21 @@ template<typename Pt> __device__ Pt rigidity_force(Pt Xi, Pt r, float dist) {
         cosf(Xi.theta)};
     auto prodi = pi.x*r.x + pi.y*r.y + pi.z*r.z;
 
-    auto r_theta = acosf(r.z/dist);
-    auto r_phi = atan2(r.y, r.x);
-    dF.theta = - prodi*(cosf(Xi.theta)*sinf(r_theta)*cosf(Xi.phi - r_phi) -
-        sinf(Xi.theta)*cosf(r_theta));
+    Polarity r_hat {acosf(r.z/dist), atan2(r.y, r.x)};
+    dF.theta = - prodi*(cosf(Xi.theta)*sinf(r_hat.theta)*cosf(Xi.phi - r_hat.phi) -
+        sinf(Xi.theta)*cosf(r_hat.theta));
     auto sin_Xi_theta = sinf(Xi.theta);
     if (fabs(sin_Xi_theta) > 1e-10)
-        dF.phi = prodi*sinf(r_theta)*sinf(Xi.phi - r_phi)/sin_Xi_theta;
+        dF.phi = prodi*sinf(r_hat.theta)*sinf(Xi.phi - r_hat.phi)/sin_Xi_theta;
 
     dF.x = - prodi/powf(dist, 2)*pi.x + powf(prodi, 2)/powf(dist, 4)*r.x;
     dF.y = - prodi/powf(dist, 2)*pi.y + powf(prodi, 2)/powf(dist, 4)*r.y;
     dF.z = - prodi/powf(dist, 2)*pi.z + powf(prodi, 2)/powf(dist, 4)*r.z;
 
     // Contribution from (p_j . r_ji/r)^2/2
-    auto Xj_theta = Xi.theta - r.theta;
-    auto Xj_phi = Xi.phi - r.phi;
-    float3 pj {sinf(Xj_theta)*cosf(Xj_phi), sinf(Xj_theta)*sinf(Xj_phi),
-        cosf(Xj_theta)};
+    Polarity Xj {Xi.theta - r.theta, Xi.phi - r.phi};
+    float3 pj {sinf(Xj.theta)*cosf(Xj.phi), sinf(Xj.theta)*sinf(Xj.phi),
+        cosf(Xj.theta)};
     auto prodj = pj.x*r.x + pj.y*r.y + pj.z*r.z;
     dF.x += - prodj/powf(dist, 2)*pj.x + powf(prodj, 2)/powf(dist, 4)*r.x;
     dF.y += - prodj/powf(dist, 2)*pj.y + powf(prodj, 2)/powf(dist, 4)*r.y;
