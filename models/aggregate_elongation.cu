@@ -100,9 +100,10 @@ __global__ void update_protrusions(const Grid<n_cells>* __restrict__ d_grid,
 int main(int argc, char const *argv[]) {
     // Prepare initial state
     Solution<Po_cell, n_cells, Grid_solver> bolls;
-    uniform_sphere(0.733333, bolls);
+    uniform_circle(0.733333, bolls);
     for (auto i = 0; i < n_cells; i++) {
-        bolls.h_X[i].y /= 5;
+        bolls.h_X[i].x = bolls.h_X[i].y;
+        bolls.h_X[i].y = rand()/(RAND_MAX + 1.)/2;
         bolls.h_X[i].theta = acos(2.*rand()/(RAND_MAX + 1.) - 1.);
         bolls.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
     }
