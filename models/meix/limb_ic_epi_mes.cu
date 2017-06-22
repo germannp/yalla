@@ -56,7 +56,7 @@ __device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j) {
       {k=8.f;} //any other contact
     }else{
       if(d_type[i]==epithelium && d_type[j]==mesenchyme)
-      {k=4.f;} //epi. mesench. contact
+      {k=2.f;} //epi. mesench. contact
       else
       {k=2.f;} //any other contact
     }
@@ -296,7 +296,7 @@ int main(int argc, char const *argv[])
   //meix_mesench will be transformed from the main meix (rescaled), and will be
   //used to fill with mesenchyme
   Meix meix_mesench=meix;
-  meix_mesench.Rescale_absolute(-r_min);
+  meix_mesench.Rescale_absolute(-r_min*1.2);
   //float m_resc=1-(2*r_min/target_dx);
   // if(m_resc<0.9f) m_resc=0.9f;
   // std::cout<<"mesench meix rescaling factor m_resc= "<<m_resc<<std::endl;
@@ -322,7 +322,7 @@ int main(int argc, char const *argv[])
 
   //const float packing_factor=0.74048f;
   float cube_vol=dx*dy*dz;
-  float r_boll=0.4f;
+  float r_boll=0.5f*r_min;
   float boll_vol=4./3.*M_PI*pow(r_boll,3);//packing_factor;
   int n_bolls_cube=cube_vol/boll_vol;
 
@@ -404,7 +404,7 @@ int main(int argc, char const *argv[])
   //Set direction of ray
   Point dir=Point(0.0f,1.0f,0.0f);
 
-  meix_mesench.InclusionTest(points , results, dir);
+  meix.InclusionTest(points , results, dir);
 
   //Make a new list with the ones that are inside
   std::vector<Point> mes_cells;
@@ -429,31 +429,71 @@ int main(int argc, char const *argv[])
   //effective surface occupied by one cell will be the one of an hexagon with
   //apothem equal to the cell radius
 
-  float cell_radius=std::stof(argv[5]);
-  float cell_S=cell_radius*cell_radius*6.f/sqrt(3.f); //regular hexagon formula
-  float cell_density=1.f/cell_S;
+  // float cell_radius=std::stof(argv[5]);
+  // float cell_S=cell_radius*cell_radius*6.f/sqrt(3.f); //regular hexagon formula
+  // float cell_density=1.f/cell_S;
+  //
+  // //Calculate whole Surface area of meix
+  // int n_bolls_epi=std::round(cell_density*meix.SurfArea);
+  //
+  // std::cout<<"nbolls_epi= "<<n_bolls_epi<<" cell_density= "<<cell_density<<" meix_S= "<<meix.SurfArea<<std::endl;
+  //
+  // std::vector<Cell> epi_cells;
+  //
+  // //seed the cells onto the meix
+  // seed_epithelium_on_meix_v2(meix, epi_cells, n_bolls_epi);
+  //
+  // int n_bolls_total=n_bolls_mes+n_bolls_epi;
+  // Solution<Cell, n_max, Lattice_solver> bolls(n_bolls_total);
+  //
+  // epithelium_mesenchyme_assembly(mes_cells, epi_cells, type, freeze, bolls);
 
-  //Calculate whole Surface area of meix
-  int n_bolls_epi=std::round(cell_density*meix.SurfArea);
+  //Setup the list of inclusion test results
+  int* results2=new int[n_bolls_mes];
+  //Set direction of ray
+  //Point dir=Point(0.0f,1.0f,0.0f);
 
-  std::cout<<"nbolls_epi= "<<n_bolls_epi<<" cell_density= "<<cell_density<<" meix_S= "<<meix.SurfArea<<std::endl;
+  meix_mesench.InclusionTest(mes_cells , results2, dir);
 
-  std::vector<Cell> epi_cells;
 
-  //seed the cells onto the meix
-  seed_epithelium_on_meix_v2(meix, epi_cells, n_bolls_epi);
-
-  int n_bolls_total=n_bolls_mes+n_bolls_epi;
+  int n_bolls_total=n_bolls_mes;
   Solution<Cell, n_max, Lattice_solver> bolls(n_bolls_total);
 
-  epithelium_mesenchyme_assembly(mes_cells, epi_cells, type, freeze, bolls);
+  //Make a new list with the ones that are inside
+  for (int i = 0; i < n_bolls_total; i++)
+  {
+      bolls.h_X[i].x=mes_cells[i].x ; bolls.h_X[i].y=mes_cells[i].y ; bolls.h_X[i].z=mes_cells[i].z ;
+      if(results2[i]==1){type.h_prop[i]=mesenchyme; freeze.h_prop[i]=1;}
+      else{
+          type.h_prop[i]=epithelium;
+          freeze.h_prop[i]=0;
+          //polarity
+          Point p=mes_cells[i];
+          int f=-1;
+          float dmin=1000000.f;
+          for(int j=0 ; j<meix.n ; j++){
+              Point r=p-meix.Facets[j].C;
+              float d=sqrt(r.x*r.x+r.y*r.y+r.z*r.z);
+              if(d<dmin){dmin=d; f=j;}
+          }
+          bolls.h_X[i].phi = atan2(meix.Facets[f].N.y,meix.Facets[f].N.x);
+          bolls.h_X[i].theta = acos(meix.Facets[f].N.z);
+      }
+  }
+  bolls.copy_to_device();
+  type.copy_to_device();
+  freeze.copy_to_device();
+
+
+
+
 
   std::cout<<"n_bolls_total= "<<n_bolls_total<<std::endl;
 
 Vtk_output output(output_tag);
 
 relax_time=std::stoi(argv[6]);
-write_interval=relax_time/10;
+write_interval=1;//relax_time/10;
 
 for (auto time_step = 0; time_step <= relax_time; time_step++)
 {
@@ -482,7 +522,7 @@ for (auto time_step = 0; time_step <= relax_time; time_step++)
 bolls.copy_to_host();
 n_mes_nbs.copy_to_host();
 std::vector<Cell> epi_trimmed;
-for(int i=n_bolls_mes ; i<n_bolls_total ; i++)
+for(int i=0 ; i<n_bolls_total ; i++)
 {
   if(n_mes_nbs.h_prop[i]>0)
   {
@@ -496,7 +536,8 @@ for(int i=0 ; i<n_bolls_trimmed ; i++)
 {
   bolls_trimmed.h_X[i]=epi_trimmed[i];
 }
-std::cout<<"we trimmed "<<n_bolls_epi-n_bolls_trimmed<<" epi. cells"<<std::endl;
+// std::cout<<"we trimmed "<<n_bolls_epi-n_bolls_trimmed<<" epi. cells"<<std::endl;
+std::cout<<"we got "<<n_bolls_trimmed<<" epi. cells"<<std::endl;
 
   Vtk_output output_trimmed(output_tag+".trimmed");
   output_trimmed.write_positions(bolls_trimmed);
