@@ -76,23 +76,17 @@ __global__ void update_protrusions(const Grid<n_cells>* __restrict__ d_grid,
     D_ASSERT(b >= 0); D_ASSERT(b < n_cells);
     if (a == b) return;
 
-    auto new_r = d_X[a] - d_X[b];
-    auto new_dist = norm3df(new_r.x, new_r.y, new_r.z);
-    if (new_dist > r_protrusion) return;
+    auto r = d_X[a] - d_X[b];
+    auto dist = norm3df(r.x, r.y, r.z);
+    if (dist > r_protrusion) return;
 
-    auto link = &d_link[a*prots_per_cell + i%prots_per_cell];
-    auto not_initialized = link->a == link->b;
-    auto old_r = d_X[link->a] - d_X[link->b];
-    auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
-    Polarity old_rhat {acosf(-old_r.z/old_dist), atan2(-old_r.y, -old_r.x)};
-    auto old_pcp = pol_scalar_product(d_X[a], old_rhat);
-    Polarity new_rhat {acosf(-new_r.z/new_dist), atan2(-new_r.y, -new_r.x)};
-    auto new_pcp = pol_scalar_product(d_X[a], new_rhat);
-    auto noise = curand_uniform(&d_state[i])*0;
-    auto more_along_pcp = fabs(new_pcp) > fabs(old_pcp)*(1.f - noise);
-    if (not_initialized or more_along_pcp) {
-        link->a = a;
-        link->b = b;
+    Polarity r_hat {acosf(-r.z/dist), atan2(-r.y, -r.x)};
+    auto from_front_a = pol_scalar_product(d_X[a], r_hat) > 0.7/2;
+    auto to_back_b = pol_scalar_product(d_X[b], r_hat) > 0.7/2;
+
+    if ((from_front_a and to_back_b)) {
+        d_link[a*prots_per_cell + i%prots_per_cell].a = a;
+        d_link[a*prots_per_cell + i%prots_per_cell].b = b;
     }
 }
 
