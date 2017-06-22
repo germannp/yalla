@@ -30,8 +30,8 @@ __device__ float3 clipped_cubic(float3 Xi, float3 r, float dist, int i, int j) {
 }
 
 
-__global__ void update_protrusions(const float3* __restrict__ d_X, Link* d_link,
-        curandState* d_state) {
+__global__ void update_protrusions(const float3* __restrict__ d_X,
+        curandState* d_state, Link* d_link) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_protrusions) return;
 
@@ -76,8 +76,8 @@ int main(int argc, char const *argv[]) {
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
         protrusions.copy_to_host();
-        update_protrusions<<<(n_protrusions + 32 - 1)/32, 32>>>(bolls.d_X, protrusions.d_link,
-            protrusions.d_state);
+        update_protrusions<<<(n_protrusions + 32 - 1)/32, 32>>>(bolls.d_X,
+            protrusions.d_state, protrusions.d_link);
         bolls.take_step<clipped_cubic>(dt, prot_forces);
         output.write_positions(bolls);
         output.write_links(protrusions);

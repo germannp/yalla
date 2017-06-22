@@ -70,8 +70,8 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
 }
 
 
-__global__ void update_protrusions(const Grid<n_max>* __restrict__ d_grid,
-        const Lb_cell* __restrict d_X, int n_cells, Link* d_link, curandState* d_state) {
+__global__ void update_protrusions(const int n_cells, const Grid<n_max>* __restrict__ d_grid,
+        const Lb_cell* __restrict d_X, curandState* d_state, Link* d_link) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells*prots_per_cell) return;
 
@@ -168,8 +168,8 @@ int main(int argc, char const *argv[]) {
     Grid<n_max> grid;
     for (auto time_step = 0; time_step <= 200; time_step++) {
         grid.build(bolls, r_protrusion);
-        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(grid.d_grid,
-            bolls.d_X, bolls.get_d_n(), protrusions.d_link, protrusions.d_state);
+        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.get_d_n(),
+            grid.d_grid, bolls.d_X, protrusions.d_state, protrusions.d_link);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
         bolls.take_step<lb_force>(dt, intercalation);
     }
@@ -212,8 +212,8 @@ int main(int argc, char const *argv[]) {
                     bolls.d_n, protrusions.d_state);
                 protrusions.set_d_n(bolls.get_d_n()*prots_per_cell);
                 grid.build(bolls, r_protrusion);
-                update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(grid.d_grid,
-                    bolls.d_X, bolls.get_d_n(), protrusions.d_link, protrusions.d_state);
+                update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.get_d_n(),
+                    grid.d_grid, bolls.d_X, protrusions.d_state, protrusions.d_link);
                 thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
                 thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
                 bolls.take_step<lb_force>(dt, intercalation);

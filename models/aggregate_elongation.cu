@@ -59,7 +59,7 @@ __device__ void protrusion_force(const Po_cell* __restrict__ d_X, const int a, c
 
 
 __global__ void update_protrusions(const Grid<n_cells>* __restrict__ d_grid,
-        const Po_cell* __restrict d_X, Link* d_link, curandState* d_state) {
+        const Po_cell* __restrict d_X, curandState* d_state, Link* d_link) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells*prots_per_cell) return;
 
@@ -102,10 +102,12 @@ int main(int argc, char const *argv[]) {
     Solution<Po_cell, n_cells, Grid_solver> bolls;
     uniform_circle(0.733333, bolls);
     for (auto i = 0; i < n_cells; i++) {
-        bolls.h_X[i].x = bolls.h_X[i].y;
-        bolls.h_X[i].y = rand()/(RAND_MAX + 1.)/2;
-        bolls.h_X[i].theta = acos(2.*rand()/(RAND_MAX + 1.) - 1.);
-        bolls.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
+        bolls.h_X[i].x = bolls.h_X[i].z;
+        bolls.h_X[i].z = rand()/(RAND_MAX + 1.)/2;
+        bolls.h_X[i].theta = M_PI/2 + (rand()/(RAND_MAX + 1.) - 0.5)/2;
+        // bolls.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
+        auto phi = atan2(-bolls.h_X[i].y, -bolls.h_X[i].x);
+        bolls.h_X[i].phi = phi + M_PI/2;
     }
     bolls.copy_to_device();
     Links<static_cast<int>(n_cells*prots_per_cell)> protrusions;
@@ -122,7 +124,7 @@ int main(int argc, char const *argv[]) {
 
         grid.build(bolls, r_protrusion);
         update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(grid.d_grid,
-            bolls.d_X, protrusions.d_link, protrusions.d_state);
+            bolls.d_X, protrusions.d_state, protrusions.d_link);
         bolls.take_step<lb_force>(dt, intercalation);
 
         output.write_positions(bolls);
