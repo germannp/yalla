@@ -52,61 +52,56 @@ __device__ void protrusion_force(const Po_cell* __restrict__ d_X, const int a, c
     atomicAdd(&d_dX[a].theta, strength*Fa.theta);
     atomicAdd(&d_dX[a].phi, strength*Fa.phi);
 
-    // r_hat.theta = acosf(r.z/dist);
-    // r_hat.phi = atan2(r.y, r.x);
     auto Fb = pcp_force(d_X[b], r_hat);
     atomicAdd(&d_dX[b].theta, strength*Fb.theta);
     atomicAdd(&d_dX[b].phi, strength*Fb.phi);
 }
 
 
-__global__ void update_protrusions(const Lattice<n_cells>* __restrict__ d_lattice,
-        const Po_cell* __restrict d_X, Link* d_link, curandState* d_state) {
+__global__ void update_protrusions(const Grid<n_cells>* __restrict__ d_grid,
+        const Po_cell* __restrict d_X, curandState* d_state, Link* d_link) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_cells*prots_per_cell) return;
 
     auto j = static_cast<int>((i + 0.5)/prots_per_cell);
-    auto rand_nb_cube = d_lattice->d_cube_id[j]
+    auto rand_nb_cube = d_grid->d_cube_id[j]
         + d_moore_nhood[min(static_cast<int>(curand_uniform(&d_state[i])*27), 26)];
-    auto cells_in_cube = d_lattice->d_cube_end[rand_nb_cube] - d_lattice->d_cube_start[rand_nb_cube];
+    auto cells_in_cube = d_grid->d_cube_end[rand_nb_cube] - d_grid->d_cube_start[rand_nb_cube];
     if (cells_in_cube < 1) return;
 
-    auto a = d_lattice->d_cell_id[j];
-    auto b = d_lattice->d_cell_id[d_lattice->d_cube_start[rand_nb_cube]
+    auto a = d_grid->d_point_id[j];
+    auto b = d_grid->d_point_id[d_grid->d_cube_start[rand_nb_cube]
         + min(static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube), cells_in_cube - 1)];
     D_ASSERT(a >= 0); D_ASSERT(a < n_cells);
     D_ASSERT(b >= 0); D_ASSERT(b < n_cells);
     if (a == b) return;
 
-    auto new_r = d_X[a] - d_X[b];
-    auto new_dist = norm3df(new_r.x, new_r.y, new_r.z);
-    if (new_dist > r_protrusion) return;
+    auto r = d_X[a] - d_X[b];
+    auto dist = norm3df(r.x, r.y, r.z);
+    if (dist > r_protrusion) return;
 
-    auto link = &d_link[a*prots_per_cell + i%prots_per_cell];
-    auto not_initialized = link->a == link->b;
-    auto old_r = d_X[link->a] - d_X[link->b];
-    auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
-    Polarity old_rhat {acosf(-old_r.z/old_dist), atan2(-old_r.y, -old_r.x)};
-    auto old_pcp = pol_scalar_product(d_X[a], old_rhat);
-    Polarity new_rhat {acosf(-new_r.z/new_dist), atan2(-new_r.y, -new_r.x)};
-    auto new_pcp = pol_scalar_product(d_X[a], new_rhat);
-    auto noise = curand_uniform(&d_state[i])*0;
-    auto more_along_pcp = fabs(new_pcp) > fabs(old_pcp)*(1.f - noise);
-    if (not_initialized or more_along_pcp) {
-        link->a = a;
-        link->b = b;
+    Polarity r_hat {acosf(-r.z/dist), atan2(-r.y, -r.x)};
+    auto from_front_a = pol_scalar_product(d_X[a], r_hat) > 0.7/2;
+    auto to_back_b = pol_scalar_product(d_X[b], r_hat) > 0.7/2;
+
+    if ((from_front_a and to_back_b)) {
+        d_link[a*prots_per_cell + i%prots_per_cell].a = a;
+        d_link[a*prots_per_cell + i%prots_per_cell].b = b;
     }
 }
 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Lattice_solver> bolls;
-    uniform_sphere(0.733333, bolls);
+    Solution<Po_cell, n_cells, Grid_solver> bolls;
+    uniform_circle(0.733333, bolls);
     for (auto i = 0; i < n_cells; i++) {
-        bolls.h_X[i].y /= 3;
-        bolls.h_X[i].theta = acos(2.*rand()/(RAND_MAX + 1.) - 1.);
-        bolls.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
+        bolls.h_X[i].x = bolls.h_X[i].z;
+        bolls.h_X[i].z = rand()/(RAND_MAX + 1.)/2;
+        bolls.h_X[i].theta = M_PI/2 + (rand()/(RAND_MAX + 1.) - 0.5)/2;
+        // bolls.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
+        auto phi = atan2(-bolls.h_X[i].y, -bolls.h_X[i].x);
+        bolls.h_X[i].phi = phi + M_PI/2;
     }
     bolls.copy_to_device();
     Links<static_cast<int>(n_cells*prots_per_cell)> protrusions;
@@ -116,13 +111,14 @@ int main(int argc, char const *argv[]) {
 
     // Simulate elongation
     Vtk_output output("aggregate");
+    Grid<n_cells> grid;
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
         protrusions.copy_to_host();
 
-        bolls.build_lattice(r_protrusion);
-        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
-            bolls.d_X, protrusions.d_link, protrusions.d_state);
+        grid.build(bolls, r_protrusion);
+        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(grid.d_grid,
+            bolls.d_X, protrusions.d_state, protrusions.d_link);
         bolls.take_step<lb_force>(dt, intercalation);
 
         output.write_positions(bolls);

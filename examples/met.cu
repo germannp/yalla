@@ -32,7 +32,7 @@ __device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell r, float dist, int i, i
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Lattice_solver> bolls;
+    Solution<Po_cell, n_cells, Grid_solver> bolls;
     uniform_sphere(0.733333, bolls);
     for (auto i = 0; i < n_cells; i++) {
         auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x + bolls.h_X[i].y*bolls.h_X[i].y

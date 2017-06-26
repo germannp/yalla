@@ -291,6 +291,7 @@ int main(int argc, char const *argv[]) {
         thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + n_bolls_cube, 0);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_cube, 0);
 
+<<<<<<< HEAD
         cube.take_step<relaxation_force, freeze_friction>(dt);
 
         //write the output
@@ -298,6 +299,141 @@ int main(int argc, char const *argv[]) {
             cubic_output.write_positions(cube);
             cubic_output.write_polarity(cube);
         }
+=======
+int main(int argc, char const *argv[])
+{
+
+  // Command line arguments
+  // argv[1]=output file tag
+  // argv[2]=mesh file name
+  // argv[3]=target limb bud size (dx)
+  // argv[4]=cube relax_time
+  // argv[5]=assumed cell radius
+  // argv[6]=post assembly relax time
+
+  std::string output_tag=argv[1];
+  std::string file_name=argv[2];
+
+  //First, load the mesh file so we can get the maximum dimensions of the system
+  Meix meix(file_name);
+
+  //Mesh translation, we're gonna put its centre on the origin of coordinates
+  //first, calculate centroid of the mesh
+  Point centroid;
+  for (int i=0 ; i<meix.n ; i++)
+  {
+    centroid=centroid+meix.Facets[i].C;
+  }
+  centroid=centroid*(1.f/float(meix.n));
+  //translation
+  Point new_centroid;
+  for (int i=0 ; i<meix.n ; i++)
+  {
+    meix.Facets[i].V0=meix.Facets[i].V0-centroid;
+    meix.Facets[i].V1=meix.Facets[i].V1-centroid;
+    meix.Facets[i].V2=meix.Facets[i].V2-centroid;
+    meix.Facets[i].C=meix.Facets[i].C-centroid;
+    new_centroid=new_centroid+meix.Facets[i].C;
+  }
+
+  new_centroid=new_centroid*(1.f/float(meix.n));
+
+  std::cout<<"old centroid= "<<centroid.x<<" "<<centroid.y<<" "<<centroid.z<<std::endl;
+  std::cout<<"new centroid= "<<new_centroid.x<<" "<<new_centroid.y<<" "<<new_centroid.z<<std::endl;
+
+  //Compute max length in X axis to know how much we need to rescale
+  //**********************************************************************
+  //Attention! we are assuming the PD axis of the limb is aligned with X
+  //**********************************************************************
+
+  float xmin=10000.0f,xmax=-10000.0f;
+  float ymin,ymax,zmin,zmax;
+  float dx,dy,dz;
+
+  for(int i=0 ; i<meix.n ; i++)
+  {
+    if(meix.Facets[i].C.x<xmin) xmin=meix.Facets[i].C.x;  if(meix.Facets[i].C.x>xmax) xmax=meix.Facets[i].C.x;
+  }
+  dx=xmax-xmin;
+
+  float target_dx=std::stof(argv[3]);
+  float resc=target_dx/dx;
+  std::cout<<"xmax= "<<xmax<<" xmin= "<<xmin<<std::endl;
+  std::cout<<"dx= "<<dx<<" target_dx= "<<target_dx<<" rescaling factor resc= "<<resc<<std::endl;
+
+  //meix is the reference shape, and will be used to seed the epithelium
+  meix.Rescale_relative(resc);
+  //meix_mesench will be transformed from the main meix (rescaled), and will be
+  //used to fill with mesenchyme
+  Meix meix_mesench=meix;
+  //meix_mesench.Rescale_absolute(-0.4f);
+  meix_mesench.Rescale_relative(0.9f);
+
+  //Compute min. and max, positions in x,y,z from rescaled mesh
+  xmin=10000.0f;xmax=-10000.0f;ymin=10000.0f;ymax=-10000.0f;zmin=10000.0f;zmax=-10000.0f;
+  for(int i=0 ; i<meix_mesench.n ; i++)
+  {
+    if(meix_mesench.Facets[i].C.x<xmin) xmin=meix_mesench.Facets[i].C.x;  if(meix_mesench.Facets[i].C.x>xmax) xmax=meix_mesench.Facets[i].C.x;
+    if(meix_mesench.Facets[i].C.y<ymin) ymin=meix_mesench.Facets[i].C.y;  if(meix_mesench.Facets[i].C.y>ymax) ymax=meix_mesench.Facets[i].C.y;
+    if(meix_mesench.Facets[i].C.z<zmin) zmin=meix_mesench.Facets[i].C.z;  if(meix_mesench.Facets[i].C.z>zmax) zmax=meix_mesench.Facets[i].C.z;
+  }
+  dx=xmax-xmin;
+  dy=ymax-ymin;
+  dz=zmax-zmin;
+
+  //we use the maximum lengths of the mesh to draw a cube that includes the mesh
+  //Let's fill the cube with bolls
+  //How many bolls? We calculate the volume of the cube we want to fill
+  //then we calculate how many bolls add up to that volume, correcting by the
+  //inefficiency of a cubic packing (0.74)----> Well in the end we don't correct cause it wasn't packed enough
+
+  //const float packing_factor=0.74048f;
+  float cube_vol=dx*dy*dz;
+  float r_boll=0.3f;
+  float boll_vol=4./3.*M_PI*pow(r_boll,3);
+  int n_bolls_cube=cube_vol/boll_vol;
+
+  std::cout<<"cube dims "<<dx<<" "<<dy<<" "<<dz<<std::endl;
+  std::cout<<"nbolls in cube "<<n_bolls_cube<<std::endl;
+
+  Solution<Cell, n_max, Grid_solver> cube(n_bolls_cube);
+  //Fill the rectangle with bolls
+  uniform_cubic_rectangle(xmin,ymin,zmin,dx,dy,dz,cube);
+
+  Property<n_max, Cell_types> type;
+  cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
+  for (auto i = 0; i < n_bolls_cube; i++)
+  {
+      type.h_prop[i] = mesenchyme;
+  }
+
+  cube.copy_to_device();
+  type.copy_to_device();
+  // Property<n_max, int> n_mes_nbs;
+  // cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
+  // Property<n_max, int> n_epi_nbs;
+  // cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
+
+  // We run the solver on bolls so the cube of bolls relaxes
+  std::stringstream ass;
+  ass << argv[1] << ".cubic_relaxation";
+  std::string cubic_out = ass.str();
+
+  int relax_time=std::stoi(argv[4]);
+  int write_interval=relax_time/10;
+  std::cout<<"relax_time "<<relax_time<<" write interval "<< write_interval<<std::endl;
+
+  Vtk_output cubic_output(cubic_out);
+
+  for (auto time_step = 0; time_step <= relax_time; time_step++)
+  {
+    if(time_step%write_interval==0 || time_step==relax_time)
+    {
+      cube.copy_to_host();
+    }
+
+    cube.build_grid(r_max);
+>>>>>>> 1a6c21a688a9438c74d0f242f5cc2190b298ab64
 
     }
 
@@ -396,7 +532,14 @@ int main(int argc, char const *argv[]) {
             output.write_property(freeze);
         }
 
+<<<<<<< HEAD
     }
+=======
+  int n_bolls_total=n_bolls_mes+n_bolls_epi;
+  Solution<Cell, n_max, Grid_solver> bolls(n_bolls_total);
+  // Property<n_max, Cell_types> type;
+  // cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
+>>>>>>> 1a6c21a688a9438c74d0f242f5cc2190b298ab64
 
     //De-freeze the mesenchyme
     for(int i=0 ; i<n_bolls_total ; i++) {
@@ -434,10 +577,14 @@ int main(int argc, char const *argv[]) {
 
     Vtk_output output_trimmed(output_tag+".trimmed");
 
+<<<<<<< HEAD
     //try relaxation without mesenchyme frozen
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
         if(time_step%write_interval==0 || time_step==relax_time)
             bolls_trimmed.copy_to_host();
+=======
+  bolls.build_grid(r_max);
+>>>>>>> 1a6c21a688a9438c74d0f242f5cc2190b298ab64
 
         thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + n_bolls_total, 0);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_total, 0);

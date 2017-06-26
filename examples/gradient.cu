@@ -30,7 +30,7 @@ __device__ float4 clipped_cubic_w_gradient(float4 Xi, float4 r, float dist, int 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<float4, n_cells, N2n_solver> bolls;
+    Solution<float4, n_cells, Tile_solver> bolls;
     for (auto i = 0; i < n_cells; i++) {
         bolls.h_X[i].w = i == 0 ? 1 : 0;
     }

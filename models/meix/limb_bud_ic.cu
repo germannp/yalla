@@ -94,7 +94,7 @@ int main (int argc, char const *argv[])
   //We load the fitted mesenchyme into a Solution
   int n_bolls;
   Vtk_input input_bolls(filename,n_bolls);
-  Solution<Cell, n_max, Lattice_solver> bolls(n_bolls);
+  Solution<Cell, n_max, Grid_solver> bolls(n_bolls);
   input_bolls.read_positions(bolls);
   input_bolls.read_polarity(bolls);
 
@@ -115,7 +115,7 @@ int main (int argc, char const *argv[])
   //and the facet normals (stored as cell polarities).
   int n_meix;
   Vtk_input input_meix(meix_filename,n_meix);
-  Solution<Cell, n_max, Lattice_solver> meix(n_meix);
+  Solution<Cell, n_max, Grid_solver> meix(n_meix);
   input_meix.read_positions(meix);
   input_meix.read_polarity(meix);
 
@@ -125,9 +125,9 @@ int main (int argc, char const *argv[])
 
   // we need to compute 1 iteration to compute the number of neighbours for each cell
   for (auto time_step = 0; time_step <= 1; time_step++) {
-      bolls.build_lattice(r_max);
+      bolls.build_grid(r_max);
 
-      // update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
+      // update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_grid,
       //     bolls.d_X, bolls.get_d_n(), protrusions.d_link, protrusions.d_state);
       thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls, 0);
       // bolls.take_step<lb_force>(dt, intercalation);
@@ -176,9 +176,9 @@ int main (int argc, char const *argv[])
   Vtk_output output(out_name);
   for (auto time_step = 0; time_step <= relax_time; time_step++) {
       bolls.copy_to_host();
-      bolls.build_lattice(r_max);
+      bolls.build_grid(r_max);
 
-      // update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_lattice,
+      // update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.d_grid,
       //     bolls.d_X, bolls.get_d_n(), protrusions.d_link, protrusions.d_state);
       thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls, 0);
       // bolls.take_step<lb_force>(dt, intercalation);

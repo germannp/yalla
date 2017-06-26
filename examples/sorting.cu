@@ -28,7 +28,7 @@ __device__ float3 differential_adhesion(float3 Xi, float3 r, float dist, int i, 
 
 int main(int argc, char const *argv[]) {
     // Prepare initial state
-    Solution<float3, n_cells, Lattice_solver> bolls;
+    Solution<float3, n_cells, Grid_solver> bolls;
     uniform_sphere(r_min, bolls);
     Property<n_cells> type;
     for (auto i = 0; i < n_cells; i++) {

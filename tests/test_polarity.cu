@@ -13,7 +13,7 @@ __device__ Po_cell pcp_force(Po_cell Xi, Po_cell r, float dist, int i, int j) {
 }
 
 const char* test_pcp() {
-    Solution<Po_cell, 2, N2n_solver> bolls;
+    Solution<Po_cell, 2, Tile_solver> bolls;
 
     // Turn in theta and phi, close to z-axis to test transformation
     Polarity p_i {M_PI/2 + M_PI/4 + 0.01, 0.5};
@@ -57,7 +57,7 @@ __device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell r, float dist, int i, i
 }
 
 const char* test_line_of_four() {
-    Solution<Po_cell, 4, N2n_solver> bolls;
+    Solution<Po_cell, 4, Tile_solver> bolls;
 
     for (auto i = 0; i < 4; i++) {
         bolls.h_X[i].x = 0.733333*cosf((i - 0.5)*M_PI/3);
