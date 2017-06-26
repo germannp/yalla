@@ -113,6 +113,7 @@ int main(int argc, char const *argv[]) {
         centroid=centroid+meix.Facets[i].C;
     }
     centroid=centroid*(1.f/float(meix.n));
+
     //translation
     Point new_centroid;
     for (int i=0 ; i<meix.n ; i++) {
@@ -127,6 +128,71 @@ int main(int argc, char const *argv[]) {
 
     std::cout<<"old centroid= "<<centroid.x<<" "<<centroid.y<<" "<<centroid.z<<std::endl;
     std::cout<<"new centroid= "<<new_centroid.x<<" "<<new_centroid.y<<" "<<new_centroid.z<<std::endl;
+
+    //rotation
+    //So the limb boundary with the flank is aligned with the y-z plane
+    Point normal0=meix.Facets[0].N; //the first facet is always on the boundary plane for some reason
+    float theta0=atan2(normal0.y, normal0.x);
+    float phi0=acos(normal0.z);
+    float const right_theta=M_PI;
+    float const right_phi=M_PI/2.f;
+    float correction_theta=right_theta-theta0;
+    float correction_phi=right_phi-phi0;
+
+    std::cout<<"theta0, phi0: "<<theta0<<" "<<phi0<<" correction: "<<correction_theta<<" "<<correction_phi<<std::endl;
+
+    //rotation around z axis (theta correction)
+    std::cout<<"normal of facet 0 before theta rotation: "<<meix.Facets[0].N.x<<" "<<meix.Facets[0].N.y<<" "<<meix.Facets[0].N.z<<std::endl;
+    for(int i=0 ; i<meix.n ; i++) {
+        Point old=meix.Facets[i].V0;
+        meix.Facets[i].V0.x=old.x*cos(correction_theta)-old.y*sin(correction_theta);
+        meix.Facets[i].V0.y=old.x*sin(correction_theta)+old.y*cos(correction_theta);
+
+        old=meix.Facets[i].V1;
+        meix.Facets[i].V1.x=old.x*cos(correction_theta)-old.y*sin(correction_theta);
+        meix.Facets[i].V1.y=old.x*sin(correction_theta)+old.y*cos(correction_theta);
+
+        old=meix.Facets[i].V2;
+        meix.Facets[i].V2.x=old.x*cos(correction_theta)-old.y*sin(correction_theta);
+        meix.Facets[i].V2.y=old.x*sin(correction_theta)+old.y*cos(correction_theta);
+
+        old=meix.Facets[i].C;
+        meix.Facets[i].C.x=old.x*cos(correction_theta)-old.y*sin(correction_theta);
+        meix.Facets[i].C.y=old.x*sin(correction_theta)+old.y*cos(correction_theta);
+        //Recalculate normal
+        Point v=meix.Facets[i].V1-meix.Facets[i].V0;
+        Point u=meix.Facets[i].V2-meix.Facets[i].V0;
+        Point n(u.y*v.z-u.z*v.y, u.z*v.x-u.x*v.z, u.x*v.y-u.y*v.x);
+        float d=sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
+        meix.Facets[i].N=n*(1.f/d);
+    }
+    std::cout<<"normal of facet 0 after theta rotation: "<<meix.Facets[0].N.x<<" "<<meix.Facets[0].N.y<<" "<<meix.Facets[0].N.z<<std::endl;
+
+    //rotation around x axis (phi correction)
+    for(int i=0 ; i<meix.n ; i++) {
+        Point old=meix.Facets[i].V0;
+        meix.Facets[i].V0.x=old.x*cos(correction_phi)-old.z*sin(correction_phi);
+        meix.Facets[i].V0.z=old.x*sin(correction_phi)+old.z*cos(correction_phi);
+
+        old=meix.Facets[i].V1;
+        meix.Facets[i].V1.x=old.x*cos(correction_phi)-old.z*sin(correction_phi);
+        meix.Facets[i].V1.z=old.x*sin(correction_phi)+old.z*cos(correction_phi);
+
+        old=meix.Facets[i].V2;
+        meix.Facets[i].V2.x=old.x*cos(correction_phi)-old.z*sin(correction_phi);
+        meix.Facets[i].V2.z=old.x*sin(correction_phi)+old.z*cos(correction_phi);
+
+        old=meix.Facets[i].C;
+        meix.Facets[i].C.x=old.x*cos(correction_phi)-old.z*sin(correction_phi);
+        meix.Facets[i].C.z=old.x*sin(correction_phi)+old.z*cos(correction_phi);
+        //Recalculate normal
+        Point v=meix.Facets[i].V1-meix.Facets[i].V0;
+        Point u=meix.Facets[i].V2-meix.Facets[i].V0;
+        Point n(u.y*v.z-u.z*v.y, u.z*v.x-u.x*v.z, u.x*v.y-u.y*v.x);
+        float d=sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
+        meix.Facets[i].N=n*(1.f/d);
+    }
+    std::cout<<"normal of facet 0 after phi rotation: "<<meix.Facets[0].N.x<<" "<<meix.Facets[0].N.y<<" "<<meix.Facets[0].N.z<<std::endl;
 
     //Compute max length in X axis to know how much we need to rescale
     //**********************************************************************
@@ -180,7 +246,7 @@ int main(int argc, char const *argv[]) {
     std::cout<<"cube dims "<<dx<<" "<<dy<<" "<<dz<<std::endl;
     std::cout<<"nbolls in cube "<<n_bolls_cube<<std::endl;
 
-    Solution<Cell, n_max, Lattice_solver> cube(n_bolls_cube);
+    Solution<Cell, n_max, Grid_solver> cube(n_bolls_cube);
     //Fill the rectangle with bolls
     uniform_cubic_rectangle(xmin,ymin,zmin,dx,dy,dz,cube);
 
@@ -196,25 +262,25 @@ int main(int argc, char const *argv[]) {
         freeze.h_prop[i] = 0;
     }
 
-     cube.copy_to_device();
-     type.copy_to_device();
-     freeze.copy_to_device();
+    cube.copy_to_device();
+    type.copy_to_device();
+    freeze.copy_to_device();
 
-     Property<n_max, int> n_mes_nbs;
-     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
-     Property<n_max, int> n_epi_nbs;
-     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
+    Property<n_max, int> n_mes_nbs;
+    cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
+    Property<n_max, int> n_epi_nbs;
+    cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
 
-     // We run the solver on bolls so the cube of bolls relaxes
-     std::stringstream ass;
-     ass << argv[1] << ".cubic_relaxation";
-     std::string cubic_out = ass.str();
+    // We run the solver on bolls so the cube of bolls relaxes
+    std::stringstream ass;
+    ass << argv[1] << ".cubic_relaxation";
+    std::string cubic_out = ass.str();
 
-     int relax_time=std::stoi(argv[4]);
-     int write_interval=relax_time/10;
-     std::cout<<"relax_time "<<relax_time<<" write interval "<< write_interval<<std::endl;
+    int relax_time=std::stoi(argv[4]);
+    int write_interval=relax_time/10;
+    std::cout<<"relax_time "<<relax_time<<" write interval "<< write_interval<<std::endl;
 
-     Vtk_output cubic_output(cubic_out);
+    Vtk_output cubic_output(cubic_out);
 
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
         if(time_step%write_interval==0 || time_step==relax_time)
@@ -276,7 +342,7 @@ int main(int argc, char const *argv[]) {
     meix_mesench.InclusionTest(mes_cells , results2, dir);
 
     int n_bolls_total=n_bolls_mes;
-    Solution<Cell, n_max, Lattice_solver> bolls(n_bolls_total);
+    Solution<Cell, n_max, Grid_solver> bolls(n_bolls_total);
 
     //Make a new list with the ones that are inside
     for (int i = 0; i < n_bolls_total; i++) {
@@ -355,7 +421,7 @@ int main(int argc, char const *argv[]) {
         n_bolls_trimmed++;
     }
 
-    Solution<Cell, n_max, Lattice_solver> bolls_trimmed(n_bolls_trimmed);
+    Solution<Cell, n_max, Grid_solver> bolls_trimmed(n_bolls_trimmed);
     for(int i=0 ; i<n_bolls_trimmed ; i++) {
         bolls_trimmed.h_X[i]=epi_trimmed[i];
         type.h_prop[i]=new_type[i];
