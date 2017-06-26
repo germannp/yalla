@@ -182,7 +182,9 @@ __global__ void compute_tiles(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
 
     __shared__ Pt shX[TILE_SIZE];
 
-    Pt Fi {0};
+    Pt F {0};
+    float3 sum_v {0};
+    float sum_friction = 0;
     for (auto tile_start = 0; tile_start < n; tile_start += TILE_SIZE) {
         auto j = tile_start + threadIdx.x;
         if (j < n) {
@@ -195,16 +197,18 @@ __global__ void compute_tiles(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
             if ((i < n) and (j < n)) {
                 auto r = d_X[i] - shX[k];
                 auto dist = norm3df(r.x, r.y, r.z);
-                Fi += pw_int(d_X[i], r, dist, i, j);
+                F += pw_int(d_X[i], r, dist, i, j);
                 auto friction = pw_friction(d_X[i], r, dist, i, j);
-                d_sum_friction[i] += friction;
-                d_sum_v[i] += friction*d_old_v[j];
+                sum_friction += friction;
+                sum_v += friction*d_old_v[j];
             }
         }
     }
 
     if (i < n) {
-        d_dX[i] = Fi;
+        d_dX[i] = F;
+        d_sum_friction[i] = sum_friction;
+        d_sum_v[i] = sum_v;
     }
 }
 
@@ -298,6 +302,8 @@ __global__ void compute_grid_pwints(const int n, const Pt* __restrict__ d_X,
 
     auto Xi = d_X[d_grid->d_point_id[i]];
     Pt F {0};
+    float3 sum_v {0};
+    float sum_friction = 0;
     for (auto j = 0; j < 27; j++) {
         auto cube = d_grid->d_cube_id[i] + d_moore_nhood[j];
         for (auto k = d_grid->d_cube_start[cube]; k <= d_grid->d_cube_end[cube]; k++) {
@@ -307,12 +313,14 @@ __global__ void compute_grid_pwints(const int n, const Pt* __restrict__ d_X,
             if (dist < CUBE_SIZE) {
                 F += pw_int(Xi, r, dist, d_grid->d_point_id[i], d_grid->d_point_id[k]);
                 auto friction = pw_friction(Xi, r, dist, d_grid->d_point_id[i], d_grid->d_point_id[k]);
-                d_sum_friction[d_grid->d_point_id[i]] += friction;
-                d_sum_v[d_grid->d_point_id[i]] += friction*d_old_v[d_grid->d_point_id[k]];
+                sum_friction += friction;
+                sum_v += friction*d_old_v[d_grid->d_point_id[k]];
             }
         }
     }
     d_dX[d_grid->d_point_id[i]] = F;
+    d_sum_v[d_grid->d_point_id[i]] = sum_v;
+    d_sum_friction[d_grid->d_point_id[i]] = sum_friction;
 }
 
 template<typename Pt, int n_max> class Grid_computer {
