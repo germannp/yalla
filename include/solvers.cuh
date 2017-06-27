@@ -310,12 +310,12 @@ __global__ void compute_grid_pwints(const int n, const Pt* __restrict__ d_X,
             auto Xj = d_X[d_grid->d_point_id[k]];
             auto r = Xi - Xj;
             auto dist = norm3df(r.x, r.y, r.z);
-            if (dist < CUBE_SIZE) {
-                F += pw_int(Xi, r, dist, d_grid->d_point_id[i], d_grid->d_point_id[k]);
-                auto friction = pw_friction(Xi, r, dist, d_grid->d_point_id[i], d_grid->d_point_id[k]);
-                sum_friction += friction;
-                sum_v += friction*d_old_v[d_grid->d_point_id[k]];
-            }
+            if (dist >= CUBE_SIZE) continue;
+
+            F += pw_int(Xi, r, dist, d_grid->d_point_id[i], d_grid->d_point_id[k]);
+            auto friction = pw_friction(Xi, r, dist, d_grid->d_point_id[i], d_grid->d_point_id[k]);
+            sum_friction += friction;
+            sum_v += friction*d_old_v[d_grid->d_point_id[k]];
         }
     }
     d_dX[d_grid->d_point_id[i]] = F;
