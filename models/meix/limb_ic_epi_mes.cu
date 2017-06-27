@@ -59,7 +59,7 @@ __device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j) {
 
     if(d_type[i]==epithelium && d_type[j]==epithelium)
     {
-        dF += rigidity_force(Xi, r, dist)*0.3f;//*3;
+        dF += rigidity_force(Xi, r, dist)*0.15f;//*3;
     }
 
     if (d_type[j] == epithelium) {atomicAdd(&d_epi_nbs[i],1);}
@@ -68,9 +68,13 @@ __device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j) {
     return dF;
 }
 
-__device__ float freeze_friction(Cell Xi, Cell r, float dist, int i, int j) {
-    if(d_freeze[i]==1) return 1;
+__device__ float relaxation_friction(Cell Xi, Cell r, float dist, int i, int j) {
     return 0;
+}
+
+__device__ float freeze_friction(Cell Xi, Cell r, float dist, int i, int j) {
+    if(d_freeze[i]==1) return 0;
+    return 1;
 }
 
 // Distribute bolls uniformly random in rectangular cube
@@ -225,7 +229,7 @@ int main(int argc, char const *argv[]) {
         thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + n_bolls_cube, 0);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_cube, 0);
 
-        cube.take_step<relaxation_force, freeze_friction>(dt);
+        cube.take_step<relaxation_force, relaxation_friction>(dt);
 
         //write the output
         if(time_step%write_interval==0 || time_step==relax_time) {
