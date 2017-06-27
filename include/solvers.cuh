@@ -182,6 +182,8 @@ __global__ void compute_tiles(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
 
     __shared__ Pt shX[TILE_SIZE];
 
+    Pt Xi {0};
+    if (i < n) Xi = d_X[i];
     Pt F {0};
     float3 sum_v {0};
     float sum_friction = 0;
@@ -195,10 +197,10 @@ __global__ void compute_tiles(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
         for (auto k = 0; k < TILE_SIZE; k++) {
             auto j = tile_start + k;
             if ((i < n) and (j < n)) {
-                auto r = d_X[i] - shX[k];
+                auto r = Xi - shX[k];
                 auto dist = norm3df(r.x, r.y, r.z);
-                F += pw_int(d_X[i], r, dist, i, j);
-                auto friction = pw_friction(d_X[i], r, dist, i, j);
+                F += pw_int(Xi, r, dist, i, j);
+                auto friction = pw_friction(Xi, r, dist, i, j);
                 sum_friction += friction;
                 sum_v += friction*d_old_v[j];
             }
