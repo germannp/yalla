@@ -89,14 +89,17 @@ int intersect3D_RayTriangle( Ray , Triangle , Point* );
 class Meix {
 public:
     std::vector<Triangle>Facets;
-    float SurfArea;
+    float surf_area;
     int n;
 
     Meix();
     Meix(std::string);
     void Rescale_relative(float);
     void Rescale_absolute(float);
-    void CalcSurfArea();
+    void Rotate(float,float);
+    void Translate(Point);
+    void Calc_surf_area();
+    Point Get_centroid();
     void InclusionTest(std::vector<Point>& , int* , Point);
     void WriteVtk(std::string);
 

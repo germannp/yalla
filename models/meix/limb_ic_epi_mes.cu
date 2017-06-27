@@ -107,26 +107,13 @@ int main(int argc, char const *argv[]) {
     Meix meix(file_name);
 
     //Mesh translation, we're gonna put its centre on the origin of coordinates
-    //first, calculate centroid of the mesh
-    Point centroid;
-    for (int i=0 ; i<meix.n ; i++) {
-        centroid=centroid+meix.Facets[i].C;
-    }
-    centroid=centroid*(1.f/float(meix.n));
+    Point old_centroid=meix.Get_centroid();
 
-    //translation
-    Point new_centroid;
-    for (int i=0 ; i<meix.n ; i++) {
-        meix.Facets[i].V0=meix.Facets[i].V0-centroid;
-        meix.Facets[i].V1=meix.Facets[i].V1-centroid;
-        meix.Facets[i].V2=meix.Facets[i].V2-centroid;
-        meix.Facets[i].C=meix.Facets[i].C-centroid;
-        new_centroid=new_centroid+meix.Facets[i].C;
-    }
+    meix.Translate(old_centroid*-1.f);
 
-    new_centroid=new_centroid*(1.f/float(meix.n));
+    Point new_centroid=meix.Get_centroid();
 
-    std::cout<<"old centroid= "<<centroid.x<<" "<<centroid.y<<" "<<centroid.z<<std::endl;
+    std::cout<<"old centroid= "<<old_centroid.x<<" "<<old_centroid.y<<" "<<old_centroid.z<<std::endl;
     std::cout<<"new centroid= "<<new_centroid.x<<" "<<new_centroid.y<<" "<<new_centroid.z<<std::endl;
 
     //rotation
@@ -136,63 +123,12 @@ int main(int argc, char const *argv[]) {
     float phi0=acos(normal0.z);
     float const right_theta=M_PI;
     float const right_phi=M_PI/2.f;
-    float correction_theta=right_theta-theta0;
-    float correction_phi=right_phi-phi0;
+    float correction_theta=right_theta - theta0;
+    float correction_phi=right_phi - phi0;
 
     std::cout<<"theta0, phi0: "<<theta0<<" "<<phi0<<" correction: "<<correction_theta<<" "<<correction_phi<<std::endl;
 
-    //rotation around z axis (theta correction)
-    std::cout<<"normal of facet 0 before theta rotation: "<<meix.Facets[0].N.x<<" "<<meix.Facets[0].N.y<<" "<<meix.Facets[0].N.z<<std::endl;
-    for(int i=0 ; i<meix.n ; i++) {
-        Point old=meix.Facets[i].V0;
-        meix.Facets[i].V0.x=old.x*cos(correction_theta)-old.y*sin(correction_theta);
-        meix.Facets[i].V0.y=old.x*sin(correction_theta)+old.y*cos(correction_theta);
-
-        old=meix.Facets[i].V1;
-        meix.Facets[i].V1.x=old.x*cos(correction_theta)-old.y*sin(correction_theta);
-        meix.Facets[i].V1.y=old.x*sin(correction_theta)+old.y*cos(correction_theta);
-
-        old=meix.Facets[i].V2;
-        meix.Facets[i].V2.x=old.x*cos(correction_theta)-old.y*sin(correction_theta);
-        meix.Facets[i].V2.y=old.x*sin(correction_theta)+old.y*cos(correction_theta);
-
-        old=meix.Facets[i].C;
-        meix.Facets[i].C.x=old.x*cos(correction_theta)-old.y*sin(correction_theta);
-        meix.Facets[i].C.y=old.x*sin(correction_theta)+old.y*cos(correction_theta);
-        //Recalculate normal
-        Point v=meix.Facets[i].V2-meix.Facets[i].V0;
-        Point u=meix.Facets[i].V1-meix.Facets[i].V0;
-        Point n(u.y*v.z-u.z*v.y, u.z*v.x-u.x*v.z, u.x*v.y-u.y*v.x);
-        float d=sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
-        meix.Facets[i].N=n*(1.f/d);
-    }
-    std::cout<<"normal of facet 0 after theta rotation: "<<meix.Facets[0].N.x<<" "<<meix.Facets[0].N.y<<" "<<meix.Facets[0].N.z<<std::endl;
-
-    //rotation around x axis (phi correction)
-    for(int i=0 ; i<meix.n ; i++) {
-        Point old=meix.Facets[i].V0;
-        meix.Facets[i].V0.x=old.x*cos(correction_phi)-old.z*sin(correction_phi);
-        meix.Facets[i].V0.z=old.x*sin(correction_phi)+old.z*cos(correction_phi);
-
-        old=meix.Facets[i].V1;
-        meix.Facets[i].V1.x=old.x*cos(correction_phi)-old.z*sin(correction_phi);
-        meix.Facets[i].V1.z=old.x*sin(correction_phi)+old.z*cos(correction_phi);
-
-        old=meix.Facets[i].V2;
-        meix.Facets[i].V2.x=old.x*cos(correction_phi)-old.z*sin(correction_phi);
-        meix.Facets[i].V2.z=old.x*sin(correction_phi)+old.z*cos(correction_phi);
-
-        old=meix.Facets[i].C;
-        meix.Facets[i].C.x=old.x*cos(correction_phi)-old.z*sin(correction_phi);
-        meix.Facets[i].C.z=old.x*sin(correction_phi)+old.z*cos(correction_phi);
-        //Recalculate normal
-        Point v=meix.Facets[i].V2-meix.Facets[i].V0;
-        Point u=meix.Facets[i].V1-meix.Facets[i].V0;
-        Point n(u.y*v.z-u.z*v.y, u.z*v.x-u.x*v.z, u.x*v.y-u.y*v.x);
-        float d=sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
-        meix.Facets[i].N=n*(1.f/d);
-    }
-    std::cout<<"normal of facet 0 after phi rotation: "<<meix.Facets[0].N.x<<" "<<meix.Facets[0].N.y<<" "<<meix.Facets[0].N.z<<std::endl;
+    meix.Rotate(correction_theta,correction_phi);
 
     //Compute max length in X axis to know how much we need to rescale
     //**********************************************************************
@@ -227,9 +163,7 @@ int main(int argc, char const *argv[]) {
       if(meix_mesench.Facets[i].C.y<ymin) ymin=meix_mesench.Facets[i].C.y;  if(meix_mesench.Facets[i].C.y>ymax) ymax=meix_mesench.Facets[i].C.y;
       if(meix_mesench.Facets[i].C.z<zmin) zmin=meix_mesench.Facets[i].C.z;  if(meix_mesench.Facets[i].C.z>zmax) zmax=meix_mesench.Facets[i].C.z;
     }
-    dx=xmax-xmin;
-    dy=ymax-ymin;
-    dz=zmax-zmin;
+    dx=xmax-xmin; dy=ymax-ymin; dz=zmax-zmin;
 
     //we use the maximum lengths of the mesh to draw a cube that includes the mesh
     //Let's fill the cube with bolls
@@ -240,7 +174,7 @@ int main(int argc, char const *argv[]) {
     //const float packing_factor=0.74048f;
     float cube_vol=dx*dy*dz;
     float r_boll=0.5f*r_min;
-    float boll_vol=4./3.*M_PI*pow(r_boll,3);//packing_factor;
+    float boll_vol=4./3.*M_PI*pow(r_boll,3);
     int n_bolls_cube=cube_vol/boll_vol;
 
     std::cout<<"cube dims "<<dx<<" "<<dy<<" "<<dz<<std::endl;
@@ -376,7 +310,7 @@ int main(int argc, char const *argv[]) {
     Vtk_output output(output_tag);
 
     relax_time=std::stoi(argv[6]);
-    write_interval=1;//relax_time/10;
+    write_interval=relax_time/10;
 
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
         if(time_step%write_interval==0 || time_step==relax_time) {

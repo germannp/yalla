@@ -133,14 +133,14 @@ int intersect3D_RayTriangle( Ray R, Triangle T, Point* I ) {
 //**************************************************************************
 
 Meix::Meix() {
-    SurfArea=0.f;
+    surf_area=0.f;
     n=0;
 }
 
 //**************************************************************************
 
 Meix::Meix(std::string file_name) {
-    SurfArea=0.f; //initialise
+    surf_area=0.f; //initialise
 
     //Function that reads an STL file ands stores all the triangles in a data structure
     //adapted from: http://stackoverflow.com/questions/22100662/using-ifstream-to-read-floats
@@ -229,7 +229,7 @@ Meix::Meix(std::string file_name) {
     }
 
     n=Facets.size();
-    CalcSurfArea();
+    Calc_surf_area();
 }
 
 //*******************************************************************************************************
@@ -241,7 +241,7 @@ void Meix::Rescale_relative(float resc) {
         Facets[i].V2=Facets[i].V2*resc ;
         Facets[i].C=Facets[i].C*resc ;
     }
-    CalcSurfArea();
+    Calc_surf_area();
 }
 
 //*******************************************************************************************************
@@ -278,12 +278,93 @@ void Meix::Rescale_absolute(float l) {
         float d=sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
         Facets[i].N=n*(1.f/d);
     }
-    CalcSurfArea();
+    Calc_surf_area();
 }
 
 //********************************************************************************************************
 
-void Meix::CalcSurfArea() {
+//rotation around z axis and around y axis
+void Meix::Rotate(float correction_theta, float correction_phi) {
+    //rotation around z axis (theta correction)
+    // std::cout<<"normal of facet 0 before theta rotation: "<<Facets[0].N.x<<" "<<Facets[0].N.y<<" "<<Facets[0].N.z<<std::endl;
+    for(int i=0 ; i<n ; i++) {
+        Point old=Facets[i].V0;
+        Facets[i].V0.x=old.x*cos(correction_theta)-old.y*sin(correction_theta);
+        Facets[i].V0.y=old.x*sin(correction_theta)+old.y*cos(correction_theta);
+
+        old=Facets[i].V1;
+        Facets[i].V1.x=old.x*cos(correction_theta)-old.y*sin(correction_theta);
+        Facets[i].V1.y=old.x*sin(correction_theta)+old.y*cos(correction_theta);
+
+        old=Facets[i].V2;
+        Facets[i].V2.x=old.x*cos(correction_theta)-old.y*sin(correction_theta);
+        Facets[i].V2.y=old.x*sin(correction_theta)+old.y*cos(correction_theta);
+
+        old=Facets[i].C;
+        Facets[i].C.x=old.x*cos(correction_theta)-old.y*sin(correction_theta);
+        Facets[i].C.y=old.x*sin(correction_theta)+old.y*cos(correction_theta);
+        //Recalculate normal
+        Point v=Facets[i].V2 - Facets[i].V0;
+        Point u=Facets[i].V1 - Facets[i].V0;
+        Point n(u.y*v.z - u.z*v.y, u.z*v.x - u.x*v.z, u.x*v.y - u.y*v.x);
+        float d=sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
+        Facets[i].N=n*(1.f/d);
+    }
+    // std::cout<<"normal of facet 0 after theta rotation: "<<Facets[0].N.x<<" "<<Facets[0].N.y<<" "<<Facets[0].N.z<<std::endl;
+
+    //rotation around y axis (phi correction)
+    for(int i=0 ; i<n ; i++) {
+        Point old=Facets[i].V0;
+        Facets[i].V0.x=old.x*cos(correction_phi) - old.z*sin(correction_phi);
+        Facets[i].V0.z=old.x*sin(correction_phi) + old.z*cos(correction_phi);
+
+        old=Facets[i].V1;
+        Facets[i].V1.x=old.x*cos(correction_phi) - old.z*sin(correction_phi);
+        Facets[i].V1.z=old.x*sin(correction_phi) + old.z*cos(correction_phi);
+
+        old=Facets[i].V2;
+        Facets[i].V2.x=old.x*cos(correction_phi) - old.z*sin(correction_phi);
+        Facets[i].V2.z=old.x*sin(correction_phi) + old.z*cos(correction_phi);
+
+        old=Facets[i].C;
+        Facets[i].C.x=old.x*cos(correction_phi) - old.z*sin(correction_phi);
+        Facets[i].C.z=old.x*sin(correction_phi) + old.z*cos(correction_phi);
+        //Recalculate normal
+        Point v=Facets[i].V2 - Facets[i].V0;
+        Point u=Facets[i].V1 - Facets[i].V0;
+        Point n(u.y*v.z - u.z*v.y, u.z*v.x - u.x*v.z, u.x*v.y - u.y*v.x);
+        float d=sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
+        Facets[i].N=n*(1.f/d);
+    }
+    // std::cout<<"normal of facet 0 after phi rotation: "<<Facets[0].N.x<<" "<<Facets[0].N.y<<" "<<Facets[0].N.z<<std::endl;
+
+}
+
+//********************************************************************************************************
+
+void Meix::Translate(Point translation_vector) {
+    for (int i=0 ; i<n ; i++) {
+        Facets[i].V0=Facets[i].V0 + translation_vector;
+        Facets[i].V1=Facets[i].V1 + translation_vector;
+        Facets[i].V2=Facets[i].V2 + translation_vector;
+        Facets[i].C=Facets[i].C + translation_vector;
+    }
+}
+
+//********************************************************************************************************
+
+Point Meix::Get_centroid() {
+    Point centroid;
+    for (int i=0 ; i<n ; i++) {
+        centroid=centroid+Facets[i].C;
+    }
+    centroid=centroid*(1.f/float(n));
+    return centroid;
+}
+
+//********************************************************************************************************
+
+void Meix::Calc_surf_area() {
     float global_S=0.f;
     for (int i=0 ; i<n; i++) {
         Point V0(Facets[i].V0.x,Facets[i].V0.y,Facets[i].V0.z);
@@ -302,7 +383,7 @@ void Meix::CalcSurfArea() {
 
         global_S+=sqrt(s*(s-a)*(s-b)*(s-c));
     }
-    SurfArea=global_S;
+    surf_area=global_S;
 }
 
 //********************************************************************************************************
