@@ -272,8 +272,8 @@ void Meix::Rescale_absolute(float l) {
         Facets[i].C=Facets[i].C*resc;
 
         //recalculate normal
-        Point v=Facets[i].V1-Facets[i].V0;
-        Point u=Facets[i].V2-Facets[i].V0;
+        Point v=Facets[i].V2-Facets[i].V0;
+        Point u=Facets[i].V1-Facets[i].V0;
         Point n(u.y*v.z-u.z*v.y, u.z*v.x-u.x*v.z, u.x*v.y-u.y*v.x);
         float d=sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
         Facets[i].N=n*(1.f/d);

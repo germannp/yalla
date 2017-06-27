@@ -160,8 +160,8 @@ int main(int argc, char const *argv[]) {
         meix.Facets[i].C.x=old.x*cos(correction_theta)-old.y*sin(correction_theta);
         meix.Facets[i].C.y=old.x*sin(correction_theta)+old.y*cos(correction_theta);
         //Recalculate normal
-        Point v=meix.Facets[i].V1-meix.Facets[i].V0;
-        Point u=meix.Facets[i].V2-meix.Facets[i].V0;
+        Point v=meix.Facets[i].V2-meix.Facets[i].V0;
+        Point u=meix.Facets[i].V1-meix.Facets[i].V0;
         Point n(u.y*v.z-u.z*v.y, u.z*v.x-u.x*v.z, u.x*v.y-u.y*v.x);
         float d=sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
         meix.Facets[i].N=n*(1.f/d);
@@ -186,8 +186,8 @@ int main(int argc, char const *argv[]) {
         meix.Facets[i].C.x=old.x*cos(correction_phi)-old.z*sin(correction_phi);
         meix.Facets[i].C.z=old.x*sin(correction_phi)+old.z*cos(correction_phi);
         //Recalculate normal
-        Point v=meix.Facets[i].V1-meix.Facets[i].V0;
-        Point u=meix.Facets[i].V2-meix.Facets[i].V0;
+        Point v=meix.Facets[i].V2-meix.Facets[i].V0;
+        Point u=meix.Facets[i].V1-meix.Facets[i].V0;
         Point n(u.y*v.z-u.z*v.y, u.z*v.x-u.x*v.z, u.x*v.y-u.y*v.x);
         float d=sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
         meix.Facets[i].N=n*(1.f/d);
