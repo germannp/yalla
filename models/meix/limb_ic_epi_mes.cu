@@ -68,12 +68,48 @@ __device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j) {
     return dF;
 }
 
+__device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j) {
+    Cell dF {0};
+
+    if(i==j) return dF;
+
+    if (dist > r_max) return dF;
+
+    float k;
+    if(r_min-dist>0) //different coefficients for repulsion and adhesion
+        k=8.f;
+    else
+        k=2.f;
+
+    auto F = k*(r_min - dist);
+    dF.x = r.x*F/dist;
+    dF.y = r.y*F/dist;
+    dF.z = r.z*F/dist;
+
+    if(d_type[i]==epithelium && d_type[j]==epithelium)
+    {
+        dF += rigidity_force(Xi, r, dist)*0.15f;
+    }
+
+    if(Xi.x<0) dF.x=0.f;
+
+    // if (d_type[j] == epithelium) {atomicAdd(&d_epi_nbs[i],1);}
+    // else {atomicAdd(&d_mes_nbs[i],1);}
+
+    return dF;
+}
+
 __device__ float relaxation_friction(Cell Xi, Cell r, float dist, int i, int j) {
     return 0;
 }
 
 __device__ float freeze_friction(Cell Xi, Cell r, float dist, int i, int j) {
     if(d_freeze[i]==1) return 0;
+    return 1;
+}
+
+__device__ float wall_friction(Cell Xi, Cell r, float dist, int i, int j) {
+    if(Xi.x<0) return 0;
     return 1;
 }
 
@@ -160,6 +196,13 @@ int main(int argc, char const *argv[]) {
     Meix meix_mesench=meix;
     meix_mesench.Rescale_absolute(-r_min*1.2);
 
+    //Translate the mesh again so the flank boundary coincides with the x=0 plane
+    Point vector(meix.Facets[0].C.x*-1.f, 0.f, 0.f);
+    meix.Translate(vector);
+    meix_mesench.Translate(vector);
+
+    std::cout<<"new x position of flank boundary "<<meix.Facets[0].C.x<<std::endl;
+
     //Compute min. and max, positions in x,y,z from rescaled mesh
     xmin=10000.0f;xmax=-10000.0f;ymin=10000.0f;ymax=-10000.0f;zmin=10000.0f;zmax=-10000.0f;
     for(int i=0 ; i<meix_mesench.n ; i++) {
@@ -215,14 +258,13 @@ int main(int argc, char const *argv[]) {
     std::string cubic_out = ass.str();
 
     int relax_time=std::stoi(argv[4]);
-    int write_interval=relax_time/10;
-    std::cout<<"relax_time "<<relax_time<<" write interval "<< write_interval<<std::endl;
+    int skip_step=relax_time/10;
+    std::cout<<"relax_time "<<relax_time<<" write interval "<< skip_step<<std::endl;
 
     Vtk_output cubic_output(cubic_out);
 
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
-        if(time_step%write_interval==0 || time_step==relax_time)
-        {
+        if(time_step%skip_step==0 || time_step==relax_time){
             cube.copy_to_host();
         }
 
@@ -232,11 +274,10 @@ int main(int argc, char const *argv[]) {
         cube.take_step<relaxation_force, relaxation_friction>(dt);
 
         //write the output
-        if(time_step%write_interval==0 || time_step==relax_time) {
+        if(time_step%skip_step==0 || time_step==relax_time) {
             cubic_output.write_positions(cube);
             cubic_output.write_polarity(cube);
         }
-
     }
 
     //Find the bolls that are inside the mesh and store their positions
@@ -285,7 +326,9 @@ int main(int argc, char const *argv[]) {
     //Make a new list with the ones that are inside
     for (int i = 0; i < n_bolls_total; i++) {
         bolls.h_X[i].x=mes_cells[i].x ; bolls.h_X[i].y=mes_cells[i].y ; bolls.h_X[i].z=mes_cells[i].z ;
-        if(results2[i]==1){type.h_prop[i]=mesenchyme; freeze.h_prop[i]=1;}
+        if(results2[i]==1){
+            type.h_prop[i]=mesenchyme; freeze.h_prop[i]=1;
+        }
         else{
             type.h_prop[i]=epithelium;
             freeze.h_prop[i]=0;
@@ -299,6 +342,10 @@ int main(int argc, char const *argv[]) {
                 Point r=p-meix.Facets[j].C;
                 float d=sqrt(r.x*r.x+r.y*r.y+r.z*r.z);
                 if(d<dmin){dmin=d; f=j;}
+            }
+            if(meix.Facets[f].C.x<0.001f){ //the cells contacting the flank boundary can't be epithelial
+                type.h_prop[i]=mesenchyme; freeze.h_prop[i]=1;
+                continue;
             }
             bolls.h_X[i].phi = atan2(meix.Facets[f].N.y,meix.Facets[f].N.x);
             bolls.h_X[i].theta = acos(meix.Facets[f].N.z);
@@ -314,10 +361,10 @@ int main(int argc, char const *argv[]) {
     Vtk_output output(output_tag);
 
     relax_time=std::stoi(argv[6]);
-    write_interval=relax_time/10;
+    skip_step=relax_time/10;
 
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
-        if(time_step%write_interval==0 || time_step==relax_time) {
+        if(time_step%skip_step==0 || time_step==relax_time) {
             bolls.copy_to_host();
         }
 
@@ -327,7 +374,7 @@ int main(int argc, char const *argv[]) {
         bolls.take_step<relaxation_force, freeze_friction>(dt);
 
         //write the output
-        if(time_step%write_interval==0 || time_step==relax_time) {
+        if(time_step%skip_step==0 || time_step==relax_time) {
             output.write_positions(bolls);
             output.write_polarity(bolls);
             output.write_property(type);
@@ -371,19 +418,19 @@ int main(int argc, char const *argv[]) {
     type.copy_to_device();
 
     Vtk_output output_trimmed(output_tag+".trimmed");
-
+    skip_step=1;
     //try relaxation without mesenchyme frozen
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
-        if(time_step%write_interval==0 || time_step==relax_time)
+        if(time_step%skip_step==0 || time_step==relax_time)
             bolls_trimmed.copy_to_host();
 
         thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + n_bolls_total, 0);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_total, 0);
 
-        bolls_trimmed.take_step<relaxation_force, freeze_friction>(dt);
+        bolls_trimmed.take_step<wall_force, wall_friction>(dt);
 
         //write the output
-        if(time_step%write_interval==0 || time_step==relax_time) {
+        if(time_step%skip_step==0 || time_step==relax_time) {
             output_trimmed.write_positions(bolls_trimmed);
             output_trimmed.write_polarity(bolls_trimmed);
             output_trimmed.write_property(type);
@@ -396,6 +443,20 @@ int main(int argc, char const *argv[]) {
     meix.WriteVtk(output_tag);
     //write down the mesenchymal mesh in the vtk file to compare it with the posterior filling
     meix_mesench.WriteVtk(output_tag+".mesench");
+
+    //Create a dummy meix that depicts the x=0 plane, depicting the flank boundary
+    Meix wall;
+    Point A(0.f,2*ymin,2*zmin);
+    Point B(0.f,2*ymin,2*zmax);
+    Point C(0.f,2*ymax,2*zmin);
+    Point D(0.f,2*ymax,2*zmax);
+    Point N(1.f,0.f,0.f);
+    Triangle ABC(A,B,C,N);
+    Triangle BCD(B,C,D,N);
+    wall.n=2;
+    wall.Facets.push_back(ABC);
+    wall.Facets.push_back(BCD);
+    wall.WriteVtk(output_tag+".wall");
 
     return 0;
 }
