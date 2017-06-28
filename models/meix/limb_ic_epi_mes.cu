@@ -26,7 +26,6 @@ enum Cell_types {mesenchyme, epithelium};
 __device__ Cell_types* d_type;
 __device__ int* d_freeze;
 __device__ int* d_mes_nbs;
-__device__ int* d_epi_nbs;
 
 MAKE_PT(Cell, theta, phi);
 
@@ -62,8 +61,7 @@ __device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j) {
         dF += rigidity_force(Xi, r, dist)*0.15f;//*3;
     }
 
-    if (d_type[j] == epithelium) {atomicAdd(&d_epi_nbs[i],1);}
-    else {atomicAdd(&d_mes_nbs[i],1);}
+    if (d_type[j] == mesenchyme) atomicAdd(&d_mes_nbs[i],1);
 
     return dF;
 }
@@ -92,9 +90,6 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j) {
     }
 
     if(Xi.x<0) dF.x=0.f;
-
-    // if (d_type[j] == epithelium) {atomicAdd(&d_epi_nbs[i],1);}
-    // else {atomicAdd(&d_mes_nbs[i],1);}
 
     return dF;
 }
@@ -137,8 +132,7 @@ int main(int argc, char const *argv[]) {
     // argv[2]=mesh file name
     // argv[3]=target limb bud size (dx)
     // argv[4]=cube relax_time
-    // argv[5]=assumed cell radius
-    // argv[6]=post assembly relax time
+    // argv[5]=limb bud relax_time
 
     std::string output_tag=argv[1];
     std::string file_name=argv[2];
@@ -249,8 +243,6 @@ int main(int argc, char const *argv[]) {
 
     Property<n_max, int> n_mes_nbs;
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
-    Property<n_max, int> n_epi_nbs;
-    cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
 
     // We run the solver on bolls so the cube of bolls relaxes
     std::stringstream ass;
@@ -268,7 +260,6 @@ int main(int argc, char const *argv[]) {
             cube.copy_to_host();
         }
 
-        thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + n_bolls_cube, 0);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_cube, 0);
 
         cube.take_step<relaxation_force, relaxation_friction>(dt);
@@ -360,7 +351,7 @@ int main(int argc, char const *argv[]) {
 
     Vtk_output output(output_tag);
 
-    relax_time=std::stoi(argv[6]);
+    relax_time=std::stoi(argv[5]);
     skip_step=relax_time/10;
 
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
@@ -368,7 +359,6 @@ int main(int argc, char const *argv[]) {
             bolls.copy_to_host();
         }
 
-        thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + n_bolls_total, 0);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_total, 0);
 
         bolls.take_step<relaxation_force, freeze_friction>(dt);
@@ -424,7 +414,6 @@ int main(int argc, char const *argv[]) {
         if(time_step%skip_step==0 || time_step==relax_time)
             bolls_trimmed.copy_to_host();
 
-        thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + n_bolls_total, 0);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_total, 0);
 
         bolls_trimmed.take_step<wall_force, wall_friction>(dt);
