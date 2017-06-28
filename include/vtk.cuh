@@ -218,6 +218,7 @@ Vtk_input::Vtk_input(std::string filename) {
     std::vector<std::string> items;
 
     input_file.open(file_name, std::fstream::in);
+    assert(input_file.is_open());
 
     for (auto i = 0; i < 6; i++) getline(input_file, line);
     split(line, ' ', std::back_inserter(items));
