@@ -211,7 +211,7 @@ std::vector<std::string> split(const std::string &s, char delim) {
 }
 
 Vtk_input::Vtk_input(std::string filename) {
-    file_name=filename;
+    file_name = filename;
 
     std::string line;
     std::ifstream input_file;
@@ -219,7 +219,7 @@ Vtk_input::Vtk_input(std::string filename) {
 
     input_file.open(file_name, std::fstream::in);
 
-    for (auto i = 0; i < 6; i++) getline(input_file,line);
+    for (auto i = 0; i < 6; i++) getline(input_file, line);
     split(line, ' ', std::back_inserter(items));
     n_bolls = stoi(items[1]);
     items.clear();
