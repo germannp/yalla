@@ -214,7 +214,7 @@ int main(int argc, char const *argv[]) {
 
         proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(0.75, bolls.d_X,
             bolls.d_n, d_state);
-        bolls.build_grid(r_max_max);
+
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
 
