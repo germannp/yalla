@@ -20,7 +20,7 @@ const char* test_io() {
     }
 
     Vtk_output output("test_vtk");
-    output.write_positions(bolls_to_write); printf("\n\n");
+    output.write_positions(bolls_to_write);
     output.write_polarity(bolls_to_write);
     Vtk_input input("output/test_vtk_1.vtk");
     input.read_positions(bolls_to_read);
@@ -60,7 +60,7 @@ const char* test_io() {
 
 
 const char* all_tests() {
-    MU_RUN_TEST(test_io);
+    MU_RUN_TEST(test_io); printf("\n");
     return NULL;
 }
 
