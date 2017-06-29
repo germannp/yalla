@@ -14,11 +14,11 @@
 #include "../include/links.cuh"
 
 
-const auto r_max_epi = 1.5;
+const auto r_max_epi = 1.0;
 const auto r_max_mes = 1.0;
 const auto r_min_homotypic = 0.6;
 const auto r_min_heterotypic = 0.8;
-const auto skip_steps = 100;
+const auto skip_steps = 1;
 const auto lambda = 1.;
 
 // Turing parameters
@@ -35,8 +35,8 @@ const auto r_min_min = min(r_min_homotypic,r_min_heterotypic);
 const auto r_max_max = max(r_max_epi,r_max_mes);
 const auto dt = 0.05*r_min_min*r_min_min/D_v;
 
-const auto epi_proliferation_rate = 0.000893;
-const auto mes_proliferation_rate = 0.000493;
+const auto epi_proliferation_rate = 0.02;
+const auto mes_proliferation_rate = 0.01;
 
 // threshold conc. of v that allows mesench. cells to divide
 const auto prolif_threshold = 1600.0f;
@@ -106,6 +106,10 @@ __device__ Cell epi_turing_mes_noturing(Cell Xi, Cell r, float dist, int i, int 
     return dF;
 }
 
+__device__ float relaxation_friction(Cell Xi, Cell r, float dist, int i, int j) {
+    return 0;
+}
+
 
 __global__ void proliferate(float mean_distance, Cell* d_X, int* d_n_cells,
         curandState* d_state) {
@@ -121,7 +125,7 @@ __global__ void proliferate(float mean_distance, Cell* d_X, int* d_n_cells,
             break;
         }
         case epithelium: {
-            if (d_epi_nbs[i] > 20) return;
+            if (d_epi_nbs[i] > 10) return;
 
             auto r = curand_uniform(&d_state[i]);
             if (r > epi_proliferation_rate) return;
@@ -153,7 +157,7 @@ int main(int argc, char const *argv[]) {
     // Initial state
     Solution<Cell, n_max, Grid_solver> bolls(n_0);
     uniform_sphere(0.5, bolls);
-    Property<n_max, Cell_types> type;
+    Property<n_max, Cell_types> type("type");
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     for (auto i = 0; i < n_0; i++) {
         bolls.h_X[i].u = 0;
@@ -162,9 +166,9 @@ int main(int argc, char const *argv[]) {
     }
     bolls.copy_to_device();
     type.copy_to_device();
-    Property<n_max, int> n_mes_nbs;
+    Property<n_max, int> n_mes_nbs("n_mes_nbs");
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
-    Property<n_max, int> n_epi_nbs;
+    Property<n_max, int> n_epi_nbs("n_epi_nbs");
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
 
     // State for proliferations
@@ -175,14 +179,14 @@ int main(int argc, char const *argv[]) {
     // Relax
     for (auto time_step = 0; time_step <= 500; time_step++) {
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
-        bolls.take_step<epi_turing_mes_noturing>(dt/100);
+        bolls.take_step<epi_turing_mes_noturing,relaxation_friction>(dt/100);
     }
 
     // Find epithelium
     bolls.copy_to_host();
     n_mes_nbs.copy_to_host();
     for (auto i = 0; i < n_0; i++) {
-        if (n_mes_nbs.h_prop[i] < 35) {
+        if (n_mes_nbs.h_prop[i] < 60) {
             type.h_prop[i] = epithelium;
             auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x
                 + bolls.h_X[i].y*bolls.h_X[i].y + bolls.h_X[i].z*bolls.h_X[i].z);
@@ -210,7 +214,11 @@ int main(int argc, char const *argv[]) {
     // Integrate positions
     Vtk_output output(argv[1]);
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
+        if(time_step%skip_steps == 0) {
+            bolls.copy_to_host();
+            n_epi_nbs.copy_to_host();
+            type.copy_to_host();
+        }
 
         proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(0.75, bolls.d_X,
             bolls.d_n, d_state);
@@ -224,6 +232,8 @@ int main(int argc, char const *argv[]) {
             output.write_polarity(bolls);
             output.write_field(bolls, "u", &Cell::u);
             output.write_field(bolls, "v", &Cell::v);
+            output.write_property(type);
+            output.write_property(n_epi_nbs);
         }
     }
 
