@@ -17,12 +17,10 @@ const auto r_max=1.0;
 const auto r_min=0.8;
 const auto dt = 0.05*r_min*r_min;
 const auto n_max = 150000;
-const auto const_proliferation_rate = 0.0004;
 
-// enum Cell_types {mesenchyme, epithelium};
+enum Cell_types {mesenchyme, epithelium};
 
-// __device__ Cell_types* d_type;
-__device__ int* d_type;
+__device__ Cell_types* d_type;
 __device__ int* d_mes_nbs;
 __device__ int* d_epi_nbs;
 // __device__ float* d_prolif_rate;
@@ -47,11 +45,11 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j) {
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
 
-    if(d_type[i]==1 && d_type[j]==1) dF += rigidity_force(Xi, r, dist)*0.15f;
+    if(d_type[i]==epithelium && d_type[j]==epithelium) dF += rigidity_force(Xi, r, dist)*0.5f;
 
     if(Xi.x<0) dF.x=0.f;
 
-    if (d_type[j] == 1) {atomicAdd(&d_epi_nbs[i],1);}
+    if (d_type[j] == epithelium) {atomicAdd(&d_epi_nbs[i],1);}
     else {atomicAdd(&d_mes_nbs[i],1);}
 
     return dF;
@@ -62,35 +60,37 @@ __device__ float wall_friction(Cell Xi, Cell r, float dist, int i, int j) {
     return 1;
 }
 
-__global__ void proliferate(float mean_distance, Cell* d_X, int* d_n_cells, curandState* d_state) {
-    D_ASSERT(*d_n_cells*const_proliferation_rate <= n_max);
+__global__ void proliferate(float rate, float mean_distance, Cell* d_X, int* d_n_cells,
+        curandState* d_state) {
+    D_ASSERT(*d_n_cells*rate <= n_max);
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    //float proliferation_rate=d_prolif_rate[i];
-    if (i >= *d_n_cells*(1 - const_proliferation_rate)) return;  // Dividing new cells is problematic!
+    if (i >= *d_n_cells*(1 - rate)) return;  // Dividing new cells is problematic!
 
     switch (d_type[i]) {
-        case 0: {
+        case mesenchyme: {
             auto r = curand_uniform(&d_state[i]);
-            if (r > const_proliferation_rate) return;
+            if (r > rate) return;
             break;
         }
-        case 1: {
-            // if (d_epi_nbs[i] > 10) return;
+        case epithelium: {
+            if(d_epi_nbs[i]>10) return;
+            if(d_mes_nbs[i]<=0) return;
             auto r = curand_uniform(&d_state[i]);
-            if (r > const_proliferation_rate) return;
-            // return;
+            if (r > 1.75f*rate) return;
         }
     }
 
     auto n = atomicAdd(d_n_cells, 1);
-    auto phi = curand_uniform(&d_state[i])*M_PI;
     auto theta = curand_uniform(&d_state[i])*2*M_PI;
+    auto phi = curand_uniform(&d_state[i])*M_PI;
     d_X[n].x = d_X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
     d_X[n].y = d_X[i].y + mean_distance/4*sinf(theta)*sinf(phi);
     d_X[n].z = d_X[i].z + mean_distance/4*cosf(theta);
     d_X[n].theta = d_X[i].theta;
     d_X[n].phi = d_X[i].phi;
-    d_type[n] = 1;//d_type[i];
+    d_type[n] = d_type[i];
+    d_mes_nbs[n] = 0;
+    d_epi_nbs[n] = 0;
 }
 
 
@@ -105,18 +105,27 @@ int main(int argc, char const *argv[]) {
 
     std::string file_name=argv[1];
     std::string output_tag=argv[2];
+    float const_proliferation_rate=std::stof(argv[3]);
+    int n_time_steps=std::stoi(argv[4]);
 
     //Load the initial conditions
     Vtk_input input(file_name);
     int n0=input.n_bolls;
     Solution<Cell, n_max, Grid_solver> limb(n0);
 
-    Property<n_max, int> type;
-    cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
-
     input.read_positions(limb);
     input.read_polarity(limb);
-    input.read_property(type);
+
+    Property<n_max, Cell_types> type;
+    cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
+    Property<n_max, int> intype;
+    // cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
+
+    input.read_property(intype); //we read it as an int, then we translate to enum "Cell_types"
+    for(int i=0 ; i<n0 ; i++){
+        if(intype.h_prop[i]==0) type.h_prop[i]=mesenchyme;
+        else type.h_prop[i]=epithelium;
+    }
 
     limb.copy_to_device();
     type.copy_to_device();
@@ -133,7 +142,6 @@ int main(int argc, char const *argv[]) {
     cudaMalloc(&d_state, n_max*sizeof(curandState));
     setup_rand_states<<<(n_max + 128 - 1)/128, 128>>>(d_state, n_max);
 
-    int n_time_steps=std::stoi(argv[4]);
     int skip_step=1;//n_time_steps/10;
     std::cout<<"n_time_steps "<<n_time_steps<<" write interval "<< skip_step<<std::endl;
 
@@ -142,13 +150,14 @@ int main(int argc, char const *argv[]) {
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         if(time_step%skip_step==0 || time_step==n_time_steps){
             limb.copy_to_host();
+            type.copy_to_host();
             n_epi_nbs.copy_to_host();
             n_mes_nbs.copy_to_host();
         }
 
         // std::cout<<"time step "<<time_step<<" d_n "<< limb.get_d_n()<<std::endl;
 
-        proliferate<<<(limb.get_d_n() + 128 - 1)/128, 128>>>(r_min, limb.d_X, limb.d_n, d_state);
+        proliferate<<<(limb.get_d_n() + 128 - 1)/128, 128>>>(const_proliferation_rate, r_min, limb.d_X, limb.d_n, d_state);
 
     // std::cout<<"after prolif "<<time_step<<" d_n "<< limb.get_d_n()<<std::endl;
 
