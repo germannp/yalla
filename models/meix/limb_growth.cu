@@ -23,7 +23,7 @@ enum Cell_types {mesenchyme, epithelium};
 __device__ Cell_types* d_type;
 __device__ int* d_mes_nbs;
 __device__ int* d_epi_nbs;
-// __device__ float* d_prolif_rate;
+__device__ float* d_prolif_rate;
 
 MAKE_PT(Cell, theta, phi);
 
@@ -34,13 +34,27 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j) {
 
     if (dist > r_max) return dF;
 
-    float k;
-    if(r_min-dist>0) //different coefficients for repulsion and adhesion
-        k=8.f;
-    else
-        k=2.f;
+    // float k;
+    // if(r_min-dist>0) { //different coefficients for repulsion and adhesion
+    //     if(d_type[i] != d_type[j])
+    //         k=8.0f;
+    //     else
+    //         k=8.f;
+    // }else {
+    //     if(d_type[i]==epithelium && d_type[j]==epithelium)
+    //         k=8.f;
+    //     else
+    //         k=2.f;
+    // }
+    // auto F = k*(r_min - dist);
+    float F;
+    if (d_type[i] == d_type[j]) {
+        if(d_type[i]==mesenchyme) F = fmaxf(0.8 - dist, 0)*8.f - fmaxf(dist - 0.8, 0)*2.f;
+        else F = fmaxf(0.8 - dist, 0)*8.f - fmaxf(dist - 0.8, 0)*8.f;
 
-    auto F = k*(r_min - dist);
+    } else {
+        F = fmaxf(0.9 - dist, 0)*8.f - fmaxf(dist - 0.9, 0)*2.f;
+    }
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
@@ -60,11 +74,13 @@ __device__ float wall_friction(Cell Xi, Cell r, float dist, int i, int j) {
     return 1;
 }
 
-__global__ void proliferate(float rate, float mean_distance, Cell* d_X, int* d_n_cells,
+__global__ void proliferate(float max_rate, float mean_distance, Cell* d_X, int* d_n_cells,
         curandState* d_state) {
-    D_ASSERT(*d_n_cells*rate <= n_max);
+    D_ASSERT(*d_n_cells*max_rate <= n_max);
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
-    if (i >= *d_n_cells*(1 - rate)) return;  // Dividing new cells is problematic!
+    if (i >= *d_n_cells*(1 - max_rate)) return;  // Dividing new cells is problematic!
+
+    float rate=d_prolif_rate[i];
 
     switch (d_type[i]) {
         case mesenchyme: {
@@ -73,10 +89,10 @@ __global__ void proliferate(float rate, float mean_distance, Cell* d_X, int* d_n
             break;
         }
         case epithelium: {
-            if(d_epi_nbs[i]>10) return;
+            if(d_epi_nbs[i]>15) return;
             if(d_mes_nbs[i]<=0) return;
             auto r = curand_uniform(&d_state[i]);
-            if (r > 1.75f*rate) return;
+            if (r > 2.25f*rate) return;
         }
     }
 
@@ -89,8 +105,9 @@ __global__ void proliferate(float rate, float mean_distance, Cell* d_X, int* d_n
     d_X[n].theta = d_X[i].theta;
     d_X[n].phi = d_X[i].phi;
     d_type[n] = d_type[i];
-    d_mes_nbs[n] = 0;
-    d_epi_nbs[n] = 0;
+    d_prolif_rate[n] = d_prolif_rate[i];
+    // d_mes_nbs[n] = 0;
+    // d_epi_nbs[n] = 0;
 }
 
 
@@ -105,7 +122,7 @@ int main(int argc, char const *argv[]) {
 
     std::string file_name=argv[1];
     std::string output_tag=argv[2];
-    float const_proliferation_rate=std::stof(argv[3]);
+    float max_proliferation_rate=std::stof(argv[3]);
     int n_time_steps=std::stoi(argv[4]);
 
     //Load the initial conditions
@@ -119,7 +136,6 @@ int main(int argc, char const *argv[]) {
     Property<n_max, Cell_types> type;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     Property<n_max, int> intype;
-    // cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
 
     input.read_property(intype); //we read it as an int, then we translate to enum "Cell_types"
     for(int i=0 ; i<n0 ; i++){
@@ -137,6 +153,25 @@ int main(int argc, char const *argv[]) {
     Property<n_max, int> n_epi_nbs("n_epi_nbs");
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
 
+    //determine cell-specific proliferation rates
+    Property<n_max, float> prolif_rate("prolif_rate");
+    cudaMemcpyToSymbol(d_prolif_rate, &prolif_rate.d_prop, sizeof(d_prolif_rate));
+    float xmax=-10000.0f;
+    // float ymax=-10000.0f, ymin=10000.f;
+    for(int i=0 ; i<n0 ; i++) {
+        if(limb.h_X[i].x>xmax) xmax=limb.h_X[i].x;
+        // if(limb.h_X[i].y>ymax) ymax=limb.h_X[i].y;
+        // if(limb.h_X[i].y<ymin) ymin=limb.h_X[i].y;
+    }
+    for (int i=0; i<n0 ; i++) {
+        if(limb.h_X[i].x<0) prolif_rate.h_prop[i]=0;
+        else prolif_rate.h_prop[i]=pow((limb.h_X[i].x/xmax),3)*max_proliferation_rate;
+    }
+    // for (int i=0; i<n0 ; i++) {
+    //     prolif_rate.h_prop[i]=pow((limb.h_X[i].y-ymin)/(ymax-ymin),2)*max_proliferation_rate;
+    // }
+    prolif_rate.copy_to_device();
+
     // State for proliferations
     curandState *d_state;
     cudaMalloc(&d_state, n_max*sizeof(curandState));
@@ -153,21 +188,15 @@ int main(int argc, char const *argv[]) {
             type.copy_to_host();
             n_epi_nbs.copy_to_host();
             n_mes_nbs.copy_to_host();
+            prolif_rate.copy_to_host();
         }
 
-        // std::cout<<"time step "<<time_step<<" d_n "<< limb.get_d_n()<<std::endl;
-
-        proliferate<<<(limb.get_d_n() + 128 - 1)/128, 128>>>(const_proliferation_rate, r_min, limb.d_X, limb.d_n, d_state);
-
-    // std::cout<<"after prolif "<<time_step<<" d_n "<< limb.get_d_n()<<std::endl;
+        proliferate<<<(limb.get_d_n() + 128 - 1)/128, 128>>>(max_proliferation_rate, r_min, limb.d_X, limb.d_n, d_state);
 
         thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + limb.get_d_n(), 0);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + limb.get_d_n(), 0);
-        // std::cout<<"after thrust_fill "<<time_step<<" d_n "<< limb.get_d_n()<<std::endl;
 
         limb.take_step<wall_force, wall_friction>(dt);
-
-        // std::cout<<"after take step "<<time_step<<" d_n "<< limb.get_d_n()<<std::endl;
 
         //write the output
         if(time_step%skip_step==0 || time_step==n_time_steps) {
@@ -176,6 +205,7 @@ int main(int argc, char const *argv[]) {
             limb_output.write_property(type);
             limb_output.write_property(n_epi_nbs);
             limb_output.write_property(n_mes_nbs);
+            limb_output.write_property(prolif_rate);
         }
     }
 
