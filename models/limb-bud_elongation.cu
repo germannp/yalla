@@ -24,8 +24,8 @@ const auto r_protrusion = 1.5f;
 const auto protrusion_strength = 0.1f;
 const auto prots_per_cell = 1;
 const auto n_time_steps = 1000*50;
-const auto skip_steps = 5*50;
 const auto proliferation_rate = 1.386/n_time_steps;  // log(fold-change: 4) = 1.386
+const auto skip_steps = 4;
 const auto dt = 0.2f;
 enum Cell_types {mesenchyme, epithelium, aer};
 
@@ -201,13 +201,13 @@ int main(int argc, char const *argv[]) {
 
     // Simulate diffusion & intercalation
     Vtk_output output("elongation");
-    for (auto time_step = 0; time_step <= n_time_steps/skip_steps; time_step++) {
+    for (auto time_step = 0; time_step <= n_time_steps/(skip_steps + 1); time_step++) {
         bolls.copy_to_host();
         protrusions.copy_to_host();
         type.copy_to_host();
 
         std::thread calculation([&] {
-            for (auto i = 0; i < skip_steps; i++) {
+            for (auto i = 0; i < skip_steps + 1; i++) {
                 proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(0.733333, bolls.d_X,
                     bolls.d_n, protrusions.d_state);
                 protrusions.set_d_n(bolls.get_d_n()*prots_per_cell);
