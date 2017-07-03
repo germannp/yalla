@@ -154,7 +154,6 @@ int main(int argc, char const *argv[]) {
     for (auto i = 0; i < n_0; i++) {
         bolls.h_X[i].x = fabs(bolls.h_X[i].x);
         bolls.h_X[i].y = bolls.h_X[i].y/1.5;
-        bolls.h_X[i].w = 0;
         type.h_prop[i] = mesenchyme;
     }
     bolls.copy_to_device();
@@ -183,8 +182,6 @@ int main(int argc, char const *argv[]) {
     bolls.copy_to_host();
     n_mes_nbs.copy_to_host();
     for (auto i = 0; i < n_0; i++) {
-        bolls.h_X[i].w = 0;
-        bolls.h_X[i].f = 0;
         if (n_mes_nbs.h_prop[i] < 15*2 and bolls.h_X[i].x > 0) {  // 2nd order solver
             bolls.h_X[i].w = 1;
             if (fabs(bolls.h_X[i].y) < 0.75 and bolls.h_X[i].x > 4) {
@@ -197,9 +194,6 @@ int main(int argc, char const *argv[]) {
                 + bolls.h_X[i].y*bolls.h_X[i].y + bolls.h_X[i].z*bolls.h_X[i].z);
             bolls.h_X[i].theta = acosf(bolls.h_X[i].z/dist);
             bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x);
-        } else {
-            bolls.h_X[i].theta = 0;
-            bolls.h_X[i].phi = 0;
         }
     }
     bolls.copy_to_device();
