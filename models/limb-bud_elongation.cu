@@ -40,8 +40,8 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
     Lb_cell dF {0};
     if (i == j) {
         // D_ASSERT(Xi.w >= 0);
-        dF.w = (d_type[i] > mesenchyme) - 0.01*Xi.w;
-        dF.f = (d_type[i] == aer) - 0.01*Xi.f;
+        dF.w = - 0.01*(d_type[i] == mesenchyme)*Xi.w;
+        dF.f = - 0.01*(d_type[i] == mesenchyme)*Xi.f;
         return dF;
     }
 
@@ -57,8 +57,8 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
     auto D = dist < r_max ? 0.1 : 0;
-    dF.w = - r.w*D;
-    dF.f = - r.f*D;
+    dF.w = - r.w*(d_type[i] == mesenchyme)*D;
+    dF.f = - r.f*(d_type[i] == mesenchyme)*D;
 
     if (d_type[j] == mesenchyme) d_mes_nbs[i] += 1;
     else d_epi_nbs[i] += 1;
@@ -100,7 +100,7 @@ __global__ void update_protrusions(const int n_cells, const Grid<n_max>* __restr
     auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
     auto noise = curand_uniform(&d_state[i]);
     auto more_along_w = fabs(new_r.w/new_dist) > fabs(old_r.w/old_dist)*(1.f - noise);
-    auto high_f = (d_X[a].f + d_X[b].f) > 1;
+    auto high_f = (d_X[a].f + d_X[b].f) > 0.05;
     if (not_initialized or more_along_w or high_f) {
         link->a = a;
         link->b = b;
@@ -130,10 +130,15 @@ __global__ void proliferate(float mean_distance, Lb_cell* d_X, int* d_n_cells,
     d_X[n].x = d_X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
     d_X[n].y = d_X[i].y + mean_distance/4*sinf(theta)*sinf(phi);
     d_X[n].z = d_X[i].z + mean_distance/4*cosf(theta);
-    d_X[n].w = d_X[i].w/2;
-    d_X[i].w = d_X[i].w/2;
-    d_X[n].f = d_X[i].f/2;
-    d_X[i].f = d_X[i].f/2;
+    if (d_type[i] == mesenchyme) {
+        d_X[n].w = d_X[i].w/2;
+        d_X[i].w = d_X[i].w/2;
+        d_X[n].f = d_X[i].f/2;
+        d_X[i].f = d_X[i].f/2;
+    } else {
+        d_X[n].w = d_X[i].w;
+        d_X[n].f = d_X[i].f;
+    }
     d_X[n].theta = d_X[i].theta;
     d_X[n].phi = d_X[i].phi;
     d_type[n] = d_type[i];
@@ -178,11 +183,16 @@ int main(int argc, char const *argv[]) {
     bolls.copy_to_host();
     n_mes_nbs.copy_to_host();
     for (auto i = 0; i < n_0; i++) {
+        bolls.h_X[i].w = 0;
+        bolls.h_X[i].f = 0;
         if (n_mes_nbs.h_prop[i] < 15*2 and bolls.h_X[i].x > 0) {  // 2nd order solver
-            if (fabs(bolls.h_X[i].y) < 0.75 and bolls.h_X[i].x > 3)
+            bolls.h_X[i].w = 1;
+            if (fabs(bolls.h_X[i].y) < 0.75 and bolls.h_X[i].x > 4) {
                 type.h_prop[i] = aer;
-            else
+                bolls.h_X[i].f = 1;
+            } else {
                 type.h_prop[i] = epithelium;
+            }
             auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x
                 + bolls.h_X[i].y*bolls.h_X[i].y + bolls.h_X[i].z*bolls.h_X[i].z);
             bolls.h_X[i].theta = acosf(bolls.h_X[i].z/dist);
@@ -191,8 +201,6 @@ int main(int argc, char const *argv[]) {
             bolls.h_X[i].theta = 0;
             bolls.h_X[i].phi = 0;
         }
-        bolls.h_X[i].w = 0;
-        bolls.h_X[i].f = 0;
     }
     bolls.copy_to_device();
     type.copy_to_device();
