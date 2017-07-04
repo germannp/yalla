@@ -1,4 +1,11 @@
 //Simulation of limb bud growth starting with realistic limb bud shape
+
+// Command line arguments
+// argv[1]=input file tag
+// argv[2]=output file tag
+// argv[3]=proliferation rate
+// argv[4]=time steps
+
 #include <curand_kernel.h>
 #include "../../include/dtypes.cuh"
 #include "../../include/inits.cuh"
@@ -25,6 +32,9 @@ __device__ int* d_mes_nbs;
 __device__ int* d_epi_nbs;
 __device__ float* d_prolif_rate;
 
+Property<n_max, int> n_mes_nbs("n_mes_nbs"); //defining these here so function
+Property<n_max, int> n_epi_nbs("n_epi_nbs"); //"neighbour_init" can see them
+
 MAKE_PT(Cell, theta, phi);
 
 __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j) {
@@ -34,26 +44,13 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j) {
 
     if (dist > r_max) return dF;
 
-    // float k;
-    // if(r_min-dist>0) { //different coefficients for repulsion and adhesion
-    //     if(d_type[i] != d_type[j])
-    //         k=8.0f;
-    //     else
-    //         k=8.f;
-    // }else {
-    //     if(d_type[i]==epithelium && d_type[j]==epithelium)
-    //         k=8.f;
-    //     else
-    //         k=2.f;
-    // }
-    // auto F = k*(r_min - dist);
     float F;
     if (d_type[i] == d_type[j]) {
         if(d_type[i]==mesenchyme) F = fmaxf(0.8 - dist, 0)*8.f - fmaxf(dist - 0.8, 0)*2.f;
         else F = fmaxf(0.8 - dist, 0)*8.f - fmaxf(dist - 0.8, 0)*8.f;
 
     } else {
-        F = fmaxf(0.9 - dist, 0)*8.f - fmaxf(dist - 0.9, 0)*2.f;
+        F = fmaxf(0.9 - dist, 0)*8.f - fmaxf(dist - 0.9, 0)*8.f;
     }
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
@@ -63,8 +60,10 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j) {
 
     if(Xi.x<0) dF.x=0.f;
 
-    if (d_type[j] == epithelium) {atomicAdd(&d_epi_nbs[i],1);}
-    else {atomicAdd(&d_mes_nbs[i],1);}
+    if (d_type[j] == epithelium)
+        atomicAdd(&d_epi_nbs[i],1);
+    else
+        atomicAdd(&d_mes_nbs[i],1);
 
     return dF;
 }
@@ -89,10 +88,10 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X, int*
             break;
         }
         case epithelium: {
-            if(d_epi_nbs[i]>15) return;
+            if(d_epi_nbs[i]>7) return;
             if(d_mes_nbs[i]<=0) return;
             auto r = curand_uniform(&d_state[i]);
-            if (r > 2.25f*rate) return;
+            if (r > 2.50f*rate) return;
         }
     }
 
@@ -110,15 +109,16 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X, int*
     // d_epi_nbs[n] = 0;
 }
 
+//Double step solver means we have to initialise n_neibhbours before every step.
+//This function is called before each step.
+void neighbour_init(const Cell* __restrict__ d_X, Cell* d_dX) {
+    thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + n_max, 0);
+    thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_max, 0);
+}
 
 //*****************************************************************************
 
 int main(int argc, char const *argv[]) {
-    // Command line arguments
-    // argv[1]=input file tag
-    // argv[2]=output file tag
-    // argv[3]=proliferation rate
-    // argv[4]=time steps
 
     std::string file_name=argv[1];
     std::string output_tag=argv[2];
@@ -148,9 +148,7 @@ int main(int argc, char const *argv[]) {
 
     std::cout<<"initial nbolls "<<n0<<" nmax "<<n_max<<std::endl;
 
-    Property<n_max, int> n_mes_nbs("n_mes_nbs");
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
-    Property<n_max, int> n_epi_nbs("n_epi_nbs");
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
 
     //determine cell-specific proliferation rates
@@ -193,10 +191,7 @@ int main(int argc, char const *argv[]) {
 
         proliferate<<<(limb.get_d_n() + 128 - 1)/128, 128>>>(max_proliferation_rate, r_min, limb.d_X, limb.d_n, d_state);
 
-        thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + limb.get_d_n(), 0);
-        thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + limb.get_d_n(), 0);
-
-        limb.take_step<wall_force, wall_friction>(dt);
+        limb.take_step<wall_force, wall_friction>(dt, neighbour_init);
 
         //write the output
         if(time_step%skip_step==0 || time_step==n_time_steps) {
