@@ -37,6 +37,9 @@ using Generic_forces = std::function<void (const Pt* __restrict__ d_X, Pt* d_dX)
 template<typename Pt>
 void no_gen_forces(const Pt* __restrict__ d_X, Pt* d_dX) {}
 
+// Generic forces are computed before the pairwise interactions, e.g. to reset
+// the number of neighbours between computations of the derivatives.
+
 
 // Solution<Pt, n_max, Solver> combines a method, Solver, with a point type, Pt.
 // It stores the variables on the host and specifies how the variables on the
@@ -149,21 +152,23 @@ protected:
         auto n = get_d_n();
 
         // 1st step
+        thrust::fill(thrust::device, d_dX, d_dX + n, Pt {0});
         thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
         thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
+        gen_forces(d_X, d_dX);
         Computer<Pt, n_max>::template pwints<pw_int, pw_friction>(
             n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
-        gen_forces(d_X, d_dX);
         add_rhs<<<(n + 32 - 1)/32, 32>>>(n, d_sum_v, d_sum_friction, d_dX);  // ceil int div.
         auto mean_dX = thrust::reduce(thrust::device, d_dX, d_dX + n, Pt {0})/n;
         euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, mean_dX, d_dX, d_X1);
 
         // 2nd step
+        thrust::fill(thrust::device, d_dX1, d_dX1 + n, Pt {0});
         thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
         thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
+        gen_forces(d_X1, d_dX1);
         Computer<Pt, n_max>::template pwints<pw_int, pw_friction>(
             n, d_X1, d_dX1, d_old_v, d_sum_v, d_sum_friction);
-        gen_forces(d_X1, d_dX1);
         add_rhs<<<(n + 32 - 1)/32, 32>>>(n, d_sum_v, d_sum_friction, d_dX1);
         auto mean_dX1 = thrust::reduce(thrust::device, d_dX1, d_dX1 + n, Pt {0})/n;
         heun_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_dX, mean_dX1, d_dX1, d_X, d_old_v);
@@ -208,7 +213,7 @@ __global__ void compute_tiles(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
     }
 
     if (i < n) {
-        d_dX[i] = F;
+        d_dX[i] += F;
         d_sum_friction[i] = sum_friction;
         d_sum_v[i] = sum_v;
     }
@@ -320,7 +325,7 @@ __global__ void compute_grid_pwints(const int n, const Pt* __restrict__ d_X,
             sum_v += friction*d_old_v[d_grid->d_point_id[k]];
         }
     }
-    d_dX[d_grid->d_point_id[i]] = F;
+    d_dX[d_grid->d_point_id[i]] += F;
     d_sum_v[d_grid->d_point_id[i]] = sum_v;
     d_sum_friction[d_grid->d_point_id[i]] = sum_friction;
 }
