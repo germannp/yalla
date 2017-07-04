@@ -2,6 +2,13 @@
 //(3D mesh), then fills the volume with mesenchymal cells and the surface with
 //epithelial cells, then lets teh system relax.
 
+// Command line arguments
+// argv[1]=output file tag
+// argv[2]=mesh file name
+// argv[3]=target limb bud size (dx)
+// argv[4]=cube relax_time
+// argv[5]=limb bud relax_time
+
 #include "../../include/dtypes.cuh"
 #include "../../include/inits.cuh"
 #include "../../include/solvers.cuh"
@@ -38,27 +45,20 @@ __device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j) {
 
     if (dist > r_max) return dF;
 
-    float k;
-    if(r_min-dist>0) //different coefficients for repulsion and adhesion
-    {
-      if(d_type[i]==epithelium && d_type[j]==mesenchyme)
-      {k=8.f;} //epi. mesench. contact
-      else
-      {k=8.f;} //any other contact
-    }else{
-      if(d_type[i]==epithelium && d_type[j]==mesenchyme)
-      {k=2.f;} //epi. mesench. contact
-      else
-      {k=2.f;} //any other contact
+    float F;
+    if (d_type[i] == d_type[j]) {
+        if(d_type[i]==mesenchyme) F = fmaxf(0.8 - dist, 0)*8.f - fmaxf(dist - 0.8, 0)*2.f;
+        else F = fmaxf(0.8 - dist, 0)*8.f - fmaxf(dist - 0.8, 0)*8.f;
+
+    } else {
+        F = fmaxf(0.9 - dist, 0)*8.f - fmaxf(dist - 0.9, 0)*2.f;
     }
-    auto F = k*(r_min - dist);
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
 
-    if(d_type[i]==epithelium && d_type[j]==epithelium)
-    {
-        dF += rigidity_force(Xi, r, dist)*0.15f;//*3;
+    if(d_type[i]==epithelium && d_type[j]==epithelium) {
+        dF += rigidity_force(Xi, r, dist)*0.15f;
     }
 
     if (d_type[j] == mesenchyme) atomicAdd(&d_mes_nbs[i],1);
@@ -84,8 +84,7 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j) {
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
 
-    if(d_type[i]==epithelium && d_type[j]==epithelium)
-    {
+    if(d_type[i]==epithelium && d_type[j]==epithelium) {
         dF += rigidity_force(Xi, r, dist)*0.15f;
     }
 
@@ -127,12 +126,6 @@ void uniform_cubic_rectangle(float x0,float y0,float z0,float dx,float dy,float 
 //*****************************************************************************
 
 int main(int argc, char const *argv[]) {
-    // Command line arguments
-    // argv[1]=output file tag
-    // argv[2]=mesh file name
-    // argv[3]=target limb bud size (dx)
-    // argv[4]=cube relax_time
-    // argv[5]=limb bud relax_time
 
     std::string output_tag=argv[1];
     std::string file_name=argv[2];
@@ -188,7 +181,7 @@ int main(int argc, char const *argv[]) {
     //meix_mesench defines the volume occupied by the mesenchyme (smaller than meix)
     //meix_mesench will be transformed from the main meix (rescaled)
     Meix meix_mesench=meix;
-    meix_mesench.Rescale_absolute(-r_min*1.2);
+    meix_mesench.Rescale_absolute(-r_min*1.3);//*1.2
 
     //Translate the mesh again so the flank boundary coincides with the x=0 plane
     Point vector(meix.Facets[0].C.x*-1.f, 0.f, 0.f);
@@ -352,7 +345,7 @@ int main(int argc, char const *argv[]) {
     Vtk_output output(output_tag);
 
     relax_time=std::stoi(argv[5]);
-    skip_step=relax_time/10;
+    skip_step=1;//relax_time/10;
 
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
         if(time_step%skip_step==0 || time_step==relax_time) {
@@ -373,7 +366,7 @@ int main(int argc, char const *argv[]) {
 
     }
 
-    //De-freeze the mesenchyme
+    //Unfreeze the mesenchyme
     for(int i=0 ; i<n_bolls_total ; i++) {
         if(type.h_prop[i]==mesenchyme)
             freeze.h_prop[i]=0;
@@ -381,49 +374,23 @@ int main(int argc, char const *argv[]) {
 
     freeze.copy_to_device();
 
-    //We eliminate the epithelial cells that have separated from the mesenchyme
-    bolls.copy_to_host();
-    n_mes_nbs.copy_to_host();
-    std::vector<Cell> epi_trimmed;
-    std::vector<Cell_types> new_type;
-    int n_bolls_trimmed=0;
-    for(int i=0 ; i<n_bolls_total ; i++) {
-        if(type.h_prop[i]==epithelium && n_mes_nbs.h_prop[i]==0)
-            continue;
-
-        new_type.push_back(type.h_prop[i]);
-        epi_trimmed.push_back(bolls.h_X[i]);
-        n_bolls_trimmed++;
-    }
-
-    Solution<Cell, n_max, Grid_solver> bolls_trimmed(n_bolls_trimmed);
-    for(int i=0 ; i<n_bolls_trimmed ; i++) {
-        bolls_trimmed.h_X[i]=epi_trimmed[i];
-        type.h_prop[i]=new_type[i];
-    }
-
-    std::cout<<"we got "<<n_bolls_trimmed<<" epi. cells"<<std::endl;
-
-    bolls_trimmed.copy_to_device();
-    type.copy_to_device();
-
-    Vtk_output output_trimmed(output_tag+".trimmed");
+    Vtk_output output_unfrozen(output_tag+".unfrozen");
     skip_step=1;
-    //try relaxation without mesenchyme frozen
+    //try relaxation with unfrozen mesenchyme
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
         if(time_step%skip_step==0 || time_step==relax_time)
-            bolls_trimmed.copy_to_host();
+            bolls.copy_to_host();
 
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_total, 0);
 
-        bolls_trimmed.take_step<wall_force, wall_friction>(dt);
+        bolls.take_step<wall_force, wall_friction>(dt);
 
         //write the output
         if(time_step%skip_step==0 || time_step==relax_time) {
-            output_trimmed.write_positions(bolls_trimmed);
-            output_trimmed.write_polarity(bolls_trimmed);
-            output_trimmed.write_property(type);
-            output_trimmed.write_property(freeze);
+            output_unfrozen.write_positions(bolls);
+            output_unfrozen.write_polarity(bolls);
+            output_unfrozen.write_property(type);
+            output_unfrozen.write_property(freeze);
         }
 
     }
