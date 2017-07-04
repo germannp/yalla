@@ -182,7 +182,7 @@ int main(int argc, char const *argv[]) {
     bolls.copy_to_host();
     n_mes_nbs.copy_to_host();
     for (auto i = 0; i < n_0; i++) {
-        if (n_mes_nbs.h_prop[i] < 15*2 and bolls.h_X[i].x > 0) {  // 2nd order solver
+        if (n_mes_nbs.h_prop[i] < 15*2 and bolls.h_X[i].x > 0) {  // *2 for 2nd order solver
             bolls.h_X[i].w = 1;
             if (fabs(bolls.h_X[i].y) < 0.75 and bolls.h_X[i].x > 4) {
                 type.h_prop[i] = aer;
