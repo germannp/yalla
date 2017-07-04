@@ -3,8 +3,8 @@
 //epithelial cells, then lets teh system relax.
 
 // Command line arguments
-// argv[1]=output file tag
-// argv[2]=mesh file name
+// argv[1]=input mesh file name
+// argv[2]=output file tag
 // argv[3]=target limb bud size (dx)
 // argv[4]=cube relax_time
 // argv[5]=limb bud relax_time
@@ -127,8 +127,8 @@ void uniform_cubic_rectangle(float x0,float y0,float z0,float dx,float dy,float 
 
 int main(int argc, char const *argv[]) {
 
-    std::string output_tag=argv[1];
-    std::string file_name=argv[2];
+    std::string file_name=argv[1];
+    std::string output_tag=argv[2];
 
     //First, load the mesh file so we can get the maximum dimensions of the system
     Meix meix(file_name);
