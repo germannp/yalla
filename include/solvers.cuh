@@ -152,6 +152,7 @@ protected:
         auto n = get_d_n();
 
         // 1st step
+        thrust::fill(thrust::device, d_dX, d_dX + n, Pt {0});
         thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
         thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
         gen_forces(d_X, d_dX);
@@ -162,6 +163,7 @@ protected:
         euler_step<<<(n + 32 - 1)/32, 32>>>(n, dt, d_X, mean_dX, d_dX, d_X1);
 
         // 2nd step
+        thrust::fill(thrust::device, d_dX1, d_dX1 + n, Pt {0});
         thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
         thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3 {0});
         gen_forces(d_X1, d_dX1);
@@ -211,7 +213,7 @@ __global__ void compute_tiles(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
     }
 
     if (i < n) {
-        d_dX[i] = F;
+        d_dX[i] += F;
         d_sum_friction[i] = sum_friction;
         d_sum_v[i] = sum_v;
     }
@@ -323,7 +325,7 @@ __global__ void compute_grid_pwints(const int n, const Pt* __restrict__ d_X,
             sum_v += friction*d_old_v[d_grid->d_point_id[k]];
         }
     }
-    d_dX[d_grid->d_point_id[i]] = F;
+    d_dX[d_grid->d_point_id[i]] += F;
     d_sum_v[d_grid->d_point_id[i]] = sum_v;
     d_sum_friction[d_grid->d_point_id[i]] = sum_friction;
 }
