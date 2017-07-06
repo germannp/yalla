@@ -31,7 +31,6 @@ enum Cell_types {mesenchyme, epithelium};
 
 __device__ Cell_types* d_type;
 __device__ int* d_freeze;
-__device__ int* d_mes_nbs;
 
 MAKE_PT(Cell, theta, phi);
 
@@ -58,8 +57,6 @@ __device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j) {
     if(d_type[i]==epithelium && d_type[j]==epithelium)
         dF += rigidity_force(Xi, r, dist)*0.15f;
 
-    if (d_type[j] == mesenchyme) atomicAdd(&d_mes_nbs[i],1);
-
     return dF;
 }
 
@@ -81,9 +78,8 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j) {
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
 
-    if(d_type[i]==epithelium && d_type[j]==epithelium) {
+    if(d_type[i]==epithelium && d_type[j]==epithelium)
         dF += rigidity_force(Xi, r, dist)*0.15f;
-    }
 
     if(Xi.x<0) dF.x=0.f;
 
@@ -283,31 +279,15 @@ int main(int argc, char const *argv[]) {
     type.copy_to_device();
     freeze.copy_to_device();
 
-    Property<n_max, int> n_mes_nbs;
-    cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
-
     // We run the solver on bolls so the cube of bolls relaxes
     int relax_time=std::stoi(argv[4]);
     int skip_step=relax_time/10;
     std::cout<<"relax_time "<<relax_time<<" write interval "<< skip_step<<std::endl;
 
-    Vtk_output cubic_output(output_tag+".cubic_relaxation");
-
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
-        if(time_step%skip_step==0 || time_step==relax_time){
-            cube.copy_to_host();
-        }
-
-        thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_cube, 0);
-
         cube.take_step<relaxation_force, relaxation_friction>(dt);
-
-        //write the output
-        if(time_step%skip_step==0 || time_step==relax_time) {
-            cubic_output.write_positions(cube);
-            cubic_output.write_polarity(cube);
-        }
     }
+    cube.copy_to_host();
 
     //Find the bolls that are inside the mesh and store their positions
     //METHOD: Shooting a ray from a ball and counting how many triangles intersects.
@@ -393,22 +373,7 @@ int main(int argc, char const *argv[]) {
     skip_step=relax_time/10;
 
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
-        if(time_step%skip_step==0 || time_step==relax_time) {
-            bolls.copy_to_host();
-        }
-
-        thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_total, 0);
-
         bolls.take_step<relaxation_force, freeze_friction>(dt);
-
-        //write the output
-        if(time_step%skip_step==0 || time_step==relax_time) {
-            output.write_positions(bolls);
-            output.write_polarity(bolls);
-            output.write_property(type);
-            output.write_property(freeze);
-        }
-
     }
 
     //Unfreeze the mesenchyme
@@ -419,25 +384,21 @@ int main(int argc, char const *argv[]) {
 
     freeze.copy_to_device();
 
-    Vtk_output output_unfrozen(output_tag+".unfrozen");
+    // Vtk_output output_unfrozen(output_tag+".unfrozen");
     skip_step=relax_time/10;
     //try relaxation with unfrozen mesenchyme
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
-        if(time_step%skip_step==0 || time_step==relax_time)
-            bolls.copy_to_host();
-
-        thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_bolls_total, 0);
 
         bolls.take_step<wall_force, wall_friction>(dt);
 
         //write the output
-        if(time_step%skip_step==0 || time_step==relax_time) {
-            output_unfrozen.write_positions(bolls);
-            output_unfrozen.write_polarity(bolls);
-            output_unfrozen.write_property(type);
-            output_unfrozen.write_property(freeze);
+        if(time_step==relax_time) {
+            bolls.copy_to_host();
+            output.write_positions(bolls);
+            output.write_polarity(bolls);
+            output.write_property(type);
+            output.write_property(freeze);
         }
-
     }
 
     //write down the meix in the vtk file to compare it with the posterior seeding
