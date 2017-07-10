@@ -23,9 +23,9 @@ const auto r_max = 1.f;
 const auto r_protrusion = 1.5f;
 const auto protrusion_strength = 0.1f;
 const auto prots_per_cell = 1;
-const auto n_time_steps = 1000*50;
+const auto n_time_steps = 200;
+const auto skip_steps = 0;
 const auto proliferation_rate = 1.386/n_time_steps;  // log(fold-change: 4) = 1.386
-const auto skip_steps = 4;
 const auto dt = 0.2f;
 enum Cell_types {mesenchyme, epithelium, aer};
 
@@ -40,8 +40,8 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
     Lb_cell dF {0};
     if (i == j) {
         // D_ASSERT(Xi.w >= 0);
-        dF.w = - 0.01*(d_type[i] == mesenchyme)*Xi.w;
-        dF.f = - 0.01*(d_type[i] == mesenchyme)*Xi.f;
+        dF.w = - 0.2*(d_type[i] == mesenchyme)*Xi.w;
+        dF.f = - 0.2*(d_type[i] == mesenchyme)*Xi.f;
         return dF;
     }
 
@@ -56,8 +56,8 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
-    dF.w = - 0.1*r.w*(d_type[i] == mesenchyme);
-    dF.f = - 0.1*r.f*(d_type[i] == mesenchyme);
+    dF.w = - 0.2*r.w*(d_type[i] == mesenchyme);
+    dF.f = - 0.2*r.f*(d_type[i] == mesenchyme);
 
     if (d_type[j] == mesenchyme) d_mes_nbs[i] += 1;
     else d_epi_nbs[i] += 1;
@@ -169,7 +169,7 @@ int main(int argc, char const *argv[]) {
 
     // Relax
     Grid<n_max> grid;
-    for (auto time_step = 0; time_step <= 200; time_step++) {
+    for (auto time_step = 0; time_step <= 50; time_step++) {
         grid.build(bolls, r_protrusion);
         update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.get_d_n(),
             grid.d_grid, bolls.d_X, protrusions.d_state, protrusions.d_link);
