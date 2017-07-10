@@ -56,9 +56,8 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
-    auto D = dist < r_max ? 0.1 : 0;
-    dF.w = - r.w*(d_type[i] == mesenchyme)*D;
-    dF.f = - r.f*(d_type[i] == mesenchyme)*D;
+    dF.w = - 0.1*r.w*(d_type[i] == mesenchyme);
+    dF.f = - 0.1*r.f*(d_type[i] == mesenchyme);
 
     if (d_type[j] == mesenchyme) d_mes_nbs[i] += 1;
     else d_epi_nbs[i] += 1;
