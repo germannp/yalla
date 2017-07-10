@@ -15,7 +15,6 @@
 #include "../../include/vtk.cuh"
 #include "../../include/polarity.cuh"
 #include "../../include/property.cuh"
-#include <sstream>
 #include <string>
 #include <list>
 #include <vector>
@@ -49,7 +48,6 @@ __device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j) {
     if (d_type[i] == d_type[j]) {
         if(d_type[i]==mesenchyme) F = fmaxf(0.8 - dist, 0)*8.f - fmaxf(dist - 0.8, 0)*2.f;
         else F = fmaxf(0.8 - dist, 0)*8.f - fmaxf(dist - 0.8, 0)*8.f;
-
     } else {
         F = fmaxf(0.9 - dist, 0)*8.f - fmaxf(dist - 0.9, 0)*2.f;
     }
@@ -57,9 +55,8 @@ __device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j) {
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
 
-    if(d_type[i]==epithelium && d_type[j]==epithelium) {
+    if(d_type[i]==epithelium && d_type[j]==epithelium)
         dF += rigidity_force(Xi, r, dist)*0.15f;
-    }
 
     if (d_type[j] == mesenchyme) atomicAdd(&d_mes_nbs[i],1);
 
@@ -122,6 +119,58 @@ void uniform_cubic_rectangle(float x0,float y0,float z0,float dx,float dy,float 
 
     bolls.copy_to_device();
 }
+
+//*****************************************************************************
+
+template<typename Pt, int n_max, template<typename, int> class Solver>
+void fill_solver_w_meix_no_flank(Meix meix, Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0) {
+
+    //eliminate the flank boundary
+    int i=0;
+    while(i<meix.Facets.size()){
+        if(meix.Facets[i].N.x>-1.01f && meix.Facets[i].N.x<-0.99f)
+            meix.Facets.erase(meix.Facets.begin()+i);
+        else
+            i++;
+    }
+    meix.n=meix.Facets.size();
+
+    *bolls.h_n=meix.n;
+    assert(n_0 < *bolls.h_n);
+
+    for(int j = 0 ; j < meix.n ; j++) {
+        Triangle T=meix.Facets[j];
+        float r=sqrt(pow(T.N.x,2)+pow(T.N.y,2)+pow(T.N.z,2));
+        bolls.h_X[j].x = T.C.x;
+        bolls.h_X[j].y = T.C.y;
+        bolls.h_X[j].z = T.C.z;
+        bolls.h_X[j].phi = atan2(T.N.y,T.N.x);
+        bolls.h_X[j].theta = acos(T.N.z/r);
+    }
+
+}
+
+//*****************************************************************************
+
+template<typename Pt, int n_max, template<typename, int> class Solver, typename Prop>
+void fill_solver_w_epithelium(Solution<Pt, n_max, Solver>& inbolls, Solution<Pt, n_max, Solver>& outbolls, Prop& type, unsigned int n_0 = 0) {
+    assert(n_0 < *inbolls.h_n);
+    assert(n_0 < *outbolls.h_n);
+
+    int j=0;
+    for(int i = 0 ; i<*inbolls.h_n ; i++) {
+        if(type.h_prop[i]==epithelium) {
+            outbolls.h_X[j].x = inbolls.h_X[i].x;
+            outbolls.h_X[j].y = inbolls.h_X[i].y;
+            outbolls.h_X[j].z = inbolls.h_X[i].z;
+            outbolls.h_X[j].phi = inbolls.h_X[i].phi;
+            outbolls.h_X[j].theta = inbolls.h_X[i].theta;
+            j++;
+        }
+    }
+    *outbolls.h_n=j;
+}
+
 
 //*****************************************************************************
 
@@ -238,15 +287,11 @@ int main(int argc, char const *argv[]) {
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
 
     // We run the solver on bolls so the cube of bolls relaxes
-    std::stringstream ass;
-    ass << argv[1] << ".cubic_relaxation";
-    std::string cubic_out = ass.str();
-
     int relax_time=std::stoi(argv[4]);
     int skip_step=relax_time/10;
     std::cout<<"relax_time "<<relax_time<<" write interval "<< skip_step<<std::endl;
 
-    Vtk_output cubic_output(cubic_out);
+    Vtk_output cubic_output(output_tag+".cubic_relaxation");
 
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
         if(time_step%skip_step==0 || time_step==relax_time){
@@ -345,7 +390,7 @@ int main(int argc, char const *argv[]) {
     Vtk_output output(output_tag);
 
     relax_time=std::stoi(argv[5]);
-    skip_step=1;//relax_time/10;
+    skip_step=relax_time/10;
 
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
         if(time_step%skip_step==0 || time_step==relax_time) {
@@ -375,7 +420,7 @@ int main(int argc, char const *argv[]) {
     freeze.copy_to_device();
 
     Vtk_output output_unfrozen(output_tag+".unfrozen");
-    skip_step=1;
+    skip_step=relax_time/10;
     //try relaxation with unfrozen mesenchyme
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
         if(time_step%skip_step==0 || time_step==relax_time)
@@ -414,5 +459,21 @@ int main(int argc, char const *argv[]) {
     wall.Facets.push_back(BCD);
     wall.WriteVtk(output_tag+".wall");
 
+    //for shape comparison purposes we write down the initial mesh as the facets
+    //centres and the bolls epithelium in separate vtk files.
+
+    std::cout<<"writing meix_T0"<<std::endl;
+    Solution<Cell, n_max, Grid_solver> meix_T0(meix.n);
+    fill_solver_w_meix_no_flank(meix, meix_T0);
+    Vtk_output output_meix_T0(output_tag+".meix_T0");
+    output_meix_T0.write_positions(meix_T0);
+    output_meix_T0.write_polarity(meix_T0);
+
+    std::cout<<"writing epi_T0"<<std::endl;
+    Solution<Cell, n_max, Grid_solver> epi_T0(n_bolls_total);
+    fill_solver_w_epithelium(bolls, epi_T0, type);
+    Vtk_output output_epi_T0(output_tag+".epi_T0");
+    output_epi_T0.write_positions(epi_T0);
+    output_epi_T0.write_polarity(epi_T0);
     return 0;
 }
