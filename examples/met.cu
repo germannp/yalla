@@ -7,20 +7,19 @@
 
 
 const auto r_max = 1;
-const auto r_min = 0.6;
 const auto n_cells = 250;
 const auto n_time_steps = 100;
-const auto dt = 0.1;
+const auto dt = 0.05;
 
 
-// Cubic potential plus k*(n_i . r_ij/r)^2/2 for all r_ij <= r_max
+// ReLU forces plus k*(n_i . r_ij/r)^2/2 for all r_ij <= r_max
 __device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell r, float dist, int i, int j) {
     Po_cell dF {0};
     if (i == j) return dF;
 
     if (dist > r_max) return dF;
 
-    auto F = 2*(r_min - dist)*(r_max - dist) + powf(r_max - dist, 2);
+    auto F = fmaxf(0.7 - dist, 0)*2 - fmaxf(dist - 0.8, 0);
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
@@ -33,7 +32,7 @@ __device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell r, float dist, int i, i
 int main(int argc, char const *argv[]) {
     // Prepare initial state
     Solution<Po_cell, n_cells, Grid_solver> bolls;
-    uniform_sphere(0.733333, bolls);
+    uniform_sphere(0.6, bolls);
     for (auto i = 0; i < n_cells; i++) {
         auto dist = sqrtf(bolls.h_X[i].x*bolls.h_X[i].x + bolls.h_X[i].y*bolls.h_X[i].y
             + bolls.h_X[i].z*bolls.h_X[i].z);
