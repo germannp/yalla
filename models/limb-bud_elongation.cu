@@ -197,8 +197,10 @@ int main(int argc, char const *argv[]) {
     }
     bolls.copy_to_device();
     type.copy_to_device();
-    protrusions.reset();
-    bolls.take_step<lb_force>(dt, intercalation);  // Relax epithelium before proliferate
+    protrusions.reset([&] (int a, int b) {
+        return ((type.h_prop[a] > mesenchyme) or (type.h_prop[b] > mesenchyme)); });
+    for (auto time_step = 0; time_step <= 50; time_step++)
+        bolls.take_step<lb_force>(dt, intercalation);  // Relax epithelium before proliferate
 
     // Simulate diffusion & intercalation
     Vtk_output output("elongation");
