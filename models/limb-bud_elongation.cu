@@ -20,7 +20,7 @@
 const auto n_0 = 15000;
 const auto n_max = 65000;
 const auto r_max = 1.f;
-const auto r_protrusion = 1.5f;
+const auto r_protrusion = 2.f;
 const auto protrusion_strength = 0.1f;
 const auto prots_per_cell = 1;
 const auto n_time_steps = 200;
@@ -56,8 +56,8 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
-    dF.w = - 0.2*r.w*(d_type[i] == mesenchyme);
-    dF.f = - 0.2*r.f*(d_type[i] == mesenchyme);
+    dF.w = - 0.1*r.w*(d_type[i] == mesenchyme);
+    dF.f = - 0.1*r.f*(d_type[i] == mesenchyme);
 
     if (d_type[j] == mesenchyme) d_mes_nbs[i] += 1;
     else d_epi_nbs[i] += 1;
@@ -97,9 +97,8 @@ __global__ void update_protrusions(const int n_cells, const Grid<n_max>* __restr
     auto not_initialized = link->a == link->b;
     auto old_r = d_X[link->a] - d_X[link->b];
     auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
-    auto noise = curand_uniform(&d_state[i]);
-    auto more_along_w = fabs(new_r.w/new_dist) > fabs(old_r.w/old_dist)*(1.f - noise);
-    auto high_f = (d_X[a].f + d_X[b].f) > 0.05;
+    auto more_along_w = fabs(new_r.w/new_dist) > fabs(old_r.w/old_dist) + 0.01;
+    auto high_f = (d_X[a].f + d_X[b].f) > 0.02;
     if (not_initialized or more_along_w or high_f) {
         link->a = a;
         link->b = b;
@@ -181,9 +180,9 @@ int main(int argc, char const *argv[]) {
     bolls.copy_to_host();
     n_mes_nbs.copy_to_host();
     for (auto i = 0; i < n_0; i++) {
-        if (n_mes_nbs.h_prop[i] < 15*2 and bolls.h_X[i].x > 0) {  // *2 for 2nd order solver
+        if (n_mes_nbs.h_prop[i] < 16*2 and bolls.h_X[i].x > 0) {  // *2 for 2nd order solver
             bolls.h_X[i].w = 1;
-            if (fabs(bolls.h_X[i].y) < 0.75 and bolls.h_X[i].x > 4) {
+            if (fabs(bolls.h_X[i].y) < 0.75 and bolls.h_X[i].x > 5) {
                 type.h_prop[i] = aer;
                 bolls.h_X[i].f = 1;
             } else {
