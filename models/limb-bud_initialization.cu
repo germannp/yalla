@@ -49,11 +49,12 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
 
-    if (d_type[i] < mesenchyme and d_type[j] < mesenchyme) d_epi_nbs[i] += 1;
-    else if (d_type[i] > mesenchyme and d_type[j] > mesenchyme) d_epi_nbs[i] += 1;
-    else { d_mes_nbs[i] += 1; return dF; }
+    if (d_type[j] == mesenchyme) { d_mes_nbs[i] += 1; return dF; }
+    else d_epi_nbs[i] += 1;
 
-    dF += rigidity_force(Xi, r, dist)*0.2;
+    if (d_type[i] != d_type[j]) return dF;
+
+    dF += rigidity_force(Xi, r, dist)*0.1;
     return dF;
 }
 
@@ -63,8 +64,6 @@ __global__ void proliferate(int n_0, Lb_cell* d_X, int* d_n_cells, curandState* 
     if (i >= n_0) return;  // Dividing new cells is problematic!
 
     switch (d_type[i]) {
-        case mesoderm:
-            return;
         case mesenchyme: {
             auto r = curand_uniform(&d_state[i]);
             if (r > proliferation_rate) return;
@@ -118,10 +117,11 @@ int main(int argc, char const *argv[]) {
         bolls.take_step<lb_force>(dt);
     }
     bolls.copy_to_host();
-    *bolls.h_n += 3;
-    uniform_circle(mean_distance/3, bolls, n_0);
+    *bolls.h_n += 100;
+    uniform_circle(mean_distance*1.5, bolls, n_0);
     for (auto i = n_0; i < *bolls.h_n; i++) {
         bolls.h_X[i].x = 0.1;
+        bolls.h_X[i].y /= 1.5;
         type.h_prop[i] = mesenchyme;
     }
     bolls.copy_to_device();
