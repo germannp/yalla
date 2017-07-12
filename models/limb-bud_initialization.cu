@@ -22,6 +22,7 @@ const auto proliferation_rate = 0.01;
 const auto r_max = 1.f;
 const auto mean_distance = 0.75;
 const auto prots_per_cell = 1;
+const auto r_protrusion = 2;
 const auto n_time_steps = 500;
 const auto dt = 0.2;
 enum Cell_types {mesoderm, mesenchyme, ectoderm, aer};
@@ -62,6 +63,43 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
 
     dF += rigidity_force(Xi, r, dist)*0.1;
     return dF;
+}
+
+
+__global__ void update_protrusions(const int n_cells, const Grid<n_max>* __restrict__ d_grid,
+        const Lb_cell* __restrict d_X, curandState* d_state, Link* d_link) {
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i >= n_cells*prots_per_cell) return;
+
+    auto j = static_cast<int>((i + 0.5)/prots_per_cell);
+    auto rand_nb_cube = d_grid->d_cube_id[j]
+        + d_moore_nhood[min(static_cast<int>(curand_uniform(&d_state[i])*27), 26)];
+    auto cells_in_cube = d_grid->d_cube_end[rand_nb_cube] - d_grid->d_cube_start[rand_nb_cube];
+    if (cells_in_cube < 1) return;
+
+    auto a = d_grid->d_point_id[j];
+    auto b = d_grid->d_point_id[d_grid->d_cube_start[rand_nb_cube]
+        + min(static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube), cells_in_cube - 1)];
+    D_ASSERT(a >= 0); D_ASSERT(a < n_cells);
+    D_ASSERT(b >= 0); D_ASSERT(b < n_cells);
+    if (a == b) return;
+
+    if ((d_type[a] != mesenchyme) or (d_type[b] != mesenchyme)) return;
+
+    auto new_r = d_X[a] - d_X[b];
+    auto new_dist = norm3df(new_r.x, new_r.y, new_r.z);
+    if (new_dist > r_protrusion) return;
+
+    auto link = &d_link[a*prots_per_cell + i%prots_per_cell];
+    auto not_initialized = link->a == link->b;
+    auto old_r = d_X[link->a] - d_X[link->b];
+    auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
+    auto more_along_w = fabs(new_r.w/new_dist) > fabs(old_r.w/old_dist) + 0.01;
+    auto high_f = (d_X[a].f + d_X[b].f) > 0.01;
+    if (not_initialized or more_along_w or high_f) {
+        link->a = a;
+        link->b = b;
+    }
 }
 
 
@@ -138,21 +176,29 @@ int main(int argc, char const *argv[]) {
     }
     bolls.copy_to_device();
     type.copy_to_device();
-    Links<n_max*prots_per_cell> protrusions(0.2f, n_0*prots_per_cell);
+    Links<n_max*prots_per_cell> protrusions(0.1, n_0*prots_per_cell);
+    auto intercalation = std::bind(
+        link_forces<static_cast<int>(n_max*prots_per_cell), Lb_cell>,
+        protrusions, std::placeholders::_1, std::placeholders::_2);
+    Grid<n_max> grid;
 
     // Proliferate
     Vtk_output output("initialization");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
         type.copy_to_host();
-        if (time_step < 400) {
-            proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(bolls.get_d_n(), bolls.d_X, bolls.d_n,
-                protrusions.d_state);
-        }
+        protrusions.copy_to_host();
+        proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(bolls.get_d_n(), bolls.d_X, bolls.d_n,
+            protrusions.d_state);
+        protrusions.set_d_n(bolls.get_d_n()*prots_per_cell);
+        grid.build(bolls, r_protrusion);
+        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.get_d_n(),
+            grid.d_grid, bolls.d_X, protrusions.d_state, protrusions.d_link);
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
-        bolls.take_step<lb_force>(dt);
+        bolls.take_step<lb_force>(dt, intercalation);
         output.write_positions(bolls);
+        output.write_links(protrusions);
         output.write_property(type);
         // output.write_polarity(bolls);
         output.write_field(bolls, "Wnt");
