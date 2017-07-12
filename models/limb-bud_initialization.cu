@@ -59,7 +59,8 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
     if (d_type[j] == mesenchyme) { d_mes_nbs[i] += 1; return dF; }
     else d_epi_nbs[i] += 1;
 
-    if (d_type[i] != d_type[j]) return dF;
+    if ((d_type[i] == mesenchyme) or ((d_type[i] < mesenchyme) != (d_type[j] < mesenchyme)))
+        return dF;
 
     dF += rigidity_force(Xi, r, dist)*0.1;
     return dF;
