@@ -35,7 +35,11 @@ __device__ int* d_epi_nbs;
 
 __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
     Lb_cell dF {0};
-    if (i == j) return dF;
+    if (i == j) {
+        dF.w = - 0.2*(d_type[i] == mesenchyme)*Xi.w;
+        dF.f = - 0.2*(d_type[i] == mesenchyme)*Xi.f;
+        return dF;
+    }
 
     if (dist > r_max) return dF;
 
@@ -48,6 +52,8 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
     dF.x = r.x*F/dist*(d_type[i] != mesoderm);
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
+    dF.w = - 0.1*r.w*(d_type[i] == mesenchyme);
+    dF.f = - 0.1*r.f*(d_type[i] == mesenchyme);
 
     if (d_type[j] == mesenchyme) { d_mes_nbs[i] += 1; return dF; }
     else d_epi_nbs[i] += 1;
@@ -80,10 +86,15 @@ __global__ void proliferate(int n_0, Lb_cell* d_X, int* d_n_cells, curandState* 
     d_X[n].x = d_X[i].x + mean_distance/4*sinf(theta)*cosf(phi);
     d_X[n].y = d_X[i].y + mean_distance/4*sinf(theta)*sinf(phi);
     d_X[n].z = d_X[i].z + mean_distance/4*cosf(theta);
-    d_X[n].w = d_X[i].w/2;
-    d_X[i].w = d_X[i].w/2;
-    d_X[n].f = d_X[i].f/2;
-    d_X[i].f = d_X[i].f/2;
+    if (d_type[i] == mesenchyme) {
+        d_X[n].w = d_X[i].w/2;
+        d_X[i].w = d_X[i].w/2;
+        d_X[n].f = d_X[i].f/2;
+        d_X[i].f = d_X[i].f/2;
+    } else {
+        d_X[n].w = d_X[i].w;
+        d_X[n].f = d_X[i].f;
+    }
     d_X[n].theta = d_X[i].theta;
     d_X[n].phi = d_X[i].phi;
     d_type[n] = d_type[i];
@@ -101,6 +112,7 @@ int main(int argc, char const *argv[]) {
         bolls.h_X[i].theta = -M_PI/2;
         type.h_prop[i] = mesoderm;
         bolls.h_X[i + n_0/2].x += mean_distance/2;
+        bolls.h_X[i + n_0/2].w = 1;
         bolls.h_X[i + n_0/2].y /= 1.5;
         bolls.h_X[i + n_0/2].theta = M_PI/2;
         type.h_prop[i + n_0/2] = ectoderm;
@@ -142,7 +154,8 @@ int main(int argc, char const *argv[]) {
         bolls.take_step<lb_force>(dt);
         output.write_positions(bolls);
         output.write_property(type);
-        output.write_polarity(bolls);
+        // output.write_polarity(bolls);
+        output.write_field(bolls, "Wnt");
     }
 
     return 0;
