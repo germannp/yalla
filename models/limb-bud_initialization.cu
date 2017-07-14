@@ -147,14 +147,14 @@ int main(int argc, char const *argv[]) {
     Property<n_max, Cell_types> type;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     for (auto i = 0; i < n_0/2; i++) {
+        type.h_prop[i] = mesoderm;
         bolls.h_X[i].y /= 1.5;
         bolls.h_X[i].theta = -M_PI/2;
-        type.h_prop[i] = mesoderm;
+        type.h_prop[i + n_0/2] = ectoderm;
         bolls.h_X[i + n_0/2].x += mean_distance/2;
         bolls.h_X[i + n_0/2].w = 1;
         bolls.h_X[i + n_0/2].y /= 1.5;
         bolls.h_X[i + n_0/2].theta = M_PI/2;
-        type.h_prop[i + n_0/2] = ectoderm;
     }
     bolls.copy_to_device();
     type.copy_to_device();
