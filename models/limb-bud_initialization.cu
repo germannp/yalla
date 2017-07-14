@@ -162,11 +162,7 @@ int main(int argc, char const *argv[]) {
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     Property<n_max, int> n_epi_nbs;
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
-    for (auto i = 0; i < 100; i++) {
-        thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
-        thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
-        bolls.take_step<lb_force>(dt);
-    }
+    for (auto i = 0; i < 100; i++) bolls.take_step<lb_force>(dt);
     bolls.copy_to_host();
     *bolls.h_n += 100;
     uniform_circle(mean_distance*1.5, bolls, n_0);
@@ -189,6 +185,7 @@ int main(int argc, char const *argv[]) {
         bolls.copy_to_host();
         type.copy_to_host();
         protrusions.copy_to_host();
+
         proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(bolls.get_d_n(), bolls.d_X, bolls.d_n,
             protrusions.d_state);
         protrusions.set_d_n(bolls.get_d_n()*prots_per_cell);
@@ -198,6 +195,7 @@ int main(int argc, char const *argv[]) {
         thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
         bolls.take_step<lb_force>(dt, intercalation);
+
         output.write_positions(bolls);
         output.write_links(protrusions);
         output.write_property(type);
