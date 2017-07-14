@@ -168,7 +168,7 @@ int main(int argc, char const *argv[]) {
     uniform_circle(mean_distance*1.5, bolls, n_0);
     for (auto i = n_0; i < *bolls.h_n; i++) {
         bolls.h_X[i].x = 0.1;
-        bolls.h_X[i].y /= 1.5;
+        bolls.h_X[i].y /= 2.5;
         type.h_prop[i] = mesenchyme;
     }
     bolls.copy_to_device();
