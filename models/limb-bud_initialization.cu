@@ -186,8 +186,8 @@ int main(int argc, char const *argv[]) {
         type.copy_to_host();
         protrusions.copy_to_host();
 
-        proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(bolls.get_d_n(), bolls.d_X, bolls.d_n,
-            protrusions.d_state);
+        proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(bolls.get_d_n(), bolls.d_X,
+            bolls.d_n, protrusions.d_state);
         protrusions.set_d_n(bolls.get_d_n()*prots_per_cell);
         grid.build(bolls, r_protrusion);
         update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(bolls.get_d_n(),
