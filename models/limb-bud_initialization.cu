@@ -45,7 +45,10 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
     if (dist > r_max) return dF;
 
     float F;
-    if (d_type[i] == d_type[j]) {
+    auto both_mesoderm = (d_type[i] == mesoderm) and (d_type[j] == mesoderm);
+    auto both_mesenchyme = (d_type[i] == mesenchyme) and (d_type[j] == mesenchyme);
+    auto both_ectoderm = (d_type[i] > mesenchyme) and (d_type[j] > mesenchyme);
+    if (both_mesoderm or both_mesenchyme or both_ectoderm) {
         F = fmaxf(0.7 - dist, 0)*2 - fmaxf(dist - 0.8, 0)*1.2;
     } else {
         F = fmaxf(0.8 - dist, 0)*2 - fmaxf(dist - 0.9, 0)*1.2;
@@ -59,8 +62,7 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j) {
     if (d_type[j] == mesenchyme) { d_mes_nbs[i] += 1; return dF; }
     else d_epi_nbs[i] += 1;
 
-    if ((d_type[i] == mesenchyme) or ((d_type[i] < mesenchyme) != (d_type[j] < mesenchyme)))
-        return dF;
+    if (not (both_mesoderm or both_ectoderm)) return dF;
 
     dF += rigidity_force(Xi, r, dist)*0.1;
     return dF;
@@ -97,6 +99,7 @@ __global__ void update_protrusions(const int n_cells, const Grid<n_max>* __restr
     auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
     auto more_along_w = fabs(new_r.w/new_dist) > fabs(old_r.w/old_dist) + 0.01;
     auto high_f = (d_X[a].f + d_X[b].f) > 0.01;
+    // auto high_f = false;
     if (not_initialized or more_along_w or high_f) {
         link->a = a;
         link->b = b;
@@ -164,6 +167,12 @@ int main(int argc, char const *argv[]) {
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
     for (auto i = 0; i < 100; i++) bolls.take_step<lb_force>(dt);
     bolls.copy_to_host();
+    for (auto i = n_0/2; i < n_0; i++) {
+        if ((fabs(bolls.h_X[i].y) < 0.5) and (fabs(bolls.h_X[i].z) < 4)) {
+            bolls.h_X[i].f = 1;
+            type.h_prop[i] = aer;
+        }
+    }
     *bolls.h_n += 100;
     uniform_circle(mean_distance*1.5, bolls, n_0);
     for (auto i = n_0; i < *bolls.h_n; i++) {
@@ -201,6 +210,7 @@ int main(int argc, char const *argv[]) {
         output.write_property(type);
         // output.write_polarity(bolls);
         output.write_field(bolls, "Wnt");
+        output.write_field(bolls, "Fgf", &Lb_cell::f);
     }
 
     return 0;
