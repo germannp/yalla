@@ -107,6 +107,8 @@ __global__ void update_protrusions(const int n_cells, const Grid<n_max>* __restr
 }
 
 
+__device__ int* d_clone;
+
 __global__ void proliferate(int n_0, Lb_cell* d_X, int* d_n_cells, curandState* d_state) {
     auto i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i >= n_0) return;  // Dividing new cells is problematic!
@@ -140,6 +142,7 @@ __global__ void proliferate(int n_0, Lb_cell* d_X, int* d_n_cells, curandState* 
     d_X[n].theta = d_X[i].theta;
     d_X[n].phi = d_X[i].phi;
     d_type[n] = d_type[i];
+    d_clone[n] = d_clone[i];
 }
 
 
@@ -180,8 +183,12 @@ int main(int argc, char const *argv[]) {
         bolls.h_X[i].y /= 2.5;
         type.h_prop[i] = mesenchyme;
     }
+    Property<n_max, int> clone("clone");
+    cudaMemcpyToSymbol(d_clone, &clone.d_prop, sizeof(d_clone));
+    for (auto i = 0; i < *bolls.h_n; i++) clone.h_prop[i] = i;
     bolls.copy_to_device();
     type.copy_to_device();
+    clone.copy_to_device();
     Links<n_max*prots_per_cell> protrusions(0.1, n_0*prots_per_cell);
     auto intercalation = std::bind(
         link_forces<static_cast<int>(n_max*prots_per_cell), Lb_cell>,
@@ -193,6 +200,7 @@ int main(int argc, char const *argv[]) {
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
         type.copy_to_host();
+        clone.copy_to_host();
         protrusions.copy_to_host();
 
         proliferate<<<(bolls.get_d_n() + 128 - 1)/128, 128>>>(bolls.get_d_n(), bolls.d_X,
@@ -208,6 +216,7 @@ int main(int argc, char const *argv[]) {
         output.write_positions(bolls);
         output.write_links(protrusions);
         output.write_property(type);
+        output.write_property(clone);
         // output.write_polarity(bolls);
         output.write_field(bolls, "Wnt");
         output.write_field(bolls, "Fgf", &Lb_cell::f);
