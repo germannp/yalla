@@ -34,9 +34,9 @@ __device__ Po_cell relu_w_epithelium(Po_cell Xi, Po_cell r, float dist, int i, i
 
     float F;
     if (d_type[i] == d_type[j]) {
-        F = fmaxf(0.7 - dist, 0)*2 - fmaxf(dist - 0.8, 0)/1.25;
+        F = fmaxf(0.7 - dist, 0)*2 - fmaxf(dist - 0.8, 0);
     } else {
-        F = fmaxf(0.8 - dist, 0)*2 - fmaxf(dist - 0.9, 0)/1.25;
+        F = fmaxf(0.8 - dist, 0)*2 - fmaxf(dist - 0.9, 0);
     }
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;

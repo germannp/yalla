@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <curand_kernel.h>
+#include <functional>
 
 
 __global__ void setup_rand_states(curandState* d_state, int n_states) {
@@ -12,6 +13,10 @@ __global__ void setup_rand_states(curandState* d_state, int n_states) {
 
 
 struct Link { int a, b; };
+
+using Check_link = std::function<bool (int a, int b)>;
+
+bool every_link(int a, int b) { return true; }
 
 template<int n_links>
 class Links {
@@ -27,6 +32,7 @@ public:
         cudaMalloc(&d_n, sizeof(int));
         cudaMalloc(&d_state, n_links*sizeof(curandState));
         *h_n = n_0;
+        set_d_n(n_0);
         reset();
         setup_rand_states<<<(n_links + 32 - 1)/32, 32>>>(d_state, n_links);
         strength = s;
@@ -41,8 +47,11 @@ public:
         assert(n <= n_links);
         return n;
     }
-    void reset() {
+    void reset(Check_link check = every_link) {
+        copy_to_host();
         for (auto i = 0; i < n_links; i++) {
+            if (!check(h_link[i].a, h_link[i].b)) continue;
+
             h_link[i].a = 0;
             h_link[i].b = 0;
         }
