@@ -9,12 +9,14 @@
 // argv[4]=cube relax_time
 // argv[5]=limb bud relax_time
 
+#include <curand_kernel.h>
 #include "../../include/dtypes.cuh"
 #include "../../include/inits.cuh"
 #include "../../include/solvers.cuh"
 #include "../../include/vtk.cuh"
 #include "../../include/polarity.cuh"
 #include "../../include/property.cuh"
+#include "../../include/links.cuh"
 #include <string>
 #include <list>
 #include <vector>
@@ -24,8 +26,11 @@
 
 const auto r_max=1.0;
 const auto r_min=0.8;
-const auto dt = 0.05*r_min*r_min;
+const auto dt = 0.1;
 const auto n_max = 150000;
+const auto prots_per_cell=1;
+const auto protrusion_strength=0.1f;
+const auto r_protrusion=2.0f;
 
 enum Cell_types {mesenchyme, epithelium};
 
@@ -45,17 +50,17 @@ __device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j) {
 
     float F;
     if (d_type[i] == d_type[j]) {
-        if(d_type[i]==mesenchyme) F = fmaxf(0.8 - dist, 0)*8.f - fmaxf(dist - 0.8, 0)*2.f;
-        else F = fmaxf(0.8 - dist, 0)*8.f - fmaxf(dist - 0.8, 0)*8.f;
+        if(d_type[i]==mesenchyme) F = fmaxf(0.8 - dist, 0)*2.f - fmaxf(dist - 0.8, 0);
+        else F = fmaxf(0.8 - dist, 0)*2.f - fmaxf(dist - 0.8, 0)*2.f;
     } else {
-        F = fmaxf(0.9 - dist, 0)*8.f - fmaxf(dist - 0.9, 0)*2.f;
+        F = fmaxf(0.9 - dist, 0)*2.f - fmaxf(dist - 0.9, 0)*2.f;
     }
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
 
     if(d_type[i]==epithelium && d_type[j]==epithelium)
-        dF += rigidity_force(Xi, r, dist)*0.15f;
+        dF += rigidity_force(Xi, r, dist)*0.05f;
 
     return dF;
 }
@@ -79,11 +84,50 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j) {
     dF.z = r.z*F/dist;
 
     if(d_type[i]==epithelium && d_type[j]==epithelium)
-        dF += rigidity_force(Xi, r, dist)*0.15f;
+        dF += rigidity_force(Xi, r, dist)*0.05f;
 
     if(Xi.x<0) dF.x=0.f;
 
     return dF;
+}
+
+__global__ void update_protrusions(const int n_cells, const Grid<n_max>* __restrict__ d_grid,
+        const Cell* __restrict d_X, curandState* d_state, Link* d_link) {
+    auto i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i >= n_cells*prots_per_cell) return;
+
+    auto j = static_cast<int>((i + 0.5)/prots_per_cell);
+    auto rand_nb_cube = d_grid->d_cube_id[j]
+        + d_moore_nhood[min(static_cast<int>(curand_uniform(&d_state[i])*27), 26)];
+    auto cells_in_cube = d_grid->d_cube_end[rand_nb_cube] - d_grid->d_cube_start[rand_nb_cube];
+    if (cells_in_cube < 1) return;
+
+    auto a = d_grid->d_point_id[j];
+    auto b = d_grid->d_point_id[d_grid->d_cube_start[rand_nb_cube]
+        + min(static_cast<int>(curand_uniform(&d_state[i])*cells_in_cube), cells_in_cube - 1)];
+    D_ASSERT(a >= 0); D_ASSERT(a < n_cells);
+    D_ASSERT(b >= 0); D_ASSERT(b < n_cells);
+    if (a == b) return;
+
+    if ((d_type[a] != mesenchyme) or (d_type[b] != mesenchyme)) return;
+
+    auto new_r = d_X[a] - d_X[b];
+    auto new_dist = norm3df(new_r.x, new_r.y, new_r.z);
+    if (new_dist > r_protrusion) return;
+
+    auto link = &d_link[a*prots_per_cell + i%prots_per_cell];
+    auto not_initialized = link->a == link->b;
+    auto new_one = curand_uniform(&d_state[i]) < 0.05f;
+    // auto old_r = d_X[link->a] - d_X[link->b];
+    // auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
+    // auto noise = curand_uniform(&d_state[i]);
+    // auto more_along_w = fabs(new_r.w/new_dist) > fabs(old_r.w/old_dist)*(1.f - noise);
+    // auto high_f = (d_X[a].f + d_X[b].f) > 0.05;
+    if (not_initialized || new_one) {
+    // if (not_initialized) {
+        link->a = a;
+        link->b = b;
+    }
 }
 
 __device__ float relaxation_friction(Cell Xi, Cell r, float dist, int i, int j) {
@@ -102,13 +146,13 @@ __device__ float wall_friction(Cell Xi, Cell r, float dist, int i, int j) {
 
 // Distribute bolls uniformly random in rectangular cube
 template<typename Pt, int n_max, template<typename, int> class Solver>
-void uniform_cubic_rectangle(float x0,float y0,float z0,float dx,float dy,float dz, Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0) {
+void uniform_cubic_rectangle(float xmin,float ymin,float zmin,float dx,float dy,float dz, Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0) {
     assert(n_0 < *bolls.h_n);
 
     for (auto i = n_0; i < *bolls.h_n; i++) {
-        bolls.h_X[i].x = x0+dx*(rand()/(RAND_MAX+1.));
-        bolls.h_X[i].y = y0+dy*(rand()/(RAND_MAX+1.));
-        bolls.h_X[i].z = z0+dz*(rand()/(RAND_MAX+1.));
+        bolls.h_X[i].x = xmin+dx*(rand()/(RAND_MAX+1.));
+        bolls.h_X[i].y = ymin+dy*(rand()/(RAND_MAX+1.));
+        bolls.h_X[i].z = zmin+dz*(rand()/(RAND_MAX+1.));
         bolls.h_X[i].phi=0.0f;
         bolls.h_X[i].theta=0.0f;
     }
@@ -250,8 +294,20 @@ int main(int argc, char const *argv[]) {
     //then we calculate how many bolls add up to that volume, correcting by the
     //inefficiency of a cubic packing (0.74)----> Well in the end we don't correct cause it wasn't packed enough
 
+    //Now we include intercalation in the cubic relaxation, so we must assume a
+    //larger cube, since the end result will be compressed to some extent
+    float factor=0.1f;
+    float r=dx*factor/2;
+    float new_xmin=xmin-r;
+    r=dy*factor/2;
+    float new_ymin=ymin-r;
+    r=dz*factor/2;
+    float new_zmin=zmin-r;
+    float new_dx=dx+dx*factor, new_dy=dy+dy*factor, new_dz=dz+dz*factor;
+
+
     //const float packing_factor=0.74048f;
-    float cube_vol=dx*dy*dz;
+    float cube_vol=new_dx*new_dy*new_dz;
     float r_boll=0.5f*r_min;
     float boll_vol=4./3.*M_PI*pow(r_boll,3);
     int n_bolls_cube=cube_vol/boll_vol;
@@ -261,7 +317,7 @@ int main(int argc, char const *argv[]) {
 
     Solution<Cell, n_max, Grid_solver> cube(n_bolls_cube);
     //Fill the rectangle with bolls
-    uniform_cubic_rectangle(xmin,ymin,zmin,dx,dy,dz,cube);
+    uniform_cubic_rectangle(new_xmin,new_ymin,new_zmin,new_dx,new_dy,new_dz,cube);
 
     //Variable indicating cell type
     Property<n_max, Cell_types> type;
@@ -279,15 +335,66 @@ int main(int argc, char const *argv[]) {
     type.copy_to_device();
     freeze.copy_to_device();
 
+    Links<static_cast<int>(n_max*prots_per_cell)> protrusions(protrusion_strength,
+        n_bolls_cube*prots_per_cell);
+    auto intercalation = std::bind(
+        link_forces<static_cast<int>(n_max*prots_per_cell), Cell>,
+        protrusions, std::placeholders::_1, std::placeholders::_2);
+
+    Grid<n_max> grid;
+
+    // State for links
+    curandState *d_state;
+    cudaMalloc(&d_state, n_max*sizeof(curandState));
+    setup_rand_states<<<(n_max + 128 - 1)/128, 128>>>(d_state, n_max);
+
     // We run the solver on bolls so the cube of bolls relaxes
     int relax_time=std::stoi(argv[4]);
-    int skip_step=relax_time/10;
+    int skip_step=1;//relax_time/10;
     std::cout<<"relax_time "<<relax_time<<" write interval "<< skip_step<<std::endl;
 
+    Vtk_output cubic_output(output_tag+".cubic_relaxation");
+
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
-        cube.take_step<relaxation_force, relaxation_friction>(dt);
+        // if(time_step%skip_step==0 || time_step==relax_time){
+        //     cube.copy_to_host();
+        //     protrusions.copy_to_host();
+        // }
+
+        // protrusions.set_d_n(cube.get_d_n()*prots_per_cell);
+        // grid.build(cube, r_protrusion);
+        // update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(cube.get_d_n(),
+        //     grid.d_grid, cube.d_X, protrusions.d_state, protrusions.d_link);
+        //
+        cube.take_step<relaxation_force, relaxation_friction>(dt,intercalation);
+
+        //write the output
+        // if(time_step%skip_step==0 || time_step==relax_time) {
+        //     cubic_output.write_positions(cube);
+        //     cubic_output.write_links(protrusions);
+        // }
     }
-    cube.copy_to_host();
+
+
+    for (auto time_step = 0; time_step <= relax_time; time_step++) {
+        if(time_step%skip_step==0 || time_step==relax_time){
+            cube.copy_to_host();
+            protrusions.copy_to_host();
+        }
+
+        protrusions.set_d_n(cube.get_d_n()*prots_per_cell);
+        grid.build(cube, r_protrusion);
+        update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(cube.get_d_n(),
+            grid.d_grid, cube.d_X, protrusions.d_state, protrusions.d_link);
+
+        cube.take_step<relaxation_force, relaxation_friction>(dt,intercalation);
+
+        //write the output
+        if(time_step%skip_step==0 || time_step==relax_time) {
+            cubic_output.write_positions(cube);
+            cubic_output.write_links(protrusions);
+        }
+    }
 
     //Find the bolls that are inside the mesh and store their positions
     //METHOD: Shooting a ray from a ball and counting how many triangles intersects.
@@ -370,11 +477,29 @@ int main(int argc, char const *argv[]) {
     Vtk_output output(output_tag);
 
     relax_time=std::stoi(argv[5]);
-    skip_step=relax_time/10;
+    skip_step=1;//relax_time/10;
 
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
+        // if(time_step%skip_step==0 || time_step==relax_time) {
+        //     bolls.copy_to_host();
+        // }
+
         bolls.take_step<relaxation_force, freeze_friction>(dt);
+
+        // //write the output
+        // if(time_step%skip_step==0 || time_step==relax_time) {
+        //     output.write_positions(bolls);
+        //     output.write_polarity(bolls);
+        //     output.write_property(type);
+        //     output.write_property(freeze);
+        // }
+
     }
+
+    bolls.copy_to_device();
+    output.write_positions(bolls);
+    output.write_polarity(bolls);
+    output.write_property(type);
 
     //Unfreeze the mesenchyme
     for(int i=0 ; i<n_bolls_total ; i++) {
@@ -382,24 +507,27 @@ int main(int argc, char const *argv[]) {
             freeze.h_prop[i]=0;
     }
 
-    freeze.copy_to_device();
+    // freeze.copy_to_device();
 
     // Vtk_output output_unfrozen(output_tag+".unfrozen");
-    skip_step=relax_time/10;
-    //try relaxation with unfrozen mesenchyme
-    for (auto time_step = 0; time_step <= relax_time; time_step++) {
-
-        bolls.take_step<wall_force, wall_friction>(dt);
-
-        //write the output
-        if(time_step==relax_time) {
-            bolls.copy_to_host();
-            output.write_positions(bolls);
-            output.write_polarity(bolls);
-            output.write_property(type);
-            output.write_property(freeze);
-        }
-    }
+    // skip_step=1;//relax_time/10;
+    // //try relaxation with unfrozen mesenchyme
+    // for (auto time_step = 0; time_step <= relax_time; time_step++) {
+    //
+    //     if(time_step%skip_step==0 || time_step==relax_time) {
+    //         bolls.copy_to_host();
+    //     }
+    //
+    //     bolls.take_step<wall_force, wall_friction>(dt);
+    //
+    //     //write the output
+    //     if(time_step%skip_step==0 || time_step==relax_time) {
+    //         output_unfrozen.write_positions(bolls);
+    //         output_unfrozen.write_polarity(bolls);
+    //         output_unfrozen.write_property(type);
+    //         output_unfrozen.write_property(freeze);
+    //     }
+    // }
 
     //write down the meix in the vtk file to compare it with the posterior seeding
     meix.WriteVtk(output_tag);
