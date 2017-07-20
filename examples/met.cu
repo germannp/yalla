@@ -13,7 +13,7 @@ const auto dt = 0.05;
 
 
 // ReLU forces plus k*(n_i . r_ij/r)^2/2 for all r_ij <= r_max
-__device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell r, float dist, int i, int j) {
+__device__ Po_cell rigid_relu_force(Po_cell Xi, Po_cell r, float dist, int i, int j) {
     Po_cell dF {0};
     if (i == j) return dF;
 
@@ -45,7 +45,7 @@ int main(int argc, char const *argv[]) {
     Vtk_output output("epithelium");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
-        bolls.take_step<rigid_cubic_force>(dt);
+        bolls.take_step<rigid_relu_force>(dt);
         output.write_positions(bolls);
         output.write_polarity(bolls);
     }
