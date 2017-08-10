@@ -23,10 +23,10 @@
 
 const auto r_max=1.0;
 const auto r_min=0.8;
-const auto dt = 0.05*r_min*r_min;
+const auto dt = 0.1f;
 const auto n_max = 150000;
 const auto prots_per_cell=1;
-const auto protrusion_strength=4.0f;
+const auto protrusion_strength=0.2f;
 const auto r_protrusion=2.0f;
 
 enum Cell_types {mesenchyme, epithelium};
@@ -55,11 +55,11 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j) {
 
     float F;
     if (d_type[i] == d_type[j]) {
-        if(d_type[i]==mesenchyme) F = fmaxf(0.8 - dist, 0)*8.f - fmaxf(dist - 0.8, 0)*2.f;
-        else F = fmaxf(0.8 - dist, 0)*8.f - fmaxf(dist - 0.8, 0)*8.f;
+        if(d_type[i]==mesenchyme) F = fmaxf(0.8 - dist, 0)*2.f - fmaxf(dist - 0.8, 0);
+        else F = fmaxf(0.8 - dist, 0)*2.f - fmaxf(dist - 0.8, 0)*2.f;
 
     } else {
-        F = fmaxf(0.9 - dist, 0)*8.f - fmaxf(dist - 0.9, 0)*8.f;
+        F = fmaxf(0.9 - dist, 0)*2.f - fmaxf(dist - 0.9, 0)*2.f;
     }
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
@@ -68,7 +68,7 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j) {
     dF.w = - r.w*(d_type[i] == mesenchyme)*0.5f;
     dF.f = - r.f*(d_type[i] == mesenchyme)*0.5f;
 
-    if(d_type[i]==epithelium && d_type[j]==epithelium) dF += rigidity_force(Xi, r, dist)*0.5f;
+    if(d_type[i]==epithelium && d_type[j]==epithelium) dF += rigidity_force(Xi, r, dist)*0.10f;
 
     if(Xi.x<0) dF.x=0.f;
 
@@ -82,6 +82,7 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j) {
 
 __device__ float wall_friction(Cell Xi, Cell r, float dist, int i, int j) {
     if(Xi.x<0) return 0;
+    if(Xi.x<0.5f) return 0;
     return 1;
 }
 
@@ -115,8 +116,10 @@ __global__ void update_protrusions(const int n_cells, const Grid<n_max>* __restr
     auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
     auto noise = curand_uniform(&d_state[i]);
     auto more_along_w = fabs(new_r.w/new_dist) > fabs(old_r.w/old_dist)*(1.f - noise);
-    auto high_f = (d_X[a].f + d_X[b].f) > 0.05;
-    if (not_initialized or more_along_w or high_f) {
+    // auto high_f = (d_X[a].f + d_X[b].f) > 0.05;
+    // if (not_initialized or more_along_w or high_f) {
+    if (not_initialized or more_along_w) {
+    // if (not_initialized) {
         link->a = a;
         link->b = b;
     }
@@ -140,7 +143,7 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X, int*
             if(d_epi_nbs[i]>7) return;
             if(d_mes_nbs[i]<=0) return;
             auto r = curand_uniform(&d_state[i]);
-            if (r > 2.50f*rate) return;
+            if (r > 2.5f*rate) return; //2.5
         }
     }
 
@@ -233,6 +236,7 @@ int main(int argc, char const *argv[]) {
     //determine cell-specific proliferation rates
     Property<n_max, float> prolif_rate("prolif_rate");
     cudaMemcpyToSymbol(d_prolif_rate, &prolif_rate.d_prop, sizeof(d_prolif_rate));
+    float min_proliferation_rate=0.5f*max_proliferation_rate;
     if(prolif_dist==0) {
         for (int i=0; i<n0 ; i++) {
             prolif_rate.h_prop[i]=max_proliferation_rate;
@@ -244,7 +248,7 @@ int main(int argc, char const *argv[]) {
         }
         for (int i=0; i<n0 ; i++) {
             if(limb.h_X[i].x<0) prolif_rate.h_prop[i]=0;
-            else prolif_rate.h_prop[i]=pow((limb.h_X[i].x/xmax),3)*max_proliferation_rate;
+            else prolif_rate.h_prop[i]=min_proliferation_rate+pow((limb.h_X[i].x/xmax),1)*max_proliferation_rate*0.5f;
         }
     }
     prolif_rate.copy_to_device();

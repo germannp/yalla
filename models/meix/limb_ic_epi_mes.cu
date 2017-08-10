@@ -60,7 +60,7 @@ __device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j) {
     dF.z = r.z*F/dist;
 
     if(d_type[i]==epithelium && d_type[j]==epithelium)
-        dF += rigidity_force(Xi, r, dist)*0.05f;
+        dF += rigidity_force(Xi, r, dist)*0.10f;
 
     return dF;
 }
@@ -72,19 +72,19 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j) {
 
     if (dist > r_max) return dF;
 
-    float k;
-    if(r_min-dist>0) //different coefficients for repulsion and adhesion
-        k=8.f;
-    else
-        k=2.f;
-
-    auto F = k*(r_min - dist);
+    float F;
+    if (d_type[i] == d_type[j]) {
+        if(d_type[i]==mesenchyme) F = fmaxf(0.8 - dist, 0)*2.f - fmaxf(dist - 0.8, 0);
+        else F = fmaxf(0.8 - dist, 0)*2.f - fmaxf(dist - 0.8, 0)*2.f;
+    } else {
+        F = fmaxf(0.9 - dist, 0)*2.f - fmaxf(dist - 0.9, 0)*2.f;
+    }
     dF.x = r.x*F/dist;
     dF.y = r.y*F/dist;
     dF.z = r.z*F/dist;
 
     if(d_type[i]==epithelium && d_type[j]==epithelium)
-        dF += rigidity_force(Xi, r, dist)*0.05f;
+        dF += rigidity_force(Xi, r, dist)*0.5f;
 
     if(Xi.x<0) dF.x=0.f;
 
@@ -270,7 +270,7 @@ int main(int argc, char const *argv[]) {
     //meix_mesench defines the volume occupied by the mesenchyme (smaller than meix)
     //meix_mesench will be transformed from the main meix (rescaled)
     Meix meix_mesench=meix;
-    meix_mesench.Rescale_absolute(-r_min*1.3);//*1.2
+    meix_mesench.Rescale_absolute(-r_min*1.3f);//*1.3//*1.2
 
     //Translate the mesh again so the flank boundary coincides with the x=0 plane
     Point vector(meix.Facets[0].C.x*-1.f, 0.f, 0.f);
@@ -353,7 +353,7 @@ int main(int argc, char const *argv[]) {
     int skip_step=1;//relax_time/10;
     std::cout<<"relax_time "<<relax_time<<" write interval "<< skip_step<<std::endl;
 
-    Vtk_output cubic_output(output_tag+".cubic_relaxation");
+    // Vtk_output cubic_output1(output_tag+".cubic_relaxation1");
 
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
         // if(time_step%skip_step==0 || time_step==relax_time){
@@ -368,19 +368,28 @@ int main(int argc, char const *argv[]) {
         //
         cube.take_step<relaxation_force, relaxation_friction>(dt,intercalation);
 
-        //write the output
+        // //write the output
         // if(time_step%skip_step==0 || time_step==relax_time) {
-        //     cubic_output.write_positions(cube);
-        //     cubic_output.write_links(protrusions);
+        //     cubic_output1.write_positions(cube);
+        //     cubic_output1.write_links(protrusions);
         // }
     }
 
+    // Solution<Cell, n_max, Grid_solver> cube_relax = cube;
+    //we save these values for imprinting the epithelium on top of the mesenchyme
+    cube.copy_to_host();
+    std::vector<Point> cube_relax_points;
+    for (auto i = 0; i < n_bolls_cube; i++) {
+        Point p=Point(cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z);
+        cube_relax_points.push_back(p);
+    }
+    // Vtk_output cubic_output(output_tag+".cubic_relaxation");
 
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
-        if(time_step%skip_step==0 || time_step==relax_time){
-            cube.copy_to_host();
-            protrusions.copy_to_host();
-        }
+        // if(time_step%skip_step==0 || time_step==relax_time){
+        //     cube.copy_to_host();
+        //     protrusions.copy_to_host();
+        // }
 
         protrusions.set_d_n(cube.get_d_n()*prots_per_cell);
         grid.build(cube, r_protrusion);
@@ -389,11 +398,11 @@ int main(int argc, char const *argv[]) {
 
         cube.take_step<relaxation_force, relaxation_friction>(dt,intercalation);
 
-        //write the output
-        if(time_step%skip_step==0 || time_step==relax_time) {
-            cubic_output.write_positions(cube);
-            cubic_output.write_links(protrusions);
-        }
+        // //write the output
+        // if(time_step%skip_step==0 || time_step==relax_time) {
+        //     cubic_output.write_positions(cube);
+        //     cubic_output.write_links(protrusions);
+        // }
     }
 
     //Find the bolls that are inside the mesh and store their positions
@@ -401,72 +410,95 @@ int main(int argc, char const *argv[]) {
     //If the ray intersects an even number of facets the boll is out of the mesh, else is in
 
     //Setup the list of points
-    std::vector<Point> points;
+    std::vector<Point> cube_points;
     for (auto i = 0; i < n_bolls_cube; i++) {
         Point p=Point(cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z);
-        points.push_back(p);
+        cube_points.push_back(p);
     }
 
     //Setup the list of inclusion test results
-    int* results=new int[n_bolls_cube];
+    int* mesench_result=new int[n_bolls_cube];
     //Set direction of ray
     Point dir=Point(0.0f,1.0f,0.0f);
 
-    meix.InclusionTest(points , results, dir);
+    meix_mesench.InclusionTest(cube_points, mesench_result, dir);
 
     //Make a new list with the ones that are inside
     std::vector<Point> mes_cells;
     int n_bolls_mes=0;
     for (int i = 0; i < n_bolls_cube; i++) {
-        if(results[i]==1) {
-            mes_cells.push_back(points[i]);
+        if(mesench_result[i]==1) {
+            mes_cells.push_back(cube_points[i]);
             n_bolls_mes++;
         }
     }
 
     std::cout<<"bolls_in_cube "<<n_bolls_cube<<" bolls after fill "<<n_bolls_mes<<std::endl;
 
-    //We have filled the whole meix with mesenchyme, now we will convert the most
-    //superficial cells to epithelium. We make another inclusion test, this time
-    //with the smaller meix_mesench. The cells that fall outside this one (hopefully
-    //one cell layer will be converted to epithelial type.
+
+    //Epithelium
+    // std::vector<Point> cube_relax_points;
+    // for (auto i = 0; i < n_bolls_cube; i++) {
+    //     Point p=Point(cube_relax.h_X[i].x, cube_relax.h_X[i].y, cube_relax.h_X[i].z);
+    //     cube_relax_points.push_back(p);
+    // }
 
     //Setup the list of inclusion test results
-    int* results2=new int[n_bolls_mes];
+    int* epi_result_big=new int[n_bolls_cube];
+    int* epi_result_small=new int[n_bolls_cube];
 
-    meix_mesench.InclusionTest(mes_cells , results2, dir);
-
-    int n_bolls_total=n_bolls_mes;
-    Solution<Cell, n_max, Grid_solver> bolls(n_bolls_total);
+    meix.InclusionTest(cube_relax_points, epi_result_big, dir);
+    meix_mesench.InclusionTest(cube_relax_points, epi_result_small, dir);
 
     //Make a new list with the ones that are inside
-    for (int i = 0; i < n_bolls_total; i++) {
-        bolls.h_X[i].x=mes_cells[i].x ; bolls.h_X[i].y=mes_cells[i].y ; bolls.h_X[i].z=mes_cells[i].z ;
-        if(results2[i]==1){
-            type.h_prop[i]=mesenchyme; freeze.h_prop[i]=1;
-        }
-        else{
-            type.h_prop[i]=epithelium;
-            freeze.h_prop[i]=0;
-            //polarity
-            Point p=mes_cells[i];
-            int f=-1;
-            float dmin=1000000.f;
-            //we use the closest facet on meix to determine the polarity of the
-            //epithelial cell
-            for(int j=0 ; j<meix.n ; j++){
-                Point r=p-meix.Facets[j].C;
-                float d=sqrt(r.x*r.x+r.y*r.y+r.z*r.z);
-                if(d<dmin){dmin=d; f=j;}
-            }
-            if(meix.Facets[f].C.x<0.001f){ //the cells contacting the flank boundary can't be epithelial
-                type.h_prop[i]=mesenchyme; freeze.h_prop[i]=1;
-                continue;
-            }
-            bolls.h_X[i].phi = atan2(meix.Facets[f].N.y,meix.Facets[f].N.x);
-            bolls.h_X[i].theta = acos(meix.Facets[f].N.z);
+    std::vector<Point> epi_cells;
+    int n_bolls_epi=0;
+    for (int i = 0; i < n_bolls_cube; i++) {
+        if(epi_result_big[i]==1 and epi_result_small[i]==0) {
+            epi_cells.push_back(cube_relax_points[i]);
+            n_bolls_epi++;
         }
     }
+
+    int n_bolls_total=n_bolls_mes+n_bolls_epi;
+    // int n_bolls_total=n_bolls_mes;
+    // int n_bolls_total=n_bolls_epi;
+
+    std::cout<<"bolls_in_mes "<<n_bolls_mes<<" bolls_in_epi "<<n_bolls_epi<<" bolls_in_total "<<n_bolls_total<<std::endl;
+
+    Solution<Cell, n_max, Grid_solver> bolls(n_bolls_total);
+
+    for (int i = 0; i < n_bolls_mes; i++) {
+        bolls.h_X[i].x=mes_cells[i].x ; bolls.h_X[i].y=mes_cells[i].y ; bolls.h_X[i].z=mes_cells[i].z ;
+        type.h_prop[i]=mesenchyme; freeze.h_prop[i]=1;
+    }
+    int count=0;
+    for (int i = n_bolls_mes; i < n_bolls_total; i++) {
+    // for (int i = 0; i < n_bolls_total; i++) {
+        bolls.h_X[i].x=epi_cells[count].x ; bolls.h_X[i].y=epi_cells[count].y ; bolls.h_X[i].z=epi_cells[count].z ;
+        type.h_prop[i]=epithelium;
+        freeze.h_prop[i]=0;
+        //polarity
+        Point p=epi_cells[count];
+        int f=-1;
+        float dmin=1000000.f;
+        //we use the closest facet on meix to determine the polarity of the
+        //epithelial cell
+        for(int j=0 ; j<meix.n ; j++){
+            Point r=p-meix.Facets[j].C;
+            float d=sqrt(r.x*r.x + r.y*r.y + r.z*r.z);
+            if(d<dmin){dmin=d; f=j;}
+        }
+        count++;
+        if(meix.Facets[f].C.x<0.1f){ //the cells contacting the flank boundary can't be epithelial 0.001
+        // if(bolls.h_X[i].x<0.8){ //the cells contacting the flank boundary can't be epithelial 0.001
+            type.h_prop[i]=mesenchyme; freeze.h_prop[i]=1;
+            continue;
+        }
+        bolls.h_X[i].phi = atan2(meix.Facets[f].N.y,meix.Facets[f].N.x);
+        bolls.h_X[i].theta = acos(meix.Facets[f].N.z);
+    }
+    std::cout<<"count "<<count<<" epi_cells "<<n_bolls_epi<<std::endl;
 
     bolls.copy_to_device();
     type.copy_to_device();
@@ -480,26 +512,26 @@ int main(int argc, char const *argv[]) {
     skip_step=1;//relax_time/10;
 
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
-        // if(time_step%skip_step==0 || time_step==relax_time) {
-        //     bolls.copy_to_host();
-        // }
+        if(time_step%skip_step==0 || time_step==relax_time) {
+            bolls.copy_to_host();
+        }
 
         bolls.take_step<relaxation_force, freeze_friction>(dt);
 
-        // //write the output
-        // if(time_step%skip_step==0 || time_step==relax_time) {
-        //     output.write_positions(bolls);
-        //     output.write_polarity(bolls);
-        //     output.write_property(type);
-        //     output.write_property(freeze);
-        // }
+        //write the output
+        if(time_step%skip_step==0 || time_step==relax_time) {
+            output.write_positions(bolls);
+            output.write_polarity(bolls);
+            output.write_property(type);
+            output.write_property(freeze);
+        }
 
     }
 
-    bolls.copy_to_device();
-    output.write_positions(bolls);
-    output.write_polarity(bolls);
-    output.write_property(type);
+    // bolls.copy_to_device();
+    // output.write_positions(bolls);
+    // output.write_polarity(bolls);
+    // output.write_property(type);
 
     //Unfreeze the mesenchyme
     for(int i=0 ; i<n_bolls_total ; i++) {
