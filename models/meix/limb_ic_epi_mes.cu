@@ -247,7 +247,6 @@ int main(int argc, char const *argv[]) {
     //meix_mesench defines the volume occupied by the mesenchyme (smaller than meix)
     Meix meix_mesench=meix;
     meix_mesench.Rescale_absolute(-r_min);//*1.3//*1.2
-
     //Compute min. and max, positions in x,y,z from rescaled mesh
     xmin=10000.0f;xmax=-10000.0f;ymin=10000.0f;ymax=-10000.0f;zmin=10000.0f;zmax=-10000.0f;
     for(int i=0 ; i<meix_mesench.n_vertices ; i++) {

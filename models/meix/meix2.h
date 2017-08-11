@@ -9,7 +9,6 @@
 #include <vector>
 #include <cmath>
 #include <iostream>
-#include "../../include/vtk.cuh"
 
 using namespace std;
 
@@ -228,17 +227,17 @@ int intersect3D_RayTriangle( Ray R, Triangle T, Point* I ) {
 
 //***************************************************************************
 
-// // Split a string by whitespace adapted from:
-// // https://stackoverflow.com/questions/236129/split-a-string-in-c
-// template<typename Out> void split(const std::string &s, char delim, Out result) {
-//     if(s.length()==0) return;
-//     std::stringstream ss;
-//     ss.str(s);
-//     std::string item;
-//     while (std::getline(ss, item, delim)) {
-//         *(result++) = item;
-//     }
-// }
+// Split a string by whitespace adapted from:
+// https://stackoverflow.com/questions/236129/split-a-string-in-c
+template<typename Out> void line_split(const std::string &s, char delim, Out result) {
+    if(s.length()==0) return;
+    std::stringstream ss;
+    ss.str(s);
+    std::string item;
+    while (std::getline(ss, item, delim)) {
+        *(result++) = item;
+    }
+}
 
 //***************************************************************************
 
@@ -254,6 +253,8 @@ public:
 
     Meix();
     Meix(std::string);
+    Meix(const Meix &copy);
+    Meix& operator= ( const Meix& other );
     void Rescale_relative(float);
     void Rescale_absolute(float);
     void Rotate(float,float);
@@ -272,6 +273,7 @@ Meix::Meix() {
     surf_area=0.f;
     n_vertices=0;
     n_facets=0;
+    triangle_to_vertices=NULL;
 }
 
 //**************************************************************************
@@ -287,7 +289,7 @@ Meix::Meix(std::string file_name) {
     assert(input_file.is_open());
 
     for (auto i = 0; i < 5; i++) getline(input_file, line);
-    split(line, ' ', std::back_inserter(items));
+    line_split(line, ' ', std::back_inserter(items));
     n_vertices = stoi(items[1]);
     items.clear();
 
@@ -295,7 +297,7 @@ Meix::Meix(std::string file_name) {
     int count=0;
     while (count < n_vertices) {
         getline(input_file, line);
-        split(line, ' ', std::back_inserter(items));
+        line_split(line, ' ', std::back_inserter(items));
 
         int n_points=items.size()/3;
         Point P;
@@ -310,24 +312,24 @@ Meix::Meix(std::string file_name) {
     }
 
     getline(input_file, line);
-    split(line, ' ', std::back_inserter(items));
+    line_split(line, ' ', std::back_inserter(items));
     n_facets=stoi(items[1]);
 
     items.clear();
 
     //read facets
     count=0;
-    triangle_to_vertices = new int*[n_facets]; //we store the vertex indices for each triangle
-    for(int i = 0; i < n_facets; ++i)
-        triangle_to_vertices[i] = new int[3];
+    // triangle_to_vertices = new int*[n_facets]; //we store the vertex indices for each triangle
+    // for(int i = 0; i < n_facets; ++i)
+    //     triangle_to_vertices[i] = new int[3];
 
-    // triangle_to_vertices = (int **)malloc(n_facets * sizeof(int *));
-    // for (int i=0; i<n_facets; i++)
-    //     triangle_to_vertices[i] = (int *)malloc(3 * sizeof(int));
+    triangle_to_vertices = (int **)malloc(n_facets * sizeof(int *));
+    for (int i=0; i<n_facets; i++)
+        triangle_to_vertices[i] = (int *)malloc(3 * sizeof(int));
 
     while (count < n_facets) {
         getline(input_file, line);
-        split(line, ' ', std::back_inserter(items));
+        line_split(line, ' ', std::back_inserter(items));
 
         triangle_to_vertices[count][0]=stoi(items[1]);
         triangle_to_vertices[count][1]=stoi(items[2]);
@@ -357,6 +359,54 @@ Meix::Meix(std::string file_name) {
 
 //****************************************************************************
 
+Meix::Meix(const Meix &copy) {
+    surf_area=0.f;
+    n_vertices=copy.n_vertices;
+    n_facets=copy.n_facets;
+    Vertices=copy.Vertices;
+    Facets=copy.Facets;
+
+    triangle_to_vertices = (int **)malloc(n_facets * sizeof(int *));
+    for (int i=0; i<n_facets; i++) {
+        triangle_to_vertices[i] = (int *)malloc(3 * sizeof(int));
+        // *triangle_to_vertices[i] = *copy.triangle_to_vertices[i];
+        memcpy(triangle_to_vertices[i], copy.triangle_to_vertices[i], sizeof(int) * 3);
+    }
+
+    std::vector<int> empty;
+    std::vector<vector<int> > dummy(n_vertices,empty);
+    vertex_to_triangles=dummy;
+    for (int i=0; i<n_vertices; i++)
+        vertex_to_triangles[i]=copy.vertex_to_triangles[i];
+
+}
+
+//****************************************************************************
+
+Meix& Meix::operator=( const Meix& other ) {
+    surf_area=0.f;
+    n_vertices=other.n_vertices;
+    n_facets=other.n_facets;
+    Vertices=other.Vertices;
+    Facets=other.Facets;
+    std::cout<<"lolololol2"<<std::endl;
+    triangle_to_vertices = (int **)malloc(n_facets * sizeof(int *));
+    for (int i=0; i<n_facets; i++) {
+        triangle_to_vertices[i] = (int *)malloc(3 * sizeof(int));
+        // *triangle_to_vertices[i] = *other.triangle_to_vertices[i];
+        memcpy(triangle_to_vertices[i], other.triangle_to_vertices[i], sizeof(int) * 3);
+    }
+    std::vector<int> empty;
+    std::vector<vector<int> > dummy(n_vertices,empty);
+    vertex_to_triangles=dummy;
+    for (int i=0; i<n_vertices; i++)
+        vertex_to_triangles[i]=other.vertex_to_triangles[i];
+
+    return *this;
+}
+
+//****************************************************************************
+
 void Meix::Rescale_relative(float resc) {
     for (int i=0 ; i<n_vertices; i++) {
         Vertices[i]=Vertices[i]*resc ;
@@ -382,10 +432,12 @@ void Meix::Rescale_absolute(float resc) {
             int triangle=vertex_to_triangles[i][j];
             average_normal = average_normal + Facets[triangle].N;
         }
+
         float d=sqrt(pow(average_normal.x,2) + pow(average_normal.y,2) + pow(average_normal.z,2));
         average_normal=average_normal*(resc/d);
 
         Vertices[i] = Vertices[i] + average_normal;
+
     }
     //rescaled the vertices, now we need to rescale the Facets
     for (int i=0 ; i<n_facets; i++) {
@@ -397,7 +449,6 @@ void Meix::Rescale_absolute(float resc) {
         Facets[i].V2=Vertices[V2];
         Facets[i].Calculate_Centroid();
         Facets[i].Calculate_Normal();
-
     }
 
 }
@@ -473,21 +524,22 @@ void Meix::WriteVtk (std::string output_tag) {
 //*****************************************************************************
 
 Meix::~Meix() {
+
     Vertices.clear(); //that should clean up dynamically allocated memory??
     Facets.clear();   //that should clean up dynamically allocated memory??
-    for (int i = 0; i < n_facets; i++) {
-        delete[] triangle_to_vertices[i];
-    }
-    delete [] triangle_to_vertices;
-    // for (int i = 0; i < n_facets; i++) {
-    //     free(triangle_to_vertices[i]);
-    // }
-    // free(triangle_to_vertices);
 
-    for (int i=0 ; i<vertex_to_triangles.size() ; i++){
-        vertex_to_triangles[i].clear();
+    if(triangle_to_vertices != NULL) {
+        for (int i = 0; i < n_facets; i++) {
+            free(triangle_to_vertices[i]);
+        }
+        free(triangle_to_vertices);
     }
+
+    for (int i=0 ; i<vertex_to_triangles.size() ; i++)
+        vertex_to_triangles[i].clear();
+
     vertex_to_triangles.clear();
+
 }
 
 #endif
