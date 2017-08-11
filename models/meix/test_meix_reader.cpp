@@ -49,7 +49,7 @@ main () {
     // }
 
     // limb.Rescale_relative(0.5f);
-    limb.Rescale_absolute(50.f);
+    limb.Rescale_absolute(-50.f);
 
     for (int i=0 ; i<limb.n_facets ; i++) {
         std::cout<<i<<" "<<limb.Facets[i].C.x<<" "<<limb.Facets[i].N.x<<std::endl;

@@ -22,7 +22,7 @@
 #include <vector>
 #include <iostream>
 
-#include "meix.h"
+#include "meix2.h"
 
 const auto r_max=1.0;
 const auto r_min=0.8;
@@ -173,12 +173,12 @@ void fill_solver_w_meix_no_flank(Meix meix, Solution<Pt, n_max, Solver>& bolls, 
         else
             i++;
     }
-    meix.n=meix.Facets.size();
+    meix.n_facets=meix.Facets.size();
 
-    *bolls.h_n=meix.n;
+    *bolls.h_n=meix.n_facets;
     assert(n_0 < *bolls.h_n);
 
-    for(int j = 0 ; j < meix.n ; j++) {
+    for(int j = 0 ; j < meix.n_facets ; j++) {
         Triangle T=meix.Facets[j];
         float r=sqrt(pow(T.N.x,2)+pow(T.N.y,2)+pow(T.N.z,2));
         bolls.h_X[j].x = T.C.x;
@@ -222,30 +222,6 @@ int main(int argc, char const *argv[]) {
     //First, load the mesh file so we can get the maximum dimensions of the system
     Meix meix(file_name);
 
-    //Mesh translation, we're gonna put its centre on the origin of coordinates
-    Point old_centroid=meix.Get_centroid();
-
-    meix.Translate(old_centroid*-1.f);
-
-    Point new_centroid=meix.Get_centroid();
-
-    std::cout<<"old centroid= "<<old_centroid.x<<" "<<old_centroid.y<<" "<<old_centroid.z<<std::endl;
-    std::cout<<"new centroid= "<<new_centroid.x<<" "<<new_centroid.y<<" "<<new_centroid.z<<std::endl;
-
-    //rotation
-    //So the limb boundary with the flank is aligned with the y-z plane
-    Point normal0=meix.Facets[0].N; //the first facet is always on the boundary plane for some reason
-    float theta0=atan2(normal0.y, normal0.x);
-    float phi0=acos(normal0.z);
-    float const right_theta=M_PI;
-    float const right_phi=M_PI/2.f;
-    float correction_theta=right_theta - theta0;
-    float correction_phi=right_phi - phi0;
-
-    std::cout<<"theta0, phi0: "<<theta0<<" "<<phi0<<" correction: "<<correction_theta<<" "<<correction_phi<<std::endl;
-
-    meix.Rotate(correction_theta,correction_phi);
-
     //Compute max length in X axis to know how much we need to rescale
     //**********************************************************************
     //Attention! we are assuming the PD axis of the limb is aligned with X
@@ -255,8 +231,8 @@ int main(int argc, char const *argv[]) {
     float ymin,ymax,zmin,zmax;
     float dx,dy,dz;
 
-    for(int i=0 ; i<meix.n ; i++) {
-        if(meix.Facets[i].C.x<xmin) xmin=meix.Facets[i].C.x;  if(meix.Facets[i].C.x>xmax) xmax=meix.Facets[i].C.x;
+    for(int i=0 ; i<meix.n_vertices ; i++) {
+        if(meix.Vertices[i].x<xmin) xmin=meix.Vertices[i].x;  if(meix.Vertices[i].x>xmax) xmax=meix.Vertices[i].x;
     }
     dx=xmax-xmin;
 
@@ -265,23 +241,16 @@ int main(int argc, char const *argv[]) {
     std::cout<<"xmax= "<<xmax<<" xmin= "<<xmin<<std::endl;
     std::cout<<"dx= "<<dx<<" target_dx= "<<target_dx<<" rescaling factor resc= "<<resc<<std::endl;
 
-    //meix defines the overall shape of the limb bud
+
+    //meix defines the overall shape of the limb bud (mesench. + ectoderm)
     meix.Rescale_relative(resc);
     //meix_mesench defines the volume occupied by the mesenchyme (smaller than meix)
-    //meix_mesench will be transformed from the main meix (rescaled)
     Meix meix_mesench=meix;
-    meix_mesench.Rescale_absolute(-r_min*1.3f);//*1.3//*1.2
-
-    //Translate the mesh again so the flank boundary coincides with the x=0 plane
-    Point vector(meix.Facets[0].C.x*-1.f, 0.f, 0.f);
-    meix.Translate(vector);
-    meix_mesench.Translate(vector);
-
-    std::cout<<"new x position of flank boundary "<<meix.Facets[0].C.x<<std::endl;
+    meix_mesench.Rescale_absolute(-r_min);//*1.3//*1.2
 
     //Compute min. and max, positions in x,y,z from rescaled mesh
     xmin=10000.0f;xmax=-10000.0f;ymin=10000.0f;ymax=-10000.0f;zmin=10000.0f;zmax=-10000.0f;
-    for(int i=0 ; i<meix_mesench.n ; i++) {
+    for(int i=0 ; i<meix_mesench.n_vertices ; i++) {
       if(meix_mesench.Facets[i].C.x<xmin) xmin=meix_mesench.Facets[i].C.x;  if(meix_mesench.Facets[i].C.x>xmax) xmax=meix_mesench.Facets[i].C.x;
       if(meix_mesench.Facets[i].C.y<ymin) ymin=meix_mesench.Facets[i].C.y;  if(meix_mesench.Facets[i].C.y>ymax) ymax=meix_mesench.Facets[i].C.y;
       if(meix_mesench.Facets[i].C.z<zmin) zmin=meix_mesench.Facets[i].C.z;  if(meix_mesench.Facets[i].C.z>zmax) zmax=meix_mesench.Facets[i].C.z;
@@ -290,9 +259,6 @@ int main(int argc, char const *argv[]) {
 
     //we use the maximum lengths of the mesh to draw a cube that includes the mesh
     //Let's fill the cube with bolls
-    //How many bolls? We calculate the volume of the cube we want to fill
-    //then we calculate how many bolls add up to that volume, correcting by the
-    //inefficiency of a cubic packing (0.74)----> Well in the end we don't correct cause it wasn't packed enough
 
     //Now we include intercalation in the cubic relaxation, so we must assume a
     //larger cube, since the end result will be compressed to some extent
@@ -305,18 +271,19 @@ int main(int argc, char const *argv[]) {
     float new_zmin=zmin-r;
     float new_dx=dx+dx*factor, new_dy=dy+dy*factor, new_dz=dz+dz*factor;
 
-
-    //const float packing_factor=0.74048f;
     float cube_vol=new_dx*new_dy*new_dz;
     float r_boll=0.5f*r_min;
-    float boll_vol=4./3.*M_PI*pow(r_boll,3);
+    float boll_vol=4.f/3.f*M_PI*pow(r_boll,3);
     int n_bolls_cube=cube_vol/boll_vol;
 
     std::cout<<"cube dims "<<dx<<" "<<dy<<" "<<dz<<std::endl;
+    std::cout<<"cube_vol "<<cube_vol<<std::endl;
+    std::cout<<"r_boll "<<r_boll<<std::endl;
+    std::cout<<"boll_vol "<<boll_vol<<std::endl;
     std::cout<<"nbolls in cube "<<n_bolls_cube<<std::endl;
 
     Solution<Cell, n_max, Grid_solver> cube(n_bolls_cube);
-    //Fill the rectangle with bolls
+    //Fill the cube with bolls
     uniform_cubic_rectangle(new_xmin,new_ymin,new_zmin,new_dx,new_dy,new_dz,cube);
 
     //Variable indicating cell type
@@ -335,6 +302,7 @@ int main(int argc, char const *argv[]) {
     type.copy_to_device();
     freeze.copy_to_device();
 
+    //Declaration of links
     Links<static_cast<int>(n_max*prots_per_cell)> protrusions(protrusion_strength,
         n_bolls_cube*prots_per_cell);
     auto intercalation = std::bind(
@@ -348,35 +316,27 @@ int main(int argc, char const *argv[]) {
     cudaMalloc(&d_state, n_max*sizeof(curandState));
     setup_rand_states<<<(n_max + 128 - 1)/128, 128>>>(d_state, n_max);
 
-    // We run the solver on bolls so the cube of bolls relaxes
+    //Relaxation of the cube
     int relax_time=std::stoi(argv[4]);
     int skip_step=1;//relax_time/10;
-    std::cout<<"relax_time "<<relax_time<<" write interval "<< skip_step<<std::endl;
+    // std::cout<<"relax_time "<<relax_time<<" write interval "<< skip_step<<std::endl;
 
     // Vtk_output cubic_output1(output_tag+".cubic_relaxation1");
 
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
         // if(time_step%skip_step==0 || time_step==relax_time){
         //     cube.copy_to_host();
-        //     protrusions.copy_to_host();
         // }
 
-        // protrusions.set_d_n(cube.get_d_n()*prots_per_cell);
-        // grid.build(cube, r_protrusion);
-        // update_protrusions<<<(protrusions.get_d_n() + 32 - 1)/32, 32>>>(cube.get_d_n(),
-        //     grid.d_grid, cube.d_X, protrusions.d_state, protrusions.d_link);
-        //
         cube.take_step<relaxation_force, relaxation_friction>(dt,intercalation);
 
-        // //write the output
+        //write the output
         // if(time_step%skip_step==0 || time_step==relax_time) {
         //     cubic_output1.write_positions(cube);
-        //     cubic_output1.write_links(protrusions);
         // }
     }
 
-    // Solution<Cell, n_max, Grid_solver> cube_relax = cube;
-    //we save these values for imprinting the epithelium on top of the mesenchyme
+    //The relaxed cube positions will be used to imprint epithelial cells
     cube.copy_to_host();
     std::vector<Point> cube_relax_points;
     for (auto i = 0; i < n_bolls_cube; i++) {
@@ -385,6 +345,7 @@ int main(int argc, char const *argv[]) {
     }
     // Vtk_output cubic_output(output_tag+".cubic_relaxation");
 
+    //We apply the links to the relaxed cube to compress it (as will be the mesench in the limb bud)
     for (auto time_step = 0; time_step <= relax_time; time_step++) {
         // if(time_step%skip_step==0 || time_step==relax_time){
         //     cube.copy_to_host();
@@ -398,17 +359,18 @@ int main(int argc, char const *argv[]) {
 
         cube.take_step<relaxation_force, relaxation_friction>(dt,intercalation);
 
-        // //write the output
+        //write the output
         // if(time_step%skip_step==0 || time_step==relax_time) {
         //     cubic_output.write_positions(cube);
         //     cubic_output.write_links(protrusions);
         // }
     }
 
-    //Find the bolls that are inside the mesh and store their positions
-    //METHOD: Shooting a ray from a ball and counting how many triangles intersects.
-    //If the ray intersects an even number of facets the boll is out of the mesh, else is in
+    //Fit the cube into a mesh and sort which cells are inside the mesh
+    //For the mesenchyme we use the smaller mesh and the compressed cube
+    //For the epithelium we use the larger meix and the relaxed cube
 
+    //Mesenchyme
     //Setup the list of points
     std::vector<Point> cube_points;
     for (auto i = 0; i < n_bolls_cube; i++) {
@@ -435,14 +397,7 @@ int main(int argc, char const *argv[]) {
 
     std::cout<<"bolls_in_cube "<<n_bolls_cube<<" bolls after fill "<<n_bolls_mes<<std::endl;
 
-
-    //Epithelium
-    // std::vector<Point> cube_relax_points;
-    // for (auto i = 0; i < n_bolls_cube; i++) {
-    //     Point p=Point(cube_relax.h_X[i].x, cube_relax.h_X[i].y, cube_relax.h_X[i].z);
-    //     cube_relax_points.push_back(p);
-    // }
-
+    //Epithelium (we have to sort out which ones are inside the big mesh and out of the small one)
     //Setup the list of inclusion test results
     int* epi_result_big=new int[n_bolls_cube];
     int* epi_result_small=new int[n_bolls_cube];
@@ -461,8 +416,6 @@ int main(int argc, char const *argv[]) {
     }
 
     int n_bolls_total=n_bolls_mes+n_bolls_epi;
-    // int n_bolls_total=n_bolls_mes;
-    // int n_bolls_total=n_bolls_epi;
 
     std::cout<<"bolls_in_mes "<<n_bolls_mes<<" bolls_in_epi "<<n_bolls_epi<<" bolls_in_total "<<n_bolls_total<<std::endl;
 
@@ -474,7 +427,6 @@ int main(int argc, char const *argv[]) {
     }
     int count=0;
     for (int i = n_bolls_mes; i < n_bolls_total; i++) {
-    // for (int i = 0; i < n_bolls_total; i++) {
         bolls.h_X[i].x=epi_cells[count].x ; bolls.h_X[i].y=epi_cells[count].y ; bolls.h_X[i].z=epi_cells[count].z ;
         type.h_prop[i]=epithelium;
         freeze.h_prop[i]=0;
@@ -484,14 +436,13 @@ int main(int argc, char const *argv[]) {
         float dmin=1000000.f;
         //we use the closest facet on meix to determine the polarity of the
         //epithelial cell
-        for(int j=0 ; j<meix.n ; j++){
+        for(int j=0 ; j<meix.n_facets ; j++){
             Point r=p-meix.Facets[j].C;
             float d=sqrt(r.x*r.x + r.y*r.y + r.z*r.z);
             if(d<dmin){dmin=d; f=j;}
         }
         count++;
         if(meix.Facets[f].C.x<0.1f){ //the cells contacting the flank boundary can't be epithelial 0.001
-        // if(bolls.h_X[i].x<0.8){ //the cells contacting the flank boundary can't be epithelial 0.001
             type.h_prop[i]=mesenchyme; freeze.h_prop[i]=1;
             continue;
         }
@@ -539,28 +490,6 @@ int main(int argc, char const *argv[]) {
             freeze.h_prop[i]=0;
     }
 
-    // freeze.copy_to_device();
-
-    // Vtk_output output_unfrozen(output_tag+".unfrozen");
-    // skip_step=1;//relax_time/10;
-    // //try relaxation with unfrozen mesenchyme
-    // for (auto time_step = 0; time_step <= relax_time; time_step++) {
-    //
-    //     if(time_step%skip_step==0 || time_step==relax_time) {
-    //         bolls.copy_to_host();
-    //     }
-    //
-    //     bolls.take_step<wall_force, wall_friction>(dt);
-    //
-    //     //write the output
-    //     if(time_step%skip_step==0 || time_step==relax_time) {
-    //         output_unfrozen.write_positions(bolls);
-    //         output_unfrozen.write_polarity(bolls);
-    //         output_unfrozen.write_property(type);
-    //         output_unfrozen.write_property(freeze);
-    //     }
-    // }
-
     //write down the meix in the vtk file to compare it with the posterior seeding
     meix.WriteVtk(output_tag);
     //write down the mesenchymal mesh in the vtk file to compare it with the posterior filling
@@ -575,7 +504,7 @@ int main(int argc, char const *argv[]) {
     Point N(1.f,0.f,0.f);
     Triangle ABC(A,B,C,N);
     Triangle BCD(B,C,D,N);
-    wall.n=2;
+    wall.n_facets=2;
     wall.Facets.push_back(ABC);
     wall.Facets.push_back(BCD);
     wall.WriteVtk(output_tag+".wall");
@@ -584,7 +513,7 @@ int main(int argc, char const *argv[]) {
     //centres and the bolls epithelium in separate vtk files.
 
     std::cout<<"writing meix_T0"<<std::endl;
-    Solution<Cell, n_max, Grid_solver> meix_T0(meix.n);
+    Solution<Cell, n_max, Grid_solver> meix_T0(meix.n_facets);
     fill_solver_w_meix_no_flank(meix, meix_T0);
     Vtk_output output_meix_T0(output_tag+".meix_T0");
     output_meix_T0.write_positions(meix_T0);
@@ -596,5 +525,9 @@ int main(int argc, char const *argv[]) {
     Vtk_output output_epi_T0(output_tag+".epi_T0");
     output_epi_T0.write_positions(epi_T0);
     output_epi_T0.write_polarity(epi_T0);
+
+    std::cout<<"DOOOOOOOOOOOOOOONE***************"<<std::endl;
+
     return 0;
+
 }

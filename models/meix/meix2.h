@@ -9,6 +9,7 @@
 #include <vector>
 #include <cmath>
 #include <iostream>
+#include "../../include/vtk.cuh"
 
 using namespace std;
 
@@ -227,17 +228,17 @@ int intersect3D_RayTriangle( Ray R, Triangle T, Point* I ) {
 
 //***************************************************************************
 
-// Split a string by whitespace adapted from:
-// https://stackoverflow.com/questions/236129/split-a-string-in-c
-template<typename Out> void split(const std::string &s, char delim, Out result) {
-    if(s.length()==0) return;
-    std::stringstream ss;
-    ss.str(s);
-    std::string item;
-    while (std::getline(ss, item, delim)) {
-        *(result++) = item;
-    }
-}
+// // Split a string by whitespace adapted from:
+// // https://stackoverflow.com/questions/236129/split-a-string-in-c
+// template<typename Out> void split(const std::string &s, char delim, Out result) {
+//     if(s.length()==0) return;
+//     std::stringstream ss;
+//     ss.str(s);
+//     std::string item;
+//     while (std::getline(ss, item, delim)) {
+//         *(result++) = item;
+//     }
+// }
 
 //***************************************************************************
 
@@ -320,6 +321,10 @@ Meix::Meix(std::string file_name) {
     for(int i = 0; i < n_facets; ++i)
         triangle_to_vertices[i] = new int[3];
 
+    // triangle_to_vertices = (int **)malloc(n_facets * sizeof(int *));
+    // for (int i=0; i<n_facets; i++)
+    //     triangle_to_vertices[i] = (int *)malloc(3 * sizeof(int));
+
     while (count < n_facets) {
         getline(input_file, line);
         split(line, ' ', std::back_inserter(items));
@@ -353,7 +358,11 @@ Meix::Meix(std::string file_name) {
 //****************************************************************************
 
 void Meix::Rescale_relative(float resc) {
-    for (int i=0 ; i<Facets.size(); i++) {
+    for (int i=0 ; i<n_vertices; i++) {
+        Vertices[i]=Vertices[i]*resc ;
+    }
+
+    for (int i=0 ; i<n_facets; i++) {
         Facets[i].V0=Facets[i].V0*resc ;
         Facets[i].V1=Facets[i].V1*resc ;
         Facets[i].V2=Facets[i].V2*resc ;
@@ -374,7 +383,7 @@ void Meix::Rescale_absolute(float resc) {
             average_normal = average_normal + Facets[triangle].N;
         }
         float d=sqrt(pow(average_normal.x,2) + pow(average_normal.y,2) + pow(average_normal.z,2));
-        average_normal=average_normal*(-resc/d);
+        average_normal=average_normal*(resc/d);
 
         Vertices[i] = Vertices[i] + average_normal;
     }
@@ -411,6 +420,31 @@ void Meix::Translate(Point translation_vector) {
 
 //****************************************************************************
 
+//Function that checks if a point is inside a closed polyhedron defined by
+//a list of facets (or triangles)
+//                      List of points to test    , List of facets (mesh)      , List of results , Direction of ray
+void Meix::InclusionTest(std::vector<Point>& points , int* inclusion, Point direction) {
+    for (int i=0 ; i<points.size() ; i++) {
+        Point p_0=points[i];
+        Point p_1=p_0+direction;
+        Ray R(p_0, p_1);
+        int intersection_count=0;
+        for (int j=0 ; j<n_facets ; j++) {
+            Point * intersect=new Point(0.0f,0.0f,0.0f);
+            int test=intersect3D_RayTriangle( R, Facets[j], intersect );
+            if(test>0) intersection_count++;
+        }
+        if(intersection_count%2==0) {
+            inclusion[i]=0;
+        }
+        else {
+            inclusion[i]=1;
+        }
+    }
+}
+
+//**********************************************************************************
+
 //writes the whole meix data structure as a vtk file
 void Meix::WriteVtk (std::string output_tag) {
     std::string filename="output/"+output_tag+".meix.vtk";
@@ -436,10 +470,23 @@ void Meix::WriteVtk (std::string output_tag) {
     meix_file.close();
 }
 
+//*****************************************************************************
+
 Meix::~Meix() {
     Vertices.clear(); //that should clean up dynamically allocated memory??
     Facets.clear();   //that should clean up dynamically allocated memory??
+    for (int i = 0; i < n_facets; i++) {
+        delete[] triangle_to_vertices[i];
+    }
     delete [] triangle_to_vertices;
+    // for (int i = 0; i < n_facets; i++) {
+    //     free(triangle_to_vertices[i]);
+    // }
+    // free(triangle_to_vertices);
+
+    for (int i=0 ; i<vertex_to_triangles.size() ; i++){
+        vertex_to_triangles[i].clear();
+    }
     vertex_to_triangles.clear();
 }
 
