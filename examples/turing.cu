@@ -1,9 +1,9 @@
 // Simulate a Meinhard equations within a 2D epithelium
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
+#include "../include/polarity.cuh"
 #include "../include/solvers.cuh"
 #include "../include/vtk.cuh"
-#include "../include/polarity.cuh"
 
 
 const auto r_max = 1;
@@ -22,19 +22,22 @@ const auto m_v = 0.5;
 const auto s_u = 0.05;
 const auto D_u = 0.1;
 
-const auto dt = 0.05*r_min*r_min/D_v;
+const auto dt = 0.05 * r_min * r_min / D_v;
 
 
 MAKE_PT(Epi_cell, theta, phi, u, v);
 
 
-__device__ Epi_cell epithelium_w_turing(Epi_cell Xi, Epi_cell r, float dist, int i, int j) {
-    Epi_cell dF {0};
+__device__ Epi_cell epithelium_w_turing(
+    Epi_cell Xi, Epi_cell r, float dist, int i, int j)
+{
+    Epi_cell dF{0};
 
     // Meinhard equations
     if (i == j) {
-        dF.u = lambda*((f_u*Xi.u*Xi.u)/(1 + f_v*Xi.v) - m_u*Xi.u + s_u);
-        dF.v = lambda*(g_u*Xi.u*Xi.u - m_v*Xi.v);
+        dF.u = lambda *
+               ((f_u * Xi.u * Xi.u) / (1 + f_v * Xi.v) - m_u * Xi.u + s_u);
+        dF.v = lambda * (g_u * Xi.u * Xi.u - m_v * Xi.v);
 
         return dF;
     }
@@ -42,26 +45,27 @@ __device__ Epi_cell epithelium_w_turing(Epi_cell Xi, Epi_cell r, float dist, int
     // Diffusion & mechanics
     if (dist > r_max) return dF;
 
-    dF.u = -D_u*r.u;
-    dF.v = -D_v*r.v;
+    dF.u = -D_u * r.u;
+    dF.v = -D_v * r.v;
 
-    auto F = 2*(r_min - dist)*(r_max - dist) + powf(r_max - dist, 2);
-    dF.x = r.x*F/dist;
-    dF.y = r.y*F/dist;
-    dF.z = r.z*F/dist;
+    auto F = 2 * (r_min - dist) * (r_max - dist) + powf(r_max - dist, 2);
+    dF.x = r.x * F / dist;
+    dF.y = r.y * F / dist;
+    dF.z = r.z * F / dist;
 
-    dF += rigidity_force(Xi, r, dist)*3;
+    dF += rigidity_force(Xi, r, dist) * 3;
     return dF;
 }
 
 
-int main(int argc, char const *argv[]) {
+int main(int argc, char const* argv[])
+{
     // Prepare initial state
     Solution<Epi_cell, n_cells, Grid_solver> bolls;
     for (int i = 0; i < n_cells; i++) {
-        bolls.h_X[i].theta = M_PI/2;
-        bolls.h_X[i].u = rand()/(RAND_MAX + 1.)/5 - 0.1;
-        bolls.h_X[i].v = rand()/(RAND_MAX + 1.)/5 - 0.1;
+        bolls.h_X[i].theta = M_PI / 2;
+        bolls.h_X[i].u = rand() / (RAND_MAX + 1.) / 5 - 0.1;
+        bolls.h_X[i].v = rand() / (RAND_MAX + 1.) / 5 - 0.1;
     }
     uniform_circle(0.5, bolls);
 
@@ -70,7 +74,7 @@ int main(int argc, char const *argv[]) {
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
         bolls.take_step<epithelium_w_turing>(dt);
-        if(time_step%skip_steps == 0) {
+        if (time_step % skip_steps == 0) {
             output.write_positions(bolls);
             output.write_polarity(bolls);
             output.write_field(bolls, "u", &Epi_cell::u);

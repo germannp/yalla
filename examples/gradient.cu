@@ -1,7 +1,7 @@
 // Simulate gradient formation
 #include "../include/dtypes.cuh"
-#include "../include/solvers.cuh"
 #include "../include/inits.cuh"
+#include "../include/solvers.cuh"
 #include "../include/vtk.cuh"
 
 
@@ -13,22 +13,25 @@ const auto n_time_steps = 200;
 const auto dt = 0.005;
 
 
-__device__ float4 clipped_cubic_w_gradient(float4 Xi, float4 r, float dist, int i, int j) {
-    float4 dF {0};
+__device__ float4 clipped_cubic_w_gradient(
+    float4 Xi, float4 r, float dist, int i, int j)
+{
+    float4 dF{0};
     if (i == j) return dF;
 
     if (dist > r_max) return dF;
 
-    auto F = 2*(r_min - dist)*(r_max - dist) + powf(r_max - dist, 2);
-    dF.x = r.x*F/dist;
-    dF.y = r.y*F/dist;
-    dF.z = r.z*F/dist;
-    dF.w = i == 0 ? 0 : -r.w*D;
+    auto F = 2 * (r_min - dist) * (r_max - dist) + powf(r_max - dist, 2);
+    dF.x = r.x * F / dist;
+    dF.y = r.y * F / dist;
+    dF.z = r.z * F / dist;
+    dF.w = i == 0 ? 0 : -r.w * D;
     return dF;
 }
 
 
-int main(int argc, char const *argv[]) {
+int main(int argc, char const* argv[])
+{
     // Prepare initial state
     Solution<float4, n_cells, Tile_solver> bolls;
     for (auto i = 0; i < n_cells; i++) {

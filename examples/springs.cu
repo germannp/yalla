@@ -1,7 +1,7 @@
 // Integrate N-body problem with springs between all bodies
 #include "../include/dtypes.cuh"
-#include "../include/solvers.cuh"
 #include "../include/inits.cuh"
+#include "../include/solvers.cuh"
 #include "../include/vtk.cuh"
 
 
@@ -11,16 +11,18 @@ const auto n_time_steps = 100u;
 const auto dt = 0.001f;
 
 
-__device__ float3 spring_force(float3 Xi, float3 r, float dist, int i, int j) {
-    float3 dF {0};
+__device__ float3 spring(float3 Xi, float3 r, float dist, int i, int j)
+{
+    float3 dF{0};
     if (i == j) return dF;
 
-    dF = r*(L_0 - dist)/dist;
+    dF = r * (L_0 - dist) / dist;
     return dF;
 }
 
 
-int main(int argc, const char* argv[]) {
+int main(int argc, const char* argv[])
+{
     // Prepare initial state
     Solution<float3, n_cells, Tile_solver> bolls;
     uniform_sphere(L_0, bolls);
@@ -29,8 +31,8 @@ int main(int argc, const char* argv[]) {
     Vtk_output output("springs");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
-        bolls.take_step<spring_force>(dt);  // Ordering to write during calculation,
-        output.write_positions(bolls);      // use thread for full concurency.
+        bolls.take_step<spring>(dt);    // Ordering to write during calculation,
+        output.write_positions(bolls);  // use thread for full concurency.
     }
 
     return 0;

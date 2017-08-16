@@ -1,23 +1,25 @@
 #include "../include/dtypes.cuh"
-#include "../include/solvers.cuh"
 #include "../include/polarity.cuh"
+#include "../include/solvers.cuh"
 #include "minunit.cuh"
 
 
-__device__ Po_cell pcp_force(Po_cell Xi, Po_cell r, float dist, int i, int j) {
-    Po_cell dF {0};
+__device__ Po_cell pcp_force(Po_cell Xi, Po_cell r, float dist, int i, int j)
+{
+    Po_cell dF{0};
     if (i == j or i == 1) return dF;
 
     dF += pcp_force(Xi, Xi - r);
     return dF;
 }
 
-const char* test_pcp() {
+const char* test_pcp()
+{
     Solution<Po_cell, 2, Tile_solver> bolls;
 
     // Turn in theta and phi, close to z-axis to test transformation
-    Polarity p_i {M_PI/2 + M_PI/4 + 0.01, 0.5};
-    Polarity p_f {M_PI/2 + M_PI/4 + 0.01, M_PI};
+    Polarity p_i{M_PI / 2 + M_PI / 4 + 0.01, 0.5};
+    Polarity p_f{M_PI / 2 + M_PI / 4 + 0.01, M_PI};
     auto arc_if = acosf(pol_scalar_product(p_i, p_f));
 
     bolls.h_X[0].theta = p_i.theta;
@@ -41,30 +43,33 @@ const char* test_pcp() {
 }
 
 
-__device__ Po_cell rigid_cubic_force(Po_cell Xi, Po_cell r, float dist, int i, int j) {
-    Po_cell dF {0};
+__device__ Po_cell rigid_cubic_force(
+    Po_cell Xi, Po_cell r, float dist, int i, int j)
+{
+    Po_cell dF{0};
     if (i == j) return dF;
 
     if (dist > 1) return dF;
 
-    auto F = 2*(0.6 - dist)*(1 - dist) + powf(1 - dist, 2);
-    dF.x = r.x*F/dist;
-    dF.y = r.y*F/dist;
-    dF.z = r.z*F/dist;
+    auto F = 2 * (0.6 - dist) * (1 - dist) + powf(1 - dist, 2);
+    dF.x = r.x * F / dist;
+    dF.y = r.y * F / dist;
+    dF.z = r.z * F / dist;
 
-    dF += rigidity_force(Xi, r, dist)*0.2;
+    dF += rigidity_force(Xi, r, dist) * 0.2;
     return dF;
 }
 
-const char* test_line_of_four() {
+const char* test_line_of_four()
+{
     Solution<Po_cell, 4, Tile_solver> bolls;
 
     for (auto i = 0; i < 4; i++) {
-        bolls.h_X[i].x = 0.733333*cosf((i - 0.5)*M_PI/3);
-        bolls.h_X[i].y = 0.733333*sinf((i - 0.5)*M_PI/3);
+        bolls.h_X[i].x = 0.733333 * cosf((i - 0.5) * M_PI / 3);
+        bolls.h_X[i].y = 0.733333 * sinf((i - 0.5) * M_PI / 3);
         bolls.h_X[i].z = 0;
-        bolls.h_X[i].theta = M_PI/2;
-        bolls.h_X[i].phi = (i - 0.5)*M_PI/3;
+        bolls.h_X[i].theta = M_PI / 2;
+        bolls.h_X[i].phi = (i - 0.5) * M_PI / 3;
     }
     bolls.copy_to_device();
     auto com_i = center_of_mass(bolls);
@@ -78,11 +83,11 @@ const char* test_line_of_four() {
         MU_ASSERT("Epithelial polarity not aligned", MU_ISCLOSE(prod, 1));
     }
 
-    float3 r_01 {bolls.h_X[1].x - bolls.h_X[0].x,
+    float3 r_01{bolls.h_X[1].x - bolls.h_X[0].x,
         bolls.h_X[1].y - bolls.h_X[0].y, bolls.h_X[1].z - bolls.h_X[0].z};
-    float3 r_12 {bolls.h_X[2].x - bolls.h_X[1].x,
+    float3 r_12{bolls.h_X[2].x - bolls.h_X[1].x,
         bolls.h_X[2].y - bolls.h_X[1].y, bolls.h_X[2].z - bolls.h_X[1].z};
-    float3 r_23 {bolls.h_X[3].x - bolls.h_X[2].x,
+    float3 r_23{bolls.h_X[3].x - bolls.h_X[2].x,
         bolls.h_X[3].y - bolls.h_X[2].y, bolls.h_X[3].z - bolls.h_X[2].z};
     MU_ASSERT("Cells not on line", MU_ISCLOSE(r_01.x, r_12.x));
     MU_ASSERT("Cells not on line", MU_ISCLOSE(r_12.x, r_23.x));
@@ -100,7 +105,8 @@ const char* test_line_of_four() {
 }
 
 
-const char* all_tests() {
+const char* all_tests()
+{
     MU_RUN_TEST(test_pcp);
     MU_RUN_TEST(test_line_of_four);
     return NULL;

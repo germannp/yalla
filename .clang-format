@@ -1,0 +1,30 @@
+BasedOnStyle: Google
+
+IndentWidth: '4'
+AccessModifierOffset: -4
+MaxEmptyLinesToKeep: 2
+
+SpaceAfterTemplateKeyword: false
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+AlignAfterOpenBracket: DontAlign
+AllowShortBlocksOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: true
+
+BreakBeforeBraces: 'Custom'
+BraceWrapping: {
+    AfterClass: 'false'
+    AfterControlStatement: 'false'
+    AfterEnum : 'false'
+    AfterFunction : 'true'
+    AfterNamespace : 'false'
+    AfterStruct : 'false'
+    AfterUnion : 'false'
+    BeforeCatch : 'false'
+    BeforeElse : 'false'
+    IndentBraces : 'false'
+    # SplitEmptyFunctionBody : 'false'  # clang-format 6
+}

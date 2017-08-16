@@ -1,8 +1,8 @@
 // Simulate cell sorting by forces strength
 #include "../include/dtypes.cuh"
-#include "../include/solvers.cuh"
 #include "../include/inits.cuh"
 #include "../include/property.cuh"
+#include "../include/solvers.cuh"
 #include "../include/vtk.cuh"
 
 
@@ -13,26 +13,29 @@ const auto n_time_steps = 300u;
 const auto dt = 0.05;
 
 
-__device__ float3 differential_adhesion(float3 Xi, float3 r, float dist, int i, int j) {
-    float3 dF {0};
+__device__ float3 differential_adhesion(
+    float3 Xi, float3 r, float dist, int i, int j)
+{
+    float3 dF{0};
     if (i == j) return dF;
 
     if (dist > r_max) return dF;
 
-    auto strength = (1 + 2*(j < n_cells/2))*(1 + 2*(i < n_cells/2));
-    auto F = 2*(r_min - dist)*(r_max - dist) + (r_max - dist)*(r_max - dist);
-    dF = strength*r*F/dist;
+    auto strength = (1 + 2 * (j < n_cells / 2)) * (1 + 2 * (i < n_cells / 2));
+    auto F = 2 * (r_min - dist) * (r_max - dist) + powf(r_max - dist, 2);
+    dF = strength * r * F / dist;
     return dF;
 }
 
 
-int main(int argc, char const *argv[]) {
+int main(int argc, char const* argv[])
+{
     // Prepare initial state
     Solution<float3, n_cells, Grid_solver> bolls;
     uniform_sphere(r_min, bolls);
     Property<n_cells> type;
     for (auto i = 0; i < n_cells; i++) {
-        type.h_prop[i] = (i < n_cells/2) ? 0 : 1;
+        type.h_prop[i] = (i < n_cells / 2) ? 0 : 1;
     }
 
     // Integrate cell positions
