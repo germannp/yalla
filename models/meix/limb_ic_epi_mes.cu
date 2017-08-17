@@ -98,7 +98,7 @@ __global__ void update_protrusions(const int n_cells, const Grid<n_max>* __restr
 
     auto j = static_cast<int>((i + 0.5)/prots_per_cell);
     auto rand_nb_cube = d_grid->d_cube_id[j]
-        + d_moore_nhood[min(static_cast<int>(curand_uniform(&d_state[i])*27), 26)];
+        + d_nhood[min(static_cast<int>(curand_uniform(&d_state[i])*27), 26)];
     auto cells_in_cube = d_grid->d_cube_end[rand_nb_cube] - d_grid->d_cube_start[rand_nb_cube];
     if (cells_in_cube < 1) return;
 
