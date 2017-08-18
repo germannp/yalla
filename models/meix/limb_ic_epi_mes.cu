@@ -22,7 +22,7 @@
 #include <vector>
 #include <iostream>
 
-#include "meix2.h"
+#include "meix.h"
 
 const auto r_max=1.0;
 const auto r_min=0.8;
