@@ -28,7 +28,7 @@ int main(int argc, const char* argv[])
     uniform_sphere(L_0, bolls);
 
     // Integrate positions
-    Vtk_output output("springs");
+    Vtk_output output("springs");  // Writes to output/springs_###.vtk
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
         bolls.take_step<spring>(dt);    // Ordering to write during calculation,
