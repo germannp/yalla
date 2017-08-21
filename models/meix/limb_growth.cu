@@ -37,7 +37,7 @@ __device__ int* d_epi_nbs;
 __device__ float* d_prolif_rate;
 
 Property<n_max, int> n_mes_nbs("n_mes_nbs");  // defining these here so function
-Property<n_max, int> n_epi_nbs("n_epi_nbs");  //"neighbour_init" can see them
+Property<n_max, int> n_epi_nbs("n_epi_nbs");  // "neighbour_init" can see them
 
 MAKE_PT(Cell, w, f, theta, phi);
 
@@ -232,9 +232,10 @@ int main(int argc, char const* argv[])
     input.read_property(intype);  // we read it as an int, then we translate to
                                   // enum "Cell_types"
     for (int i = 0; i < n0; i++) {
-        if (intype.h_prop[i] == 0)
+        if (intype.h_prop[i] == 0) {
             type.h_prop[i] = mesenchyme;
-        else {
+            limb.h_X[i].w = 0.0f;
+        } else {
             type.h_prop[i] = epithelium;
             limb.h_X[i].w = 1.0f;
         }
