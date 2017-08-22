@@ -28,7 +28,7 @@ const auto skip_steps = 10;
 const auto lambda = 0.01;
 
 // Turing parameters
-const auto D_u = 0.010;
+const auto D_u = 0.005;
 const auto D_v = 0.2;
 const auto f_v = 1.0;
 const auto f_u = 80.0;
@@ -45,7 +45,7 @@ const auto epi_proliferation_rate = 0.2;//0.02
 const auto mes_proliferation_rate = 0.1;
 
 // threshold conc. of v that allows mesench. cells to divide
-const auto prolif_threshold = 1200.0f;
+const auto prolif_threshold = 160.0f;
 
 const auto n_0 = 500;
 const auto n_max = 65000;
