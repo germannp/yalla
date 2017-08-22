@@ -24,7 +24,7 @@ template<typename Pt>
 using Pairwise_friction = float(Pt Xi, Pt r, float dist, int i, int j);
 
 template<typename Pt>
-__device__ float friction_at_neighbour(Pt Xi, Pt r, float dist, int i, int j)
+__device__ float friction_w_neighbour(Pt Xi, Pt r, float dist, int i, int j)
 {
     if (i == j) return 0;
 
@@ -71,7 +71,7 @@ public:
     }
     int get_d_n() { return Solver<Pt, n_max>::get_d_n(); }
     template<Pairwise_interaction<Pt> pw_int,
-        Pairwise_friction<Pt> pw_friction = friction_at_neighbour<Pt>>
+        Pairwise_friction<Pt> pw_friction = friction_w_neighbour<Pt>>
     void take_step(float dt, Generic_forces<Pt> gen_forces = no_gen_forces<Pt>)
     {
         return Solver<Pt, n_max>::template take_step<pw_int, pw_friction>(

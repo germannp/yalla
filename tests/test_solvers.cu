@@ -188,7 +188,8 @@ const char* test_generic_forces()
 }
 
 
-__device__ float global_friction(float3 Xi, float3 r, float dist, int i, int j)
+__device__ float friction_on_background(
+    float3 Xi, float3 r, float dist, int i, int j)
 {
     return 0;
 }
@@ -200,36 +201,36 @@ const char* test_friction()
     tile.h_X[1] = float3{.5, 0, 0};
     tile.copy_to_device();
     for (auto i = 0; i < 10; i++)
-        tile.take_step<no_pw_int, global_friction>(0.05, push);
+        tile.take_step<no_pw_int, friction_on_background>(0.05, push);
     tile.copy_to_host();
-    MU_ASSERT(
-        "Tile global friction", MU_ISCLOSE(tile.h_X[1].x - tile.h_X[0].x, 1));
+    MU_ASSERT("Tile friction on background",
+        MU_ISCLOSE(tile.h_X[1].x - tile.h_X[0].x, 1));
 
     tile.h_X[0] = float3{0, 0, 0};
     tile.h_X[1] = float3{.5, 0, 0};
     tile.copy_to_device();
     for (auto i = 0; i < 10; i++) tile.take_step<no_pw_int>(0.05, push);
     tile.copy_to_host();
-    MU_ASSERT(
-        "Tile local friction", MU_ISCLOSE(tile.h_X[1].x - tile.h_X[0].x, 0.75));
+    MU_ASSERT("Tile friction w/ neighbour",
+        MU_ISCLOSE(tile.h_X[1].x - tile.h_X[0].x, 0.75));
 
     Solution<float3, 2, Grid_solver> grid;
     grid.h_X[0] = float3{0, 0, 0};
     grid.h_X[1] = float3{.5, 0, 0};
     grid.copy_to_device();
     for (auto i = 0; i < 10; i++)
-        grid.take_step<no_pw_int, global_friction>(0.05, push);
+        grid.take_step<no_pw_int, friction_on_background>(0.05, push);
     grid.copy_to_host();
-    MU_ASSERT(
-        "Grid global friction", MU_ISCLOSE(grid.h_X[1].x - grid.h_X[0].x, 1));
+    MU_ASSERT("Grid friction on background",
+        MU_ISCLOSE(grid.h_X[1].x - grid.h_X[0].x, 1));
 
     grid.h_X[0] = float3{0, 0, 0};
     grid.h_X[1] = float3{.5, 0, 0};
     grid.copy_to_device();
     for (auto i = 0; i < 10; i++) grid.take_step<no_pw_int>(0.05, push);
     grid.copy_to_host();
-    MU_ASSERT(
-        "Grid local friction", MU_ISCLOSE(grid.h_X[1].x - grid.h_X[0].x, 0.75));
+    MU_ASSERT("Grid friction w/ neighbour",
+        MU_ISCLOSE(grid.h_X[1].x - grid.h_X[0].x, 0.75));
 
     return NULL;
 }
