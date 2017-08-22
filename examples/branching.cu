@@ -205,16 +205,12 @@ __global__ void proliferate(
 
 int main(int argc, char const* argv[])
 {
-    auto n_time_steps = std::stoi(argv[2]);
-
     // Initial state
     Solution<Cell, n_max, Grid_solver> bolls(n_0);
     uniform_sphere(0.75, bolls);
     Property<n_max, Cell_types> type("type");
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     for (auto i = 0; i < n_0; i++) {
-        bolls.h_X[i].u = 0;
-        bolls.h_X[i].v = 0;
         type.h_prop[i] = mesenchyme;
     }
     bolls.copy_to_device();
@@ -251,10 +247,6 @@ int main(int argc, char const* argv[])
 
             bolls.h_X[i].u = rand() / (RAND_MAX + 1.) / 5 - 0.1;
             bolls.h_X[i].v = rand() / (RAND_MAX + 1.) / 5 - 0.1;
-
-        } else {
-            bolls.h_X[i].theta = 0;
-            bolls.h_X[i].phi = 0;
         }
     }
     bolls.copy_to_device();
@@ -287,6 +279,7 @@ int main(int argc, char const* argv[])
 
     // Integrate positions
     Vtk_output output(argv[1]);
+    auto n_time_steps = std::stoi(argv[2]);
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
         type.copy_to_host();
