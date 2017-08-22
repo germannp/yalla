@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 
-// OS X does not support device side assertions
+// macOS does not support device side assertions
 #ifdef __APPLE__
 #define D_ASSERT(predicate) \
     if (!(predicate))       \

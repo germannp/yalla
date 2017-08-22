@@ -24,10 +24,12 @@ template<typename Pt>
 using Pairwise_friction = float(Pt Xi, Pt r, float dist, int i, int j);
 
 template<typename Pt>
-__device__ float constant_friction(Pt Xi, Pt r, float dist, int i, int j)
+__device__ float friction_w_neighbour(Pt Xi, Pt r, float dist, int i, int j)
 {
     if (i == j) return 0;
+
     if (dist < 1) return 1;
+
     return 0;
 }
 
@@ -69,7 +71,7 @@ public:
     }
     int get_d_n() { return Solver<Pt, n_max>::get_d_n(); }
     template<Pairwise_interaction<Pt> pw_int,
-        Pairwise_friction<Pt> pw_friction = constant_friction<Pt>>
+        Pairwise_friction<Pt> pw_friction = friction_w_neighbour<Pt>>
     void take_step(float dt, Generic_forces<Pt> gen_forces = no_gen_forces<Pt>)
     {
         return Solver<Pt, n_max>::template take_step<pw_int, pw_friction>(
@@ -132,6 +134,7 @@ __global__ void add_rhs(const int n, const float3* __restrict__ d_sum_v,
     }
 }
 
+// Computer specifies how pairwise interactions are computed.
 template<typename Pt, int n_max, template<typename, int> class Computer>
 class Heun_solver : public Computer<Pt, n_max> {
 protected:
@@ -201,7 +204,7 @@ const auto TILE_SIZE = 32;
 
 template<typename Pt, Pairwise_interaction<Pt> pw_int,
     Pairwise_friction<Pt> pw_friction>
-__global__ void compute_tiles(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
+__global__ void compute_tile(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
     const float3* __restrict__ d_old_v, float3* d_sum_v, float* d_sum_friction)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -248,7 +251,7 @@ protected:
         const float3* __restrict__ d_old_v, float3* d_sum_v,
         float* d_sum_friction)
     {
-        compute_tiles<Pt, pw_int, pw_friction>
+        compute_tile<Pt, pw_int, pw_friction>
             <<<(n + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
                 n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
     }
@@ -267,7 +270,7 @@ const auto GRID_SIZE = 50;
 const auto N_CUBES = GRID_SIZE * GRID_SIZE * GRID_SIZE;
 
 template<typename Pt>
-__global__ void compute_cube_ids(const int n, const float cube_size,
+__global__ void compute_cube_id(const int n, const float cube_size,
     const Pt* __restrict__ d_X, int* d_cube_id, int* d_point_id)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -315,7 +318,7 @@ public:
     void build(const int n, const Pt* __restrict__ d_X,
         const float cube_size = CUBE_SIZE)
     {
-        compute_cube_ids<<<(n + 32 - 1) / 32, 32>>>(
+        compute_cube_id<<<(n + 32 - 1) / 32, 32>>>(
             n, cube_size, d_X, d_cube_id, d_point_id);
         thrust::fill(thrust::device, d_cube_start, d_cube_start + N_CUBES, -1);
         thrust::fill(thrust::device, d_cube_end, d_cube_end + N_CUBES, -2);
@@ -340,7 +343,7 @@ __constant__ int d_nhood[27];  // This is wasted w/o Grid_computer
 
 template<typename Pt, int n_max, Pairwise_interaction<Pt> pw_int,
     Pairwise_friction<Pt> pw_friction>
-__global__ void compute_grid_pwints(const int n, const Pt* __restrict__ d_X,
+__global__ void compute_cube(const int n, const Pt* __restrict__ d_X,
     const float3* __restrict__ d_old_v, const Grid<n_max>* __restrict__ d_grid,
     Pt* d_dX, float3* d_sum_v, float* d_sum_friction)
 {
@@ -398,7 +401,7 @@ protected:
         float3* d_sum_v, float* d_sum_friction)
     {
         grid.build(n, d_X);
-        compute_grid_pwints<Pt, n_max, pw_int, pw_friction>
+        compute_cube<Pt, n_max, pw_int, pw_friction>
             <<<(n + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
                 n, d_X, d_old_v, grid.d_grid, d_dX, d_sum_v, d_sum_friction);
     }

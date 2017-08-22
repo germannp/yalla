@@ -188,7 +188,8 @@ const char* test_generic_forces()
 }
 
 
-__device__ float global_friction(float3 Xi, float3 r, float dist, int i, int j)
+__device__ float friction_on_background(
+    float3 Xi, float3 r, float dist, int i, int j)
 {
     return 0;
 }
@@ -200,81 +201,105 @@ const char* test_friction()
     tile.h_X[1] = float3{.5, 0, 0};
     tile.copy_to_device();
     for (auto i = 0; i < 10; i++)
-        tile.take_step<no_pw_int, global_friction>(0.05, push);
+        tile.take_step<no_pw_int, friction_on_background>(0.05, push);
     tile.copy_to_host();
-    MU_ASSERT(
-        "Tile global friction", MU_ISCLOSE(tile.h_X[1].x - tile.h_X[0].x, 1));
+    MU_ASSERT("Tile friction on background",
+        MU_ISCLOSE(tile.h_X[1].x - tile.h_X[0].x, 1));
 
     tile.h_X[0] = float3{0, 0, 0};
     tile.h_X[1] = float3{.5, 0, 0};
     tile.copy_to_device();
     for (auto i = 0; i < 10; i++) tile.take_step<no_pw_int>(0.05, push);
     tile.copy_to_host();
-    MU_ASSERT(
-        "Tile local friction", MU_ISCLOSE(tile.h_X[1].x - tile.h_X[0].x, 0.75));
+    MU_ASSERT("Tile friction w/ neighbour",
+        MU_ISCLOSE(tile.h_X[1].x - tile.h_X[0].x, 0.75));
 
     Solution<float3, 2, Grid_solver> grid;
     grid.h_X[0] = float3{0, 0, 0};
     grid.h_X[1] = float3{.5, 0, 0};
     grid.copy_to_device();
     for (auto i = 0; i < 10; i++)
-        grid.take_step<no_pw_int, global_friction>(0.05, push);
+        grid.take_step<no_pw_int, friction_on_background>(0.05, push);
     grid.copy_to_host();
-    MU_ASSERT(
-        "Grid global friction", MU_ISCLOSE(grid.h_X[1].x - grid.h_X[0].x, 1));
+    MU_ASSERT("Grid friction on background",
+        MU_ISCLOSE(grid.h_X[1].x - grid.h_X[0].x, 1));
 
     grid.h_X[0] = float3{0, 0, 0};
     grid.h_X[1] = float3{.5, 0, 0};
     grid.copy_to_device();
     for (auto i = 0; i < 10; i++) grid.take_step<no_pw_int>(0.05, push);
     grid.copy_to_host();
-    MU_ASSERT(
-        "Grid local friction", MU_ISCLOSE(grid.h_X[1].x - grid.h_X[0].x, 0.75));
+    MU_ASSERT("Grid friction w/ neighbour",
+        MU_ISCLOSE(grid.h_X[1].x - grid.h_X[0].x, 0.75));
 
     return NULL;
 }
 
 
-__global__ void single_grid(const int* __restrict__ d_cube_id)
+template<int n_max>
+__global__ void single_grid(const Grid<n_max>* __restrict__ d_grid)
 {
-    auto i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= 1000) return;
+    auto i = threadIdx.x + blockDim.x * threadIdx.y +
+             blockDim.x * blockDim.y * threadIdx.z;
 
-    auto expected_cube = (GRID_SIZE * GRID_SIZE * GRID_SIZE) / 2 +
-                         (GRID_SIZE * GRID_SIZE) / 2 + GRID_SIZE / 2 + i % 10 +
-                         (i % 100 / 10) * GRID_SIZE +
-                         (i / 100) * GRID_SIZE * GRID_SIZE;
-    D_ASSERT(d_cube_id[i] == expected_cube);
+    auto cube_id_origin = (GRID_SIZE * GRID_SIZE * GRID_SIZE) / 2 +
+                          (GRID_SIZE * GRID_SIZE) / 2 + GRID_SIZE / 2;
+    auto expected_cube = cube_id_origin + threadIdx.x +
+                         (GRID_SIZE * threadIdx.y) +
+                         (GRID_SIZE * GRID_SIZE * threadIdx.z);
+
+    auto one_point_per_cube = d_grid->d_cube_start[expected_cube] ==
+                              d_grid->d_cube_end[expected_cube];
+    D_ASSERT(one_point_per_cube);  // Thus no sorting!
+
+    D_ASSERT(d_grid->d_cube_id[i] == expected_cube);
 }
 
-__global__ void double_grid(const int* __restrict__ d_cube_id)
+template<int n_max>
+__global__ void double_grid(const Grid<n_max>* __restrict__ d_grid)
 {
-    auto i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= 1000 - 8) return;
+    auto i = threadIdx.x + blockDim.x * threadIdx.y +
+             blockDim.x * blockDim.y * threadIdx.z;
 
-    D_ASSERT(d_cube_id[i] == d_cube_id[i - i % 8]);
+    auto cube_id_origin = (GRID_SIZE * GRID_SIZE * GRID_SIZE) / 2 +
+                          (GRID_SIZE * GRID_SIZE) / 2 + GRID_SIZE / 2;
+    auto expected_cube =
+        static_cast<int>(cube_id_origin + floor(threadIdx.x / 2.f) +
+                         (GRID_SIZE * floor(threadIdx.y / 2.f)) +
+                         (GRID_SIZE * GRID_SIZE * floor(threadIdx.z / 2.f)));
+
+    auto in_expected_cube = false;
+    for (auto j = d_grid->d_cube_start[expected_cube];
+         j <= d_grid->d_cube_end[expected_cube]; j++) {
+        if (d_grid->d_point_id[j] == i) in_expected_cube = true;
+    }
+    D_ASSERT(in_expected_cube);
 }
 
 const char* test_grid_spacing()
 {
-    Solution<float3, 1000, Grid_solver> bolls;
-    for (auto i = 0; i < 10; i++) {
-        for (auto j = 0; j < 10; j++) {
-            for (auto k = 0; k < 10; k++) {
-                bolls.h_X[100 * i + 10 * j + k].x = k + 0.5;
-                bolls.h_X[100 * i + 10 * j + k].y = j + 0.5;
-                bolls.h_X[100 * i + 10 * j + k].z = i + 0.5;
+    const auto n_x = 7;
+    const auto n_y = 7;
+    const auto n_z = 7;
+
+    Solution<float3, n_x * n_y * n_z, Grid_solver> bolls;
+    for (auto i = 0; i < n_z; i++) {
+        for (auto j = 0; j < n_y; j++) {
+            for (auto k = 0; k < n_x; k++) {
+                bolls.h_X[n_x * n_y * i + n_x * j + k].x = k + 0.5;
+                bolls.h_X[n_x * n_y * i + n_x * j + k].y = j + 0.5;
+                bolls.h_X[n_x * n_y * i + n_x * j + k].z = i + 0.5;
             }
         }
     }
     bolls.copy_to_device();
 
-    Grid<1000> grid;
+    Grid<n_x * n_y * n_z> grid;
     grid.build(bolls, 1);
-    single_grid<<<256, 4>>>(grid.d_cube_id);
+    single_grid<<<1, dim3{n_x, n_y, n_z}>>>(grid.d_grid);
 
     grid.build(bolls, 2);
-    double_grid<<<256, 4>>>(grid.d_cube_id);
+    double_grid<<<1, dim3{n_x, n_y, n_z}>>>(grid.d_grid);
     cudaDeviceSynchronize();  // Wait for device to exit
 
     return NULL;
