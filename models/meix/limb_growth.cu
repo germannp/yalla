@@ -29,7 +29,7 @@ const auto prots_per_cell = 1;
 const auto protrusion_strength = 0.2f;
 const auto r_protrusion = 2.0f;
 
-enum Cell_types { mesenchyme, epithelium };
+enum Cell_types { mesenchyme, epithelium, aer };
 
 __device__ Cell_types* d_type;
 __device__ int* d_mes_nbs;
@@ -49,6 +49,8 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
         // D_ASSERT(Xi.w >= 0);
         dF.w = -0.01 * (d_type[i] == mesenchyme) * Xi.w;
         dF.f = -0.01 * (d_type[i] == mesenchyme) * Xi.f;
+        if (Xi.w<0.f) dF.w=0.f;
+        if (Xi.f<0.f) dF.f=0.f;
         return dF;
     }
 
@@ -60,9 +62,10 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
             F = fmaxf(0.8 - dist, 0) * 2.f - fmaxf(dist - 0.8, 0);
         else
             F = fmaxf(0.8 - dist, 0) * 2.f - fmaxf(dist - 0.8, 0) * 2.f;
-
+    } else if (d_type[i] > mesenchyme && d_type[j] > mesenchyme) {
+        F = fmaxf(0.8 - dist, 0) * 2.f - fmaxf(dist - 0.8, 0) * 2.f;
     } else {
-        F = fmaxf(0.9 - dist, 0) * 2.f - fmaxf(dist - 0.9, 0) * 2.f;
+        F = fmaxf(0.9 - dist, 0) * 2.f - fmaxf(dist - 0.9, 0) * 3.f;
     }
     dF.x = r.x * F / dist;
     dF.y = r.y * F / dist;
@@ -71,12 +74,15 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
     dF.w = -r.w * (d_type[i] == mesenchyme) * 0.5f;
     dF.f = -r.f * (d_type[i] == mesenchyme) * 0.5f;
 
-    if (d_type[i] == epithelium && d_type[j] == epithelium)
+    if (d_type[i] >= epithelium && d_type[j] >= epithelium)
         dF += rigidity_force(Xi, r, dist) * 0.10f;
 
     if (Xi.x < 0) dF.x = 0.f;
 
-    if (d_type[j] == epithelium)
+    if (Xi.w<0.f) dF.w=0.f;
+    if (Xi.f<0.f) dF.f=0.f;
+
+    if (d_type[j] >= epithelium)
         atomicAdd(&d_epi_nbs[i], 1);
     else
         atomicAdd(&d_mes_nbs[i], 1);
@@ -129,12 +135,15 @@ __global__ void update_protrusions(const int n_cells,
     auto old_r = d_X[link->a] - d_X[link->b];
     auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
     auto noise = curand_uniform(&d_state[i]);
-    auto more_along_w =
-        fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
-    // auto high_f = (d_X[a].f + d_X[b].f) > 0.05;
-    // if (not_initialized or more_along_w or high_f) {
-    if (not_initialized or more_along_w) {
-        // if (not_initialized) {
+    auto high_f = (d_X[a].f + d_X[b].f) > 0.2;//0.05;
+    // auto high_f = false;
+    // auto more_along_w =
+    //     fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
+    auto more_along_w = false;
+    auto normal_to_f_gradient =
+        fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
+    // auto normal_to_f_gradient = false;
+    if (not_initialized or more_along_w or high_f or normal_to_f_gradient) {
         link->a = a;
         link->b = b;
     }
@@ -156,12 +165,17 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
             if (r > rate) return;
             break;
         }
-        case epithelium: {
+        // case epithelium: {
+        default: {
+            // if (d_epi_nbs[i] > d_mes_nbs[i]) return;
             if (d_epi_nbs[i] > 7) return;
             if (d_mes_nbs[i] <= 0) return;
             auto r = curand_uniform(&d_state[i]);
             if (r > 2.5f * rate) return;  // 2.5
         }
+        // case aer: {
+        //     return;
+        // }
     }
 
     auto n = atomicAdd(d_n_cells, 1);
@@ -232,12 +246,17 @@ int main(int argc, char const* argv[])
     input.read_property(intype);  // we read it as an int, then we translate to
                                   // enum "Cell_types"
     for (int i = 0; i < n0; i++) {
+        limb.h_X[i].w = 0.0f;
+        limb.h_X[i].f = 0.0f;
         if (intype.h_prop[i] == 0) {
             type.h_prop[i] = mesenchyme;
-            limb.h_X[i].w = 0.0f;
-        } else {
+        } else if (intype.h_prop[i] == 1) {
             type.h_prop[i] = epithelium;
             limb.h_X[i].w = 1.0f;
+        } else {
+            type.h_prop[i] = aer;
+            limb.h_X[i].w = 1.0f;
+            limb.h_X[i].f = 1.0f;
         }
     }
 
@@ -319,6 +338,7 @@ int main(int argc, char const* argv[])
             limb_output.write_links(protrusions);
             limb_output.write_polarity(limb);
             limb_output.write_field(limb, "Wint");
+            limb_output.write_field(limb, "FGF", &Cell::f);
             limb_output.write_property(type);
             limb_output.write_property(n_epi_nbs);
             limb_output.write_property(n_mes_nbs);

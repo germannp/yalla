@@ -29,10 +29,10 @@ const auto r_min = 0.8;
 const auto dt = 0.1;
 const auto n_max = 150000;
 const auto prots_per_cell = 1;
-const auto protrusion_strength = 0.1f;
+const auto protrusion_strength = 0.2f;
 const auto r_protrusion = 2.0f;
 
-enum Cell_types { mesenchyme, epithelium };
+enum Cell_types { mesenchyme, epithelium, aer };
 
 __device__ Cell_types* d_type;
 __device__ int* d_freeze;
@@ -63,7 +63,7 @@ __device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j)
     dF.y = r.y * F / dist;
     dF.z = r.z * F / dist;
 
-    if (d_type[i] == epithelium && d_type[j] == epithelium)
+    if (d_type[i] >= epithelium && d_type[j] >= epithelium)
         dF += rigidity_force(Xi, r, dist) * 0.10f;
 
     return dF;
@@ -90,7 +90,7 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
     dF.y = r.y * F / dist;
     dF.z = r.z * F / dist;
 
-    if (d_type[i] == epithelium && d_type[j] == epithelium)
+    if (d_type[i] >= epithelium && d_type[j] >= epithelium)
         dF += rigidity_force(Xi, r, dist) * 0.5f;
 
     if (Xi.x < 0) dF.x = 0.f;
@@ -242,12 +242,17 @@ void fill_solver_w_epithelium(Solution<Pt, n_max, Solver>& inbolls,
 
 int main(int argc, char const* argv[])
 {
+    std::cout<<"crash0"<<std::endl;
+
     std::string file_name = argv[1];
     std::string output_tag = argv[2];
 
+std::cout<<"crash1"<<std::endl;
     // First, load the mesh file so we can get the maximum dimensions of the
     // system
     Meix meix(file_name);
+
+    std::cout<<"crash2"<<std::endl;
 
     // Compute max length in X axis to know how much we need to rescale
     //**********************************************************************
@@ -524,6 +529,23 @@ int main(int argc, char const* argv[])
 
     std::cout << "n_bolls_total= " << n_bolls_total << std::endl;
 
+    // Imprint the AER on the epithelium (based on a mesh file too)
+    Meix AER("/home/mmarin/Desktop/Limb_project_data/vtk_limbReferences/250_AER.vtk");
+    AER.Rescale_relative(resc);
+
+    for (int i = n_bolls_mes; i < n_bolls_total; i++) {
+        Point p(bolls.h_X[i].x, bolls.h_X[i].y, bolls.h_X[i].z);
+        for (int j = 0; j < AER.n_facets; j++) {
+            Point r = p - AER.Facets[j].C;
+            float d = sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
+            if (d < r_min) {
+                type.h_prop[i]=aer;
+                break;
+            }
+        }
+    }
+
+
     Vtk_output output(output_tag);
 
     relax_time = std::stoi(argv[5]);
@@ -561,6 +583,8 @@ int main(int argc, char const* argv[])
     // write down the mesenchymal mesh in the vtk file to compare it with the
     // posterior filling
     meix_mesench.WriteVtk(output_tag + ".mesench");
+
+    AER.WriteVtk(output_tag + ".aer");
 
     // Create a dummy meix that depicts the x=0 plane, depicting the flank
     // boundary
