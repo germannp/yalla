@@ -293,7 +293,7 @@ int main(int argc, char const* argv[])
         // n_epi_nbs.copy_to_host();
 
         std::thread calculation([&] {
-            for (auto i = 0; i < skip_steps + 1; i++) {
+            for (auto i = 0; i <= skip_steps; i++) {
                 proliferate<<<(bolls.get_d_n() + 128 - 1) / 128, 128>>>(
                     0.75, bolls.d_X, bolls.d_n, d_state);
                 thrust::fill(thrust::device, n_mes_nbs.d_prop,
