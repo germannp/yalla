@@ -17,7 +17,7 @@ const auto mean_dist = 0.75;
 const auto prolif_rate = 0.006;
 const auto n_0 = 200;
 const auto n_max = 5000;
-const auto n_time_steps = 500;
+const auto n_time_steps = 1;
 const auto dt = 0.2;
 enum Cell_types { mesenchyme, epithelium };
 
@@ -56,13 +56,12 @@ __device__ Po_cell relu_w_epithelium(
 }
 
 
-__global__ void proliferate(float rate, float mean_distance, Po_cell* d_X,
-    int* d_n_cells, curandState* d_state)
+__global__ void proliferate(
+    float rate, int n_cells, curandState* d_state, Po_cell* d_X, int* d_n_cells)
 {
-    D_ASSERT(*d_n_cells * rate <= n_max);
+    D_ASSERT(n_cells * rate <= n_max);
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= *d_n_cells * (1 - rate))
-        return;  // Dividing new cells is problematic!
+    if (i >= n_cells) return;  // Dividing new cells is problematic!
 
     switch (d_type[i]) {
         case mesenchyme: {
@@ -77,9 +76,9 @@ __global__ void proliferate(float rate, float mean_distance, Po_cell* d_X,
     auto n = atomicAdd(d_n_cells, 1);
     auto theta = curand_uniform(&d_state[i]) * 2 * M_PI;
     auto phi = curand_uniform(&d_state[i]) * M_PI;
-    d_X[n].x = d_X[i].x + mean_distance / 4 * sinf(theta) * cosf(phi);
-    d_X[n].y = d_X[i].y + mean_distance / 4 * sinf(theta) * sinf(phi);
-    d_X[n].z = d_X[i].z + mean_distance / 4 * cosf(theta);
+    d_X[n].x = d_X[i].x + mean_dist / 4 * sinf(theta) * cosf(phi);
+    d_X[n].y = d_X[i].y + mean_dist / 4 * sinf(theta) * sinf(phi);
+    d_X[n].z = d_X[i].z + mean_dist / 4 * cosf(theta);
     d_X[n].theta = d_X[i].theta;
     d_X[n].phi = d_X[i].phi;
     d_type[n] = d_type[i];
@@ -142,8 +141,8 @@ int main(int argc, char const* argv[])
             n_epi_nbs.d_prop + bolls.get_d_n(), 0);
         bolls.take_step<relu_w_epithelium>(dt);
         proliferate<<<(bolls.get_d_n() + 128 - 1) / 128, 128>>>(
-            prolif_rate * (time_step > 100), mean_dist, bolls.d_X, bolls.d_n,
-            d_state);
+            prolif_rate * (time_step > 100), bolls.get_d_n(), d_state,
+            bolls.d_X, bolls.d_n);
         sim_output.write_positions(bolls);
         sim_output.write_property(type);
         sim_output.write_polarity(bolls);
