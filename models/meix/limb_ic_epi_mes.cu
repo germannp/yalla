@@ -8,6 +8,8 @@
 // argv[3]=target limb bud size (dx)
 // argv[4]=cube relax_time
 // argv[5]=limb bud relax_time
+// argv[6]=links flag (activate if you want to use links in later simulations)
+// argv[7]=wall flag (activate in limb buds, when you want a wall boundary cond.)
 
 #include <curand_kernel.h>
 #include <iostream>
@@ -134,14 +136,7 @@ __global__ void update_protrusions(const int n_cells,
     auto link = &d_link[a * prots_per_cell + i % prots_per_cell];
     auto not_initialized = link->a == link->b;
     auto new_one = curand_uniform(&d_state[i]) < 0.05f;
-    // auto old_r = d_X[link->a] - d_X[link->b];
-    // auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
-    // auto noise = curand_uniform(&d_state[i]);
-    // auto more_along_w = fabs(new_r.w/new_dist) > fabs(old_r.w/old_dist)*(1.f
-    // - noise);
-    // auto high_f = (d_X[a].f + d_X[b].f) > 0.05;
     if (not_initialized || new_one) {
-        // if (not_initialized) {
         link->a = a;
         link->b = b;
     }
@@ -183,8 +178,6 @@ void uniform_cubic_rectangle(float xmin, float ymin, float zmin, float dx,
     bolls.copy_to_device();
 }
 
-//*****************************************************************************
-
 template<typename Pt, int n_max, template<typename, int> class Solver>
 void fill_solver_w_meix_no_flank(
     Meix meix, Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0)
@@ -213,8 +206,6 @@ void fill_solver_w_meix_no_flank(
     }
 }
 
-//*****************************************************************************
-
 template<typename Pt, int n_max, template<typename, int> class Solver,
     typename Prop>
 void fill_solver_w_epithelium(Solution<Pt, n_max, Solver>& inbolls,
@@ -238,21 +229,24 @@ void fill_solver_w_epithelium(Solution<Pt, n_max, Solver>& inbolls,
 }
 
 
-//*****************************************************************************
-
 int main(int argc, char const* argv[])
 {
-    std::cout<<"crash0"<<std::endl;
 
     std::string file_name = argv[1];
     std::string output_tag = argv[2];
+    float target_dx = std::stof(argv[3]);
+    int cube_relax_time = std::stoi(argv[4]);
+    int epi_relax_time = std::stoi(argv[5]);
+    bool links_flag = false;
+    if(stoi(argv[6]) == 1)
+        links_flag = true;
+    bool wall_flag = false;
+    if(stoi(argv[7]) == 1)
+        wall_flag = true;
 
-std::cout<<"crash1"<<std::endl;
     // First, load the mesh file so we can get the maximum dimensions of the
     // system
     Meix meix(file_name);
-
-    std::cout<<"crash2"<<std::endl;
 
     // Compute max length in X axis to know how much we need to rescale
     //**********************************************************************
@@ -269,7 +263,6 @@ std::cout<<"crash1"<<std::endl;
     }
     dx = xmax - xmin;
 
-    float target_dx = std::stof(argv[3]);
     float resc = target_dx / dx;
     std::cout << "xmax= " << xmax << " xmin= " << xmin << std::endl;
     std::cout << "dx= " << dx << " target_dx= " << target_dx
@@ -281,7 +274,7 @@ std::cout<<"crash1"<<std::endl;
     // meix_mesench defines the volume occupied by the mesenchyme (smaller than
     // meix)
     Meix meix_mesench = meix;
-    meix_mesench.Rescale_absolute(-r_min);  //*1.3//*1.2
+    meix_mesench.Rescale_absolute(-r_min, wall_flag);  //*1.3//*1.2
     // Compute min. and max, positions in x,y,z from rescaled mesh
     xmin = 10000.0f;
     xmax = -10000.0f;
@@ -290,18 +283,18 @@ std::cout<<"crash1"<<std::endl;
     zmin = 10000.0f;
     zmax = -10000.0f;
     for (int i = 0; i < meix_mesench.n_vertices; i++) {
-        if (meix_mesench.Facets[i].C.x < xmin)
-            xmin = meix_mesench.Facets[i].C.x;
-        if (meix_mesench.Facets[i].C.x > xmax)
-            xmax = meix_mesench.Facets[i].C.x;
-        if (meix_mesench.Facets[i].C.y < ymin)
-            ymin = meix_mesench.Facets[i].C.y;
-        if (meix_mesench.Facets[i].C.y > ymax)
-            ymax = meix_mesench.Facets[i].C.y;
-        if (meix_mesench.Facets[i].C.z < zmin)
-            zmin = meix_mesench.Facets[i].C.z;
-        if (meix_mesench.Facets[i].C.z > zmax)
-            zmax = meix_mesench.Facets[i].C.z;
+        if (meix_mesench.Vertices[i].x < xmin)
+            xmin = meix_mesench.Vertices[i].x;
+        if (meix_mesench.Vertices[i].x > xmax)
+            xmax = meix_mesench.Vertices[i].x;
+        if (meix_mesench.Vertices[i].y < ymin)
+            ymin = meix_mesench.Vertices[i].y;
+        if (meix_mesench.Vertices[i].y > ymax)
+            ymax = meix_mesench.Vertices[i].y;
+        if (meix_mesench.Vertices[i].z < zmin)
+            zmin = meix_mesench.Vertices[i].z;
+        if (meix_mesench.Vertices[i].z > zmax)
+            zmax = meix_mesench.Vertices[i].z;
     }
     dx = xmax - xmin;
     dy = ymax - ymin;
@@ -359,8 +352,8 @@ std::cout<<"crash1"<<std::endl;
     Links<static_cast<int>(n_max * prots_per_cell)> protrusions(
         protrusion_strength, n_bolls_cube * prots_per_cell);
     auto intercalation =
-        std::bind(link_forces<static_cast<int>(n_max * prots_per_cell), Cell>,
-            protrusions, std::placeholders::_1, std::placeholders::_2);
+    std::bind(link_forces<static_cast<int>(n_max * prots_per_cell), Cell>,
+        protrusions, std::placeholders::_1, std::placeholders::_2);
 
     Grid<n_max> grid;
 
@@ -370,26 +363,26 @@ std::cout<<"crash1"<<std::endl;
     setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(d_state, n_max);
 
     // Relaxation of the cube
-    int relax_time = std::stoi(argv[4]);
     int skip_step = 1;  // relax_time/10;
     // std::cout<<"relax_time "<<relax_time<<" write interval "<<
     // skip_step<<std::endl;
 
     // Vtk_output cubic_output1(output_tag+".cubic_relaxation1");
 
-    for (auto time_step = 0; time_step <= relax_time; time_step++) {
-        // if(time_step%skip_step==0 || time_step==relax_time){
+    for (auto time_step = 0; time_step <= cube_relax_time; time_step++) {
+        // if(time_step%skip_step==0 || time_step==cube_relax_time){
         //     cube.copy_to_host();
         // }
 
-        cube.take_step<relaxation_force, relaxation_friction>(
-            dt, intercalation);
+        cube.take_step<relaxation_force, relaxation_friction>(dt);
 
         // write the output
-        // if(time_step%skip_step==0 || time_step==relax_time) {
+        // if(time_step%skip_step==0 || time_step==cube_relax_time) {
         //     cubic_output1.write_positions(cube);
         // }
     }
+
+    std::cout<<"Cube 1 integrated"<<std::endl;
 
     // The relaxed cube positions will be used to imprint epithelial cells
     cube.copy_to_host();
@@ -398,30 +391,37 @@ std::cout<<"crash1"<<std::endl;
         Point p = Point(cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z);
         cube_relax_points.push_back(p);
     }
-    // Vtk_output cubic_output(output_tag+".cubic_relaxation");
 
-    // We apply the links to the relaxed cube to compress it (as will be the
-    // mesench in the limb bud)
-    for (auto time_step = 0; time_step <= relax_time; time_step++) {
-        // if(time_step%skip_step==0 || time_step==relax_time){
-        //     cube.copy_to_host();
-        //     protrusions.copy_to_host();
-        // }
+    if(links_flag) {
 
-        protrusions.set_d_n(cube.get_d_n() * prots_per_cell);
-        grid.build(cube, r_protrusion);
-        update_protrusions<<<(protrusions.get_d_n() + 32 - 1) / 32, 32>>>(
-            cube.get_d_n(), grid.d_grid, cube.d_X, protrusions.d_state,
-            protrusions.d_link);
+        // Vtk_output cubic_output(output_tag+".cubic_relaxation");
 
-        cube.take_step<relaxation_force, relaxation_friction>(
-            dt, intercalation);
+        // We apply the links to the relaxed cube to compress it (as will be the
+        // mesench in the limb bud)
+        for (auto time_step = 0; time_step <= cube_relax_time; time_step++) {
+            // if(time_step%skip_step==0 || time_step==cube_relax_time){
+            //     cube.copy_to_host();
+            //     protrusions.copy_to_host();
+            // }
 
-        // write the output
-        // if(time_step%skip_step==0 || time_step==relax_time) {
-        //     cubic_output.write_positions(cube);
-        //     cubic_output.write_links(protrusions);
-        // }
+            protrusions.set_d_n(cube.get_d_n() * prots_per_cell);
+            grid.build(cube, r_protrusion);
+            update_protrusions<<<(protrusions.get_d_n() + 32 - 1) / 32, 32>>>(
+                cube.get_d_n(), grid.d_grid, cube.d_X, protrusions.d_state,
+                protrusions.d_link);
+
+            cube.take_step<relaxation_force, relaxation_friction>(
+                dt, intercalation);
+
+            // write the output
+            // if(time_step%skip_step==0 || time_step==cube_relax_time) {
+            //     cubic_output.write_positions(cube);
+            //     cubic_output.write_links(protrusions);
+            // }
+        }
+        std::cout
+            <<"Cube 2 integrated with links (only when links flag is active)"
+            <<std::endl;
     }
 
     // Fit the cube into a mesh and sort which cells are inside the mesh
@@ -512,8 +512,8 @@ std::cout<<"crash1"<<std::endl;
             }
         }
         count++;
-        if (meix.Facets[f].C.x < 0.1f) {  // the cells contacting the flank
-                                          // boundary can't be epithelial 0.001
+        if (meix.Facets[f].C.x < 0.1f && wall_flag) {  // the cells contacting the flank
+                                                       // boundary can't be epithelial 0.001
             type.h_prop[i] = mesenchyme;
             freeze.h_prop[i] = 1;
             continue;
@@ -530,7 +530,7 @@ std::cout<<"crash1"<<std::endl;
     std::cout << "n_bolls_total= " << n_bolls_total << std::endl;
 
     // Imprint the AER on the epithelium (based on a mesh file too)
-    Meix AER("/home/mmarin/Desktop/Limb_project_data/vtk_limbReferences/250_AER.vtk");
+    Meix AER("/home/mmarin/Desktop/Limb_project_data/vtk_limbReferences/277_AER.vtk");
     AER.Rescale_relative(resc);
 
     for (int i = n_bolls_mes; i < n_bolls_total; i++) {
@@ -545,21 +545,21 @@ std::cout<<"crash1"<<std::endl;
         }
     }
 
-
     Vtk_output output(output_tag);
 
-    relax_time = std::stoi(argv[5]);
     skip_step = 1;  // relax_time/10;
-
-    for (auto time_step = 0; time_step <= relax_time; time_step++) {
-        if (time_step % skip_step == 0 || time_step == relax_time) {
+    for (auto time_step = 0; time_step <= epi_relax_time; time_step++) {
+        if (time_step % skip_step == 0 || time_step == epi_relax_time) {
             bolls.copy_to_host();
         }
 
-        bolls.take_step<relaxation_force, freeze_friction>(dt);
+        // if(!wall_flag)
+        //     bolls.take_step<relaxation_force, freeze_friction>(dt);
+        // else
+            bolls.take_step<relaxation_force, freeze_friction>(dt);
 
         // write the output
-        if (time_step % skip_step == 0 || time_step == relax_time) {
+        if (time_step % skip_step == 0 || time_step == epi_relax_time) {
             output.write_positions(bolls);
             output.write_polarity(bolls);
             output.write_property(type);

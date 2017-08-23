@@ -273,7 +273,7 @@ public:
     Meix(const Meix& copy);
     Meix& operator=(const Meix& other);
     void Rescale_relative(float);
-    void Rescale_absolute(float);
+    void Rescale_absolute(float, bool);
     void Rotate(float, float);
     void Translate(Point);
     Point Get_centroid();
@@ -325,11 +325,20 @@ Meix::Meix(std::string file_name)
         items.clear();
     }
 
+    //at this point there may be a black line or not, so we have to check
     getline(input_file, line);
     line_split(line, ' ', std::back_inserter(items));
-    n_facets = stoi(items[1]);
+    if(items[0] == "POLYGONS" or items[0] == "CELLS") {
+        n_facets = stoi(items[1]);
+        items.clear();
+    } else {
+        items.clear();
+        getline(input_file, line);
+        line_split(line, ' ', std::back_inserter(items));
+        n_facets = stoi(items[1]);
+        items.clear();
+    }
 
-    items.clear();
 
     // read facets
     count = 0;
@@ -428,10 +437,10 @@ void Meix::Rescale_relative(float resc)
     }
 }
 
-void Meix::Rescale_absolute(float resc)
+void Meix::Rescale_absolute(float resc, bool boundary = false)
 {
     for (int i = 0; i < n_vertices; i++) {
-        if (Vertices[i].x == 0.f) continue;
+        if (boundary && Vertices[i].x == 0.f) continue;
 
         Point average_normal;
         for (int j = 0; j < vertex_to_triangles[i].size(); j++) {
