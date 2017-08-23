@@ -233,7 +233,7 @@ int main(int argc, char const* argv[])
         type.copy_to_host();
 
         std::thread calculation([&] {
-            for (auto i = 0; i < skip_steps + 1; i++) {
+            for (auto i = 0; i <= skip_steps; i++) {
                 proliferate<<<(bolls.get_d_n() + 128 - 1) / 128, 128>>>(
                     0.733333, bolls.d_X, bolls.d_n, protrusions.d_state);
                 protrusions.set_d_n(bolls.get_d_n() * prots_per_cell);

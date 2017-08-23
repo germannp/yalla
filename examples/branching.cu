@@ -9,6 +9,7 @@
 
 #include <curand_kernel.h>
 #include <string>
+#include <thread>
 
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
@@ -23,7 +24,7 @@
 // const auto r_max_mes = 1.0;
 // const auto r_min_homotypic = 0.6;
 // const auto r_min_heterotypic = 0.8;
-const auto r_max=1.0f;
+const auto r_max = 1.0f;
 const auto skip_steps = 10;
 const auto lambda = 0.01;
 
@@ -39,9 +40,9 @@ const auto s_u = 0.05;
 
 // const auto r_min_min = min(r_min_homotypic, r_min_heterotypic);
 // const auto r_max_max = max(r_max_epi, r_max_mes);
-const auto dt =0.2f; // 0.05 * r_min_min * r_min_min / D_v;
+const auto dt = 0.2f;  // 0.05 * r_min_min * r_min_min / D_v;
 
-const auto epi_proliferation_rate = 0.2;//0.02
+const auto epi_proliferation_rate = 0.2;  // 0.02
 const auto mes_proliferation_rate = 0.1;
 
 // threshold conc. of v that allows mesench. cells to divide
@@ -58,14 +59,10 @@ __device__ int* d_epi_nbs;
 
 MAKE_PT(Cell, theta, phi, u, v);
 
-__device__ Cell relaxation_force(
-    Cell Xi, Cell r, float dist, int i, int j)
+__device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j)
 {
     Cell dF{0};
-
-    // Meinhard equations
-    if (i == j)
-        return dF;
+    if (i == j) return dF;
 
     if (dist > r_max) return dF;
 
@@ -83,8 +80,10 @@ __device__ Cell relaxation_force(
     if (d_type[i] == epithelium && d_type[j] == epithelium)
         dF += rigidity_force(Xi, r, dist) * 0.2;
 
-    if (d_type[j] == epithelium) atomicAdd(&d_epi_nbs[i], 1);
-    else atomicAdd(&d_mes_nbs[i], 1);
+    if (d_type[j] == epithelium)
+        atomicAdd(&d_epi_nbs[i], 1);
+    else
+        atomicAdd(&d_mes_nbs[i], 1);
 
     return dF;
 }
@@ -147,8 +146,10 @@ __device__ Cell epi_turing_mes_noturing(
                             // induce proliferation
     }
 
-    if (d_type[j] == epithelium) atomicAdd(&d_epi_nbs[i], 1);
-    else atomicAdd(&d_mes_nbs[i], 1);
+    if (d_type[j] == epithelium)
+        atomicAdd(&d_epi_nbs[i], 1);
+    else
+        atomicAdd(&d_mes_nbs[i], 1);
 
     return dF;
 }
@@ -170,15 +171,19 @@ __global__ void proliferate(
     switch (d_type[i]) {
         case mesenchyme: {
             if (d_X[i].v < prolif_threshold) return;
+
             auto r = curand_uniform(&d_state[i]);
             if (r > mes_proliferation_rate) return;
+
             break;
         }
         case epithelium: {
-            if(d_epi_nbs[i]>10) return;
-            if(d_mes_nbs[i]<=0) return;
+            if (d_epi_nbs[i] > 10) return;
+
+            if (d_mes_nbs[i] <= 0) return;
+
             auto r = curand_uniform(&d_state[i]);
-            if (r > epi_proliferation_rate) return; //2.5
+            if (r > epi_proliferation_rate) return;  // 2.5
         }
     }
 
@@ -200,16 +205,12 @@ __global__ void proliferate(
 
 int main(int argc, char const* argv[])
 {
-    auto n_time_steps = std::stoi(argv[2]);
-
     // Initial state
     Solution<Cell, n_max, Grid_solver> bolls(n_0);
     uniform_sphere(0.75, bolls);
     Property<n_max, Cell_types> type("type");
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     for (auto i = 0; i < n_0; i++) {
-        bolls.h_X[i].u = 0;
-        bolls.h_X[i].v = 0;
         type.h_prop[i] = mesenchyme;
     }
     bolls.copy_to_device();
@@ -227,11 +228,9 @@ int main(int argc, char const* argv[])
     // Relax
 
     for (auto time_step = 0; time_step <= 500; time_step++) {
-
         thrust::fill(
             thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
         bolls.take_step<relaxation_force, relaxation_friction>(dt);
-
     }
 
     // Find epithelium
@@ -248,10 +247,6 @@ int main(int argc, char const* argv[])
 
             bolls.h_X[i].u = rand() / (RAND_MAX + 1.) / 5 - 0.1;
             bolls.h_X[i].v = rand() / (RAND_MAX + 1.) / 5 - 0.1;
-
-        } else {
-            bolls.h_X[i].theta = 0;
-            bolls.h_X[i].phi = 0;
         }
     }
     bolls.copy_to_device();
@@ -267,10 +262,10 @@ int main(int argc, char const* argv[])
         proliferate<<<(bolls.get_d_n() + 128 - 1) / 128, 128>>>(
             0.75, bolls.d_X, bolls.d_n, d_state);
 
-        thrust::fill(
-            thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + bolls.get_d_n(), 0);
-        thrust::fill(
-            thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + bolls.get_d_n(), 0);
+        thrust::fill(thrust::device, n_mes_nbs.d_prop,
+            n_mes_nbs.d_prop + bolls.get_d_n(), 0);
+        thrust::fill(thrust::device, n_epi_nbs.d_prop,
+            n_epi_nbs.d_prop + bolls.get_d_n(), 0);
 
         bolls.take_step<relaxation_force>(dt);
 
@@ -284,30 +279,32 @@ int main(int argc, char const* argv[])
 
     // Integrate positions
     Vtk_output output(argv[1]);
+    auto n_time_steps = std::stoi(argv[2]);
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        if (time_step % skip_steps == 0) {
-            bolls.copy_to_host();
-            // n_epi_nbs.copy_to_host();
-            type.copy_to_host();
-        }
+        bolls.copy_to_host();
+        type.copy_to_host();
+        // n_epi_nbs.copy_to_host();
 
-        proliferate<<<(bolls.get_d_n() + 128 - 1) / 128, 128>>>(
-            0.75, bolls.d_X, bolls.d_n, d_state);
+        std::thread calculation([&] {
+            for (auto i = 0; i <= skip_steps; i++) {
+                proliferate<<<(bolls.get_d_n() + 128 - 1) / 128, 128>>>(
+                    0.75, bolls.d_X, bolls.d_n, d_state);
+                thrust::fill(thrust::device, n_mes_nbs.d_prop,
+                    n_mes_nbs.d_prop + bolls.get_d_n(), 0);
+                thrust::fill(thrust::device, n_epi_nbs.d_prop,
+                    n_epi_nbs.d_prop + bolls.get_d_n(), 0);
+                bolls.take_step<epi_turing_mes_noturing>(dt);
+            }
+        });
 
-        thrust::fill(thrust::device, n_mes_nbs.d_prop,
-            n_mes_nbs.d_prop + bolls.get_d_n(), 0);
-        thrust::fill(thrust::device, n_epi_nbs.d_prop,
-            n_epi_nbs.d_prop + bolls.get_d_n(), 0);
+        output.write_positions(bolls);
+        output.write_polarity(bolls);
+        output.write_field(bolls, "u", &Cell::u);
+        output.write_field(bolls, "v", &Cell::v);
+        output.write_property(type);
+        // output.write_property(n_epi_nbs);
 
-        bolls.take_step<epi_turing_mes_noturing>(dt);
-        if (time_step % skip_steps == 0) {
-            output.write_positions(bolls);
-            output.write_polarity(bolls);
-            output.write_field(bolls, "u", &Cell::u);
-            output.write_field(bolls, "v", &Cell::v);
-            output.write_property(type);
-            // output.write_property(n_epi_nbs);
-        }
+        calculation.join();
     }
 
     return 0;
