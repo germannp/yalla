@@ -17,7 +17,7 @@ const auto mean_dist = 0.75;
 const auto prolif_rate = 0.006;
 const auto n_0 = 200;
 const auto n_max = 5000;
-const auto n_time_steps = 1;
+const auto n_time_steps = 500;
 const auto dt = 0.2;
 enum Cell_types { mesenchyme, epithelium };
 
