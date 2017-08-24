@@ -286,19 +286,19 @@ int main(int argc, char const* argv[])
     ymax = -10000.0f;
     zmin = 10000.0f;
     zmax = -10000.0f;
-    for (int i = 0; i < meix_mesench.n_vertices; i++) {
-        if (meix_mesench.Vertices[i].x < xmin)
-            xmin = meix_mesench.Vertices[i].x;
-        if (meix_mesench.Vertices[i].x > xmax)
-            xmax = meix_mesench.Vertices[i].x;
-        if (meix_mesench.Vertices[i].y < ymin)
-            ymin = meix_mesench.Vertices[i].y;
-        if (meix_mesench.Vertices[i].y > ymax)
-            ymax = meix_mesench.Vertices[i].y;
-        if (meix_mesench.Vertices[i].z < zmin)
-            zmin = meix_mesench.Vertices[i].z;
-        if (meix_mesench.Vertices[i].z > zmax)
-            zmax = meix_mesench.Vertices[i].z;
+    for (int i = 0; i < meix.n_vertices; i++) {
+        if (meix.Vertices[i].x < xmin)
+            xmin = meix.Vertices[i].x;
+        if (meix.Vertices[i].x > xmax)
+            xmax = meix.Vertices[i].x;
+        if (meix.Vertices[i].y < ymin)
+            ymin = meix.Vertices[i].y;
+        if (meix.Vertices[i].y > ymax)
+            ymax = meix.Vertices[i].y;
+        if (meix.Vertices[i].z < zmin)
+            zmin = meix.Vertices[i].z;
+        if (meix.Vertices[i].z > zmax)
+            zmax = meix.Vertices[i].z;
     }
     dx = xmax - xmin;
     dy = ymax - ymin;
