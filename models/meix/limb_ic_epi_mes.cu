@@ -9,7 +9,8 @@
 // argv[4]=cube relax_time
 // argv[5]=limb bud relax_time
 // argv[6]=links flag (activate if you want to use links in later simulations)
-// argv[7]=wall flag (activate in limb buds, when you want a wall boundary cond.)
+// argv[7]=wall flag (activate in limb buds, when you want a wall boundary cond.).
+// argv[8]=AER flag (activate in limb buds)
 
 #include <curand_kernel.h>
 #include <iostream>
@@ -243,6 +244,9 @@ int main(int argc, char const* argv[])
     bool wall_flag = false;
     if(stoi(argv[7]) == 1)
         wall_flag = true;
+    bool AER_flag = false;
+    if(stoi(argv[8]) == 1)
+        AER_flag = true;
 
     // First, load the mesh file so we can get the maximum dimensions of the
     // system
@@ -529,20 +533,27 @@ int main(int argc, char const* argv[])
 
     std::cout << "n_bolls_total= " << n_bolls_total << std::endl;
 
-    // Imprint the AER on the epithelium (based on a mesh file too)
-    Meix AER("/home/mmarin/Desktop/Limb_project_data/vtk_limbReferences/277_AER.vtk");
-    AER.Rescale_relative(resc);
+    if(AER_flag) {
+        // Imprint the AER on the epithelium (based on a mesh file too)
+        std::string AER_file=file_name;
+        AER_file.insert(AER_file.length() - 4, "_AER");
+        std::cout<<"AER file "<<AER_file<<std::endl;
+        Meix AER(AER_file);
+        AER.Rescale_relative(resc);
 
-    for (int i = n_bolls_mes; i < n_bolls_total; i++) {
-        Point p(bolls.h_X[i].x, bolls.h_X[i].y, bolls.h_X[i].z);
-        for (int j = 0; j < AER.n_facets; j++) {
-            Point r = p - AER.Facets[j].C;
-            float d = sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
-            if (d < r_min) {
-                type.h_prop[i]=aer;
-                break;
+        for (int i = n_bolls_mes; i < n_bolls_total; i++) {
+            Point p(bolls.h_X[i].x, bolls.h_X[i].y, bolls.h_X[i].z);
+            for (int j = 0; j < AER.n_facets; j++) {
+                Point r = p - AER.Facets[j].C;
+                float d = sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
+                if (d < r_min*1.5f) {
+                    type.h_prop[i]=aer;
+                    break;
+                }
             }
         }
+
+        AER.WriteVtk(output_tag + ".aer");
     }
 
     Vtk_output output(output_tag);
@@ -553,10 +564,7 @@ int main(int argc, char const* argv[])
             bolls.copy_to_host();
         }
 
-        // if(!wall_flag)
-        //     bolls.take_step<relaxation_force, freeze_friction>(dt);
-        // else
-            bolls.take_step<relaxation_force, freeze_friction>(dt);
+        bolls.take_step<relaxation_force, freeze_friction>(dt);
 
         // write the output
         if (time_step % skip_step == 0 || time_step == epi_relax_time) {
@@ -583,8 +591,6 @@ int main(int argc, char const* argv[])
     // write down the mesenchymal mesh in the vtk file to compare it with the
     // posterior filling
     meix_mesench.WriteVtk(output_tag + ".mesench");
-
-    AER.WriteVtk(output_tag + ".aer");
 
     // Create a dummy meix that depicts the x=0 plane, depicting the flank
     // boundary
