@@ -128,7 +128,7 @@ int main(int argc, char const* argv[])
 
     // First, load the mesh file so we can get the maximum dimensions of the
     // system
-    Meix meix("/home/mmarin/Desktop/Limb_project_data/Donut/DonutR1r05.vtk");
+    Meix meix("tests/DonutR1r05.vtk");
 
     // meix defines the overall shape of the limb bud (mesench. + ectoderm)
     float resc = 5.f;
