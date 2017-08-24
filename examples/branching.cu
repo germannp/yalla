@@ -8,6 +8,7 @@
 // argv[2] : number of time steps
 
 #include <curand_kernel.h>
+#include <time.h>
 #include <string>
 #include <thread>
 
@@ -223,7 +224,9 @@ int main(int argc, char const* argv[])
     // State for proliferations
     curandState* d_state;
     cudaMalloc(&d_state, n_max * sizeof(curandState));
-    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(d_state, n_max);
+    auto seed = time(NULL);
+    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(
+        n_max, seed, d_state);
 
     // Relax
 
