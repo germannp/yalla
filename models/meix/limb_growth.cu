@@ -135,14 +135,21 @@ __global__ void update_protrusions(const int n_cells,
     auto old_r = d_X[link->a] - d_X[link->b];
     auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
     auto noise = curand_uniform(&d_state[i]);
-    auto high_f = (d_X[a].f + d_X[b].f) > 0.2;//0.05;
-    // auto high_f = false;
-    // auto more_along_w =
-    //     fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
-    auto more_along_w = false;
-    auto normal_to_f_gradient =
+
+    auto high_f = (d_X[a].f + d_X[b].f) > 0.5f;
+    auto distal = (d_X[a].f + d_X[b].f) > 0.005f;
+    bool more_along_w;
+    bool normal_to_f_gradient;
+    if(distal) {
+        more_along_w = false;
+        normal_to_f_gradient =
         fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
-    // auto normal_to_f_gradient = false;
+    } else {
+        normal_to_f_gradient = false;
+        more_along_w =
+            fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
+    }
+    // auto high_f = false;
     if (not_initialized or more_along_w or high_f or normal_to_f_gradient) {
         link->a = a;
         link->b = b;
@@ -157,7 +164,9 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
     if (i >= *d_n_cells * (1 - max_rate))
         return;  // Dividing new cells is problematic!
 
-    float rate = d_prolif_rate[i];
+    // float rate = d_prolif_rate[i] * d_X[i].f;
+    float rate = d_prolif_rate[i] - d_prolif_rate[i]*(1.f - 0.75f)*(1.f-d_X[i].f);
+
 
     switch (d_type[i]) {
         case mesenchyme: {
@@ -280,25 +289,26 @@ int main(int argc, char const* argv[])
     Property<n_max, float> prolif_rate("prolif_rate");
     cudaMemcpyToSymbol(
         d_prolif_rate, &prolif_rate.d_prop, sizeof(d_prolif_rate));
+
     float min_proliferation_rate = 0.5f * max_proliferation_rate;
-    if (prolif_dist == 0) {
+    // if (prolif_dist == 0) {
         for (int i = 0; i < n0; i++) {
             prolif_rate.h_prop[i] = max_proliferation_rate;
         }
-    } else {
-        float xmax = -10000.0f;
-        for (int i = 0; i < n0; i++) {
-            if (limb.h_X[i].x > xmax) xmax = limb.h_X[i].x;
-        }
-        for (int i = 0; i < n0; i++) {
-            if (limb.h_X[i].x < 0)
-                prolif_rate.h_prop[i] = 0;
-            else
-                prolif_rate.h_prop[i] = min_proliferation_rate +
-                                        pow((limb.h_X[i].x / xmax), 1) *
-                                            max_proliferation_rate * 0.5f;
-        }
-    }
+    // } else {
+    //     float xmax = -10000.0f;
+    //     for (int i = 0; i < n0; i++) {
+    //         if (limb.h_X[i].x > xmax) xmax = limb.h_X[i].x;
+    //     }
+    //     for (int i = 0; i < n0; i++) {
+    //         if (limb.h_X[i].x < 0)
+    //             prolif_rate.h_prop[i] = 0;
+    //         else
+    //             prolif_rate.h_prop[i] = min_proliferation_rate +
+    //                                     pow((limb.h_X[i].x / xmax), 1) *
+    //                                         max_proliferation_rate * 0.5f;
+    //     }
+    // }
     prolif_rate.copy_to_device();
 
     // State for proliferations
