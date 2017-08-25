@@ -20,11 +20,6 @@
 #include "../include/solvers.cuh"
 #include "../include/vtk.cuh"
 
-
-// const auto r_max_epi = 1.0;
-// const auto r_max_mes = 1.0;
-// const auto r_min_homotypic = 0.6;
-// const auto r_min_heterotypic = 0.8;
 const auto r_max = 1.0f;
 const auto skip_steps = 10;
 const auto lambda = 0.01;
@@ -39,14 +34,12 @@ const auto m_u = 0.25;  // degradation rates
 const auto m_v = 0.75;
 const auto s_u = 0.05;
 
-// const auto r_min_min = min(r_min_homotypic, r_min_heterotypic);
-// const auto r_max_max = max(r_max_epi, r_max_mes);
-const auto dt = 0.2f;  // 0.05 * r_min_min * r_min_min / D_v;
+const auto dt = 0.2f;
 
-const auto epi_proliferation_rate = 0.2;  // 0.02
+const auto epi_proliferation_rate = 0.2;
 const auto mes_proliferation_rate = 0.1;
 
-// threshold conc. of v that allows mesench. cells to divide
+// Threshold conc. of v that allows mesench. cells to divide
 const auto prolif_threshold = 160.0f;
 
 const auto n_0 = 500;
@@ -77,7 +70,6 @@ __device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j)
     dF.y = r.y * F / dist;
     dF.z = r.z * F / dist;
 
-    // Diffusion
     if (d_type[i] == epithelium && d_type[j] == epithelium)
         dF += rigidity_force(Xi, r, dist) * 0.2;
 
@@ -109,20 +101,8 @@ __device__ Cell epi_turing_mes_noturing(
         return dF;
     }
 
-    // float r_max;
-    // float r_min;
-    // if (d_type[i] == d_type[j]) {
-    //     r_min = r_min_homotypic;
-    //     if (d_type[i] == epithelium) r_max = r_max_epi;
-    //     else r_max = r_max_mes;
-    // } else {
-    //     r_min = r_min_heterotypic;
-    //     r_max = r_max_mes;
-    // }
-
     if (dist > r_max) return dF;
 
-    // auto F = 2 * (r_min - dist) * (r_max - dist) + powf(r_max - dist, 2);
     float F;
     if (d_type[i] == d_type[j]) {
         F = fmaxf(0.7 - dist, 0) * 2 - fmaxf(dist - 0.8, 0);
@@ -184,7 +164,7 @@ __global__ void proliferate(
             if (d_mes_nbs[i] <= 0) return;
 
             auto r = curand_uniform(&d_state[i]);
-            if (r > epi_proliferation_rate) return;  // 2.5
+            if (r > epi_proliferation_rate) return;
         }
     }
 
@@ -193,8 +173,8 @@ __global__ void proliferate(
     auto theta = curand_uniform(&d_state[i]) * 2 * M_PI;
     d_X[n].x = d_X[i].x + mean_distance / 4 * sinf(theta) * cosf(phi);
     d_X[n].y = d_X[i].y + mean_distance / 4 * sinf(theta) * sinf(phi);
-    d_X[n].z = d_X[i].z + mean_distance / 4 * cosf(theta);
     d_X[n].u = d_X[i].u / 2;
+    d_X[n].z = d_X[i].z + mean_distance / 4 * cosf(theta);
     d_X[i].u = d_X[i].u / 2;
     d_X[n].v = d_X[i].v / 2;
     d_X[i].v = d_X[i].v / 2;
@@ -229,7 +209,6 @@ int main(int argc, char const* argv[])
         n_max, seed, d_state);
 
     // Relax
-
     for (auto time_step = 0; time_step <= 500; time_step++) {
         thrust::fill(
             thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
@@ -256,28 +235,14 @@ int main(int argc, char const* argv[])
     type.copy_to_device();
 
     // Relax again to let epithelium stabilise
-    // Vtk_output relax_output("branching_relax");
     for (auto time_step = 0; time_step <= 500; time_step++) {
-        // bolls.copy_to_host();
-        // n_epi_nbs.copy_to_host();
-        // type.copy_to_host();
-
         proliferate<<<(bolls.get_d_n() + 128 - 1) / 128, 128>>>(
             0.75, bolls.d_X, bolls.d_n, d_state);
-
         thrust::fill(thrust::device, n_mes_nbs.d_prop,
             n_mes_nbs.d_prop + bolls.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop,
             n_epi_nbs.d_prop + bolls.get_d_n(), 0);
-
         bolls.take_step<relaxation_force>(dt);
-
-        // relax_output.write_positions(bolls);
-        // relax_output.write_polarity(bolls);
-        // relax_output.write_field(bolls, "u", &Cell::u);
-        // relax_output.write_field(bolls, "v", &Cell::v);
-        // relax_output.write_property(type);
-        // relax_output.write_property(n_epi_nbs);
     }
 
     // Integrate positions
