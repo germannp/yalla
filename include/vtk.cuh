@@ -192,7 +192,11 @@ public:
     // Read polarity of Pt, see polarity.cuh
     template<typename Pt, int n_max, template<typename, int> class Solver>
     void read_polarity(Solution<Pt, n_max, Solver>& bolls);
-    // Read not integrated property, see property.cuh
+    // Read further field of Pt
+    template<typename Pt, int n_max, template<typename, int> class Solver>
+    void read_field(Solution<Pt, n_max, Solver>& bolls,
+        const char* data_name = "w", float Pt::*field = &Pt::w);
+    // Read property, see property.cuh
     template<int n_max, typename Prop>
     void read_property(Property<n_max, Prop>& property, std::string prop_name);
     int n_bolls;
@@ -318,6 +322,26 @@ void Vtk_input::read_polarity(Solution<Pt, n_max, Solver>& bolls)
             bolls.h_X[i].phi = atan2(y, x);
             bolls.h_X[i].theta = acos(z);  // The normals are unit vectors
         }
+    }
+}
+
+template<typename Pt, int n_max, template<typename, int> class Solver>
+void Vtk_input::read_field(
+    Solution<Pt, n_max, Solver>& bolls, const char* data_name, float Pt::*field)
+{
+    std::ifstream input_file(file_name);
+    assert(input_file.is_open());
+
+    input_file.seekg(find_entry("SCALARS", data_name));
+
+    std::string line;
+    std::vector<std::string> items;
+
+    getline(input_file, line);  // LOOKUP_TABLE line
+
+    for (int i = 0; i < n_bolls; i++) {
+        getline(input_file, line);
+        std::istringstream(line) >> bolls.h_X[i].*field;
     }
 }
 
