@@ -79,23 +79,24 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
     if (d_type[i] >= epithelium && d_type[j] >= epithelium)
         dF += rigidity_force(Xi, r, dist) * 0.10f;
 
-    if (Xi.x < 0) dF.x = 0.f;
-
-    if (Xi.w<0.f) dF.w=0.f;
-    if (Xi.f<0.f) dF.f=0.f;
 
     if (d_type[j] >= epithelium)
         atomicAdd(&d_epi_nbs[i], 1);
     else
         atomicAdd(&d_mes_nbs[i], 1);
 
+    if (Xi.x < 0) dF.x = 0.f;
+    if (Xi.x < 1.f) dF.x = 0.f;
+
+    if (Xi.w<0.f) dF.w=0.f;
+    if (Xi.f<0.f) dF.f=0.f;
     return dF;
 }
 
 __device__ float wall_friction(Cell Xi, Cell r, float dist, int i, int j)
 {
-    if (Xi.x < 0) return 0;
-    if (Xi.x < 0.5f) return 0;
+    // if (Xi.x < 0) return 0;
+    if (Xi.x < 1.0f) return 0;
     return 1;
 }
 
@@ -155,7 +156,7 @@ __global__ void update_protrusions(const int n_cells,
     auto noise = curand_uniform(&d_state[i]);
 
     auto high_f = (d_X[a].f + d_X[b].f) > 0.2f;
-    auto distal = (d_X[a].f + d_X[b].f) > 0.05f;
+    auto distal = (d_X[a].f + d_X[b].f) > 0.025f; //0.05
     bool more_along_w;
     bool normal_to_f_gradient;
     bool normal_to_w;
@@ -199,6 +200,12 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
             break;
         }
         // case epithelium: {
+        //     // if (d_epi_nbs[i] > d_mes_nbs[i]) return;
+        //     if (d_epi_nbs[i] > 7) return;
+        //     if (d_mes_nbs[i] <= 0) return;
+        //     auto r = curand_uniform(&d_state[i]);
+        //     if (r > 2.5f * rate) return;  // 2.5
+        // }
         default: {
             // if (d_epi_nbs[i] > d_mes_nbs[i]) return;
             if (d_epi_nbs[i] > 7) return;
