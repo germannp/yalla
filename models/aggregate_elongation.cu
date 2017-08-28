@@ -67,20 +67,18 @@ __global__ void update_protrusions(const Grid<n_cells>* __restrict__ d_grid,
     if (i >= n_cells * prots_per_cell) return;
 
     auto j = static_cast<int>((i + 0.5) / prots_per_cell);
-    auto rand_nb_cube =
+    auto rnd_cube =
         d_grid->d_cube_id[j] +
-        d_nhood[min(
-            static_cast<int>(curand_uniform(&d_state[i]) * 27), 26)];
+        d_nhood[min(static_cast<int>(curand_uniform(&d_state[i]) * 27), 26)];
     auto cells_in_cube =
-        d_grid->d_cube_end[rand_nb_cube] - d_grid->d_cube_start[rand_nb_cube];
+        d_grid->d_cube_end[rnd_cube] - d_grid->d_cube_start[rnd_cube];
     if (cells_in_cube < 1) return;
 
+    auto rnd_cell =
+        min(static_cast<int>(curand_uniform(&d_state[i]) * cells_in_cube),
+            cells_in_cube - 1);
     auto a = d_grid->d_point_id[j];
-    auto b =
-        d_grid->d_point_id[d_grid->d_cube_start[rand_nb_cube] +
-                           min(static_cast<int>(
-                                   curand_uniform(&d_state[i]) * cells_in_cube),
-                               cells_in_cube - 1)];
+    auto b = d_grid->d_point_id[d_grid->d_cube_start[rnd_cube] + rnd_cell];
     D_ASSERT(a >= 0);
     D_ASSERT(a < n_cells);
     D_ASSERT(b >= 0);
