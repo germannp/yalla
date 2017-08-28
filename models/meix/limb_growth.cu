@@ -51,8 +51,8 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
         // D_ASSERT(Xi.w >= 0);
         dF.w = -0.01 * (d_type[i] == mesenchyme) * Xi.w;
         dF.f = -0.01 * (d_type[i] == mesenchyme) * Xi.f;
-        if (Xi.w<0.f) dF.w=0.f;
-        if (Xi.f<0.f) dF.f=0.f;
+        if (Xi.w < 0.f) dF.w = 0.f;
+        if (Xi.f < 0.f) dF.f = 0.f;
         return dF;
     }
 
@@ -79,24 +79,41 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
     if (d_type[i] >= epithelium && d_type[j] >= epithelium)
         dF += rigidity_force(Xi, r, dist) * 0.10f;
 
-    if (Xi.x < 0) dF.x = 0.f;
-
-    if (Xi.w<0.f) dF.w=0.f;
-    if (Xi.f<0.f) dF.f=0.f;
 
     if (d_type[j] >= epithelium)
         atomicAdd(&d_epi_nbs[i], 1);
     else
         atomicAdd(&d_mes_nbs[i], 1);
 
+    if (Xi.x < 0) dF.x = 0.f;
+    if (Xi.x < 1.f) dF.x = 0.f;
+
+    if (Xi.w<0.f) dF.w=0.f;
+    if (Xi.f<0.f) dF.f=0.f;
     return dF;
 }
 
 __device__ float wall_friction(Cell Xi, Cell r, float dist, int i, int j)
 {
-    if (Xi.x < 0) return 0;
-    if (Xi.x < 0.5f) return 0;
+    // if (Xi.x < 0) return 0;
+    if (Xi.x < 1.0f) return 0;
     return 1;
+}
+
+__device__ void link_force(const Cell* __restrict__ d_X, const int a,
+    const int b, const float strength, Cell* d_dX)
+{
+    if(d_X[a].f + d_X[b].f> 0.2f) return;
+
+    auto r = d_X[a] - d_X[b];
+    auto dist = norm3df(r.x, r.y, r.z);
+
+    atomicAdd(&d_dX[a].x, -strength * r.x / dist);
+    atomicAdd(&d_dX[a].y, -strength * r.y / dist);
+    atomicAdd(&d_dX[a].z, -strength * r.z / dist);
+    atomicAdd(&d_dX[b].x, strength * r.x / dist);
+    atomicAdd(&d_dX[b].y, strength * r.y / dist);
+    atomicAdd(&d_dX[b].z, strength * r.z / dist);
 }
 
 __global__ void update_protrusions(const int n_cells,
@@ -137,15 +154,28 @@ __global__ void update_protrusions(const int n_cells,
     auto old_r = d_X[link->a] - d_X[link->b];
     auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
     auto noise = curand_uniform(&d_state[i]);
-    auto high_f = (d_X[a].f + d_X[b].f) > 0.2;//0.05;
+
+    auto high_f = (d_X[a].f + d_X[b].f) > 0.2f;
+    auto distal = (d_X[a].f + d_X[b].f) > 0.025f; //0.05
+    bool more_along_w;
+    bool normal_to_f_gradient;
+    bool normal_to_w;
+    if(distal) {
+        more_along_w = false;
+        normal_to_f_gradient =
+            fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
+        normal_to_w =
+            fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
+        // normal_to_w = true;
+    } else {
+        normal_to_f_gradient = false;
+        normal_to_w = false;
+        more_along_w =
+            fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
+    }
     // auto high_f = false;
-    // auto more_along_w =
-    //     fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
-    auto more_along_w = false;
-    auto normal_to_f_gradient =
-        fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
-    // auto normal_to_f_gradient = false;
-    if (not_initialized or more_along_w or high_f or normal_to_f_gradient) {
+    if (not_initialized or more_along_w or high_f or (normal_to_f_gradient and
+        normal_to_w)) {
         link->a = a;
         link->b = b;
     }
@@ -159,7 +189,9 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
     if (i >= *d_n_cells * (1 - max_rate))
         return;  // Dividing new cells is problematic!
 
-    float rate = d_prolif_rate[i];
+    // float rate = d_prolif_rate[i] * d_X[i].f;
+    float rate = d_prolif_rate[i] - d_prolif_rate[i]*(1.f - 0.25f)*(1.f-d_X[i].f);
+
 
     switch (d_type[i]) {
         case mesenchyme: {
@@ -168,6 +200,12 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
             break;
         }
         // case epithelium: {
+        //     // if (d_epi_nbs[i] > d_mes_nbs[i]) return;
+        //     if (d_epi_nbs[i] > 7) return;
+        //     if (d_mes_nbs[i] <= 0) return;
+        //     auto r = curand_uniform(&d_state[i]);
+        //     if (r > 2.5f * rate) return;  // 2.5
+        // }
         default: {
             // if (d_epi_nbs[i] > d_mes_nbs[i]) return;
             if (d_epi_nbs[i] > 7) return;
@@ -175,9 +213,6 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
             auto r = curand_uniform(&d_state[i]);
             if (r > 2.5f * rate) return;  // 2.5
         }
-        // case aer: {
-        //     return;
-        // }
     }
 
     auto n = atomicAdd(d_n_cells, 1);
@@ -273,7 +308,7 @@ int main(int argc, char const* argv[])
     Links<static_cast<int>(n_max * prots_per_cell)> protrusions(
         protrusion_strength, n0 * prots_per_cell);
     auto intercalation = std::bind(
-        link_forces_w_n_init<static_cast<int>(n_max * prots_per_cell), Cell>,
+        link_forces_w_n_init<static_cast<int>(n_max * prots_per_cell), Cell, link_force>,
         protrusions, std::placeholders::_1, std::placeholders::_2);
 
     Grid<n_max> grid;
@@ -282,25 +317,26 @@ int main(int argc, char const* argv[])
     Property<n_max, float> prolif_rate("prolif_rate");
     cudaMemcpyToSymbol(
         d_prolif_rate, &prolif_rate.d_prop, sizeof(d_prolif_rate));
+
     float min_proliferation_rate = 0.5f * max_proliferation_rate;
-    if (prolif_dist == 0) {
+    // if (prolif_dist == 0) {
         for (int i = 0; i < n0; i++) {
             prolif_rate.h_prop[i] = max_proliferation_rate;
         }
-    } else {
-        float xmax = -10000.0f;
-        for (int i = 0; i < n0; i++) {
-            if (limb.h_X[i].x > xmax) xmax = limb.h_X[i].x;
-        }
-        for (int i = 0; i < n0; i++) {
-            if (limb.h_X[i].x < 0)
-                prolif_rate.h_prop[i] = 0;
-            else
-                prolif_rate.h_prop[i] = min_proliferation_rate +
-                                        pow((limb.h_X[i].x / xmax), 1) *
-                                            max_proliferation_rate * 0.5f;
-        }
-    }
+    // } else {
+    //     float xmax = -10000.0f;
+    //     for (int i = 0; i < n0; i++) {
+    //         if (limb.h_X[i].x > xmax) xmax = limb.h_X[i].x;
+    //     }
+    //     for (int i = 0; i < n0; i++) {
+    //         if (limb.h_X[i].x < 0)
+    //             prolif_rate.h_prop[i] = 0;
+    //         else
+    //             prolif_rate.h_prop[i] = min_proliferation_rate +
+    //                                     pow((limb.h_X[i].x / xmax), 1) *
+    //                                         max_proliferation_rate * 0.5f;
+    //     }
+    // }
     prolif_rate.copy_to_device();
 
     // State for proliferations
