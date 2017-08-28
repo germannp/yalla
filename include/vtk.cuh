@@ -186,6 +186,7 @@ void Vtk_output::write_property(Property<n_max, Prop>& property)
 class Vtk_input {
 public:
     Vtk_input(std::string filename);
+    std::streampos find_entry (std::string, std::string);
     template<typename Pt, int n_max, template<typename, int> class Solver>
     void read_positions(Solution<Pt, n_max, Solver>& bolls);
     // Read polarity of Pt, see polarity.cuh
@@ -193,11 +194,10 @@ public:
     void read_polarity(Solution<Pt, n_max, Solver>& bolls);
     // Read not integrated property, see property.cuh
     template<int n_max, typename Prop>
-    void read_property(Property<n_max, Prop>& property);
+    void read_property(Property<n_max, Prop>& property, std::string prop_name);
     int n_bolls;
 
 protected:
-    std::streampos bookmark;
     std::string file_name;
 };
 
@@ -237,9 +237,35 @@ Vtk_input::Vtk_input(std::string filename)
     split(line, ' ', std::back_inserter(items));
     n_bolls = stoi(items[1]);
     items.clear();
+}
 
-    // Save the read position for later read functions
-    bookmark = input_file.tellg();
+std::streampos Vtk_input::find_entry(std::string keyword1, std::string keyword2)
+{
+    std::ifstream input_file(file_name);
+    assert(input_file.is_open());
+
+    input_file.seekg(0); //reset the bookmark to the beginning of file
+
+    std::string word1 = "";
+    std::string word2 = "";
+    std::string line;
+    std::vector<std::string> items;
+
+    getline(input_file, line); // these are the header lines,
+    getline(input_file, line); // we skip them to avoid false matches
+    getline(input_file, line);
+    getline(input_file, line);
+
+    while (word1 != keyword1 or word2 != keyword2) {
+        getline(input_file, line);
+        split(line, ' ', std::back_inserter(items));
+        if(items.size() > 1) {
+            word1 = items[0];
+            word2 = items[1];
+        }
+        items.clear();
+    }
+    return input_file.tellg();
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
@@ -249,8 +275,7 @@ void Vtk_input::read_positions(Solution<Pt, n_max, Solver>& bolls)
     assert(input_file.is_open());
 
     // Set the read position to the last line read
-    input_file.seekg(bookmark);
-
+    input_file.seekg(find_entry("POINTS", std::to_string(n_bolls)));
     std::string line;
     std::vector<std::string> items;
 
@@ -264,14 +289,6 @@ void Vtk_input::read_positions(Solution<Pt, n_max, Solver>& bolls)
         items.clear();
     }
 
-    getline(input_file, line);  // Blank line
-    getline(input_file, line);
-    split(line, ' ', std::back_inserter(items));
-
-    // Skip redundant list of vertices
-    for (int i = 0; i < n_bolls; i++) getline(input_file, line);
-
-    bookmark = input_file.tellg();
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
@@ -280,18 +297,10 @@ void Vtk_input::read_polarity(Solution<Pt, n_max, Solver>& bolls)
     std::ifstream input_file(file_name);
     assert(input_file.is_open());
 
-    input_file.seekg(bookmark);
+    input_file.seekg(find_entry("NORMALS", "polarity"));
 
     std::string line;
     std::vector<std::string> items;
-
-    getline(input_file, line);  // Blank line after positions data
-    getline(input_file, line);
-    split(line, ' ', std::back_inserter(items));
-    items.clear();
-    getline(input_file, line);
-    split(line, ' ', std::back_inserter(items));
-    items.clear();
 
     // Read normals
     for (auto i = 0; i < n_bolls; i++) {
@@ -310,32 +319,23 @@ void Vtk_input::read_polarity(Solution<Pt, n_max, Solver>& bolls)
             bolls.h_X[i].theta = acos(z);  // The normals are unit vectors
         }
     }
-
-    bookmark = input_file.tellg();
 }
 
 template<int n_max, typename Prop>
-void Vtk_input::read_property(Property<n_max, Prop>& property)
+void Vtk_input::read_property(Property<n_max, Prop>& property, std::string prop_name)
 {
     std::ifstream input_file(file_name);
     assert(input_file.is_open());
 
-    input_file.seekg(bookmark);
+    input_file.seekg(find_entry("SCALARS", prop_name));
 
     std::string line;
     std::vector<std::string> items;
-    getline(input_file, line);  // Property header line
-    split(line, ' ', std::back_inserter(items));
-    items.clear();
 
-    getline(input_file, line);  // Lookup table
-    split(line, ' ', std::back_inserter(items));
-    items.clear();
+    getline(input_file, line);  // LOOKUP_TABLE line
 
     for (int i = 0; i < n_bolls; i++) {
         getline(input_file, line);
         std::istringstream(line) >> property.h_prop[i];
     }
-
-    bookmark = input_file.tellg();
 }
