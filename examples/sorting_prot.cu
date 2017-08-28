@@ -37,15 +37,15 @@ __global__ void update_protrusions(
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= n_protrusions) return;
 
-    auto r = curand_uniform(&d_state[i]);
+    auto rnd = curand_uniform(&d_state[i]);
     auto j = d_link[i].a;
     auto k = d_link[i].b;
     if ((j < n_cells / 2) and (k < n_cells / 2)) {
-        if (r > 0.05) return;
+        if (rnd > 0.05) return;
     } else if ((j > n_cells / 2) and (k > n_cells / 2)) {
-        if (r > 0.25) return;
+        if (rnd > 0.25) return;
     } else {
-        if (r > 0.75) return;
+        if (rnd > 0.75) return;
     }
 
     auto new_j = min(
@@ -54,8 +54,8 @@ __global__ void update_protrusions(
         static_cast<int>(curand_uniform(&d_state[i]) * n_cells), n_cells - 1);
     if (new_j == new_k) return;
 
-    auto dx = d_X[new_j] - d_X[new_k];
-    auto dist = norm3df(dx.x, dx.y, dx.z);
+    auto r = d_X[new_j] - d_X[new_k];
+    auto dist = norm3df(r.x, r.y, r.z);
     if (dist > 2) return;
 
     d_link[i].a = new_j;

@@ -130,8 +130,8 @@ __global__ void proliferate(
 
     switch (d_type[i]) {
         case mesenchyme: {
-            auto r = curand_uniform(&d_state[i]);
-            if (r > proliferation_rate) return;
+            auto rnd = curand_uniform(&d_state[i]);
+            if (rnd > proliferation_rate) return;
             break;
         }
         default:

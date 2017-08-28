@@ -41,9 +41,9 @@ __global__ void update_protrusions(
         static_cast<int>(curand_uniform(&d_state[i]) * n_cells), n_cells - 1);
     if (j == k) return;
 
-    auto r = d_X[j] - d_X[k];
-    auto dist = norm3df(r.x, r.y, r.z);
-    if ((fabs(r.x / dist) < 0.2) and (dist < 2)) {
+    r = d_X[j] - d_X[k];
+    dist = norm3df(r.x, r.y, r.z);
+    if ((fabs(r.x / dist) < 0.2) and (1 < dist < 2)) {
         d_link[i].a = j;
         d_link[i].b = k;
     }
