@@ -149,12 +149,12 @@ __global__ void proliferate(
     if (i >= *d_n_cells * (1 - epi_proliferation_rate))
         return;  // Dividing new cells is problematic!
 
+    auto rnd = curand_uniform(&d_state[i]);
     switch (d_type[i]) {
         case mesenchyme: {
             if (d_X[i].v < prolif_threshold) return;
 
-            auto r = curand_uniform(&d_state[i]);
-            if (r > mes_proliferation_rate) return;
+            if (rnd > mes_proliferation_rate) return;
 
             break;
         }
@@ -163,8 +163,7 @@ __global__ void proliferate(
 
             if (d_mes_nbs[i] <= 0) return;
 
-            auto r = curand_uniform(&d_state[i]);
-            if (r > epi_proliferation_rate) return;
+            if (rnd > epi_proliferation_rate) return;
         }
     }
 

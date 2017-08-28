@@ -40,8 +40,8 @@ __global__ void update_protrusions(
 
     auto a = static_cast<int>((i + 0.5) / prots_per_cell);
     auto b = d_link[i].b;
-    auto dx = d_X[a] - d_X[b];
-    auto dist = norm3df(dx.x, dx.y, dx.z);
+    auto r = d_X[a] - d_X[b];
+    auto dist = norm3df(r.x, r.y, r.z);
     if ((dist > r_protrusion) or (dist < 1)) {
         d_link[i].a = a;
         d_link[i].b = a;
@@ -52,8 +52,8 @@ __global__ void update_protrusions(
         static_cast<int>(n_cells * type_ratio - 1));
     if (a == new_b) return;
 
-    dx = d_X[a] - d_X[new_b];
-    dist = norm3df(dx.x, dx.y, dx.z);
+    r = d_X[a] - d_X[new_b];
+    dist = norm3df(r.x, r.y, r.z);
     if (dist > r_protrusion) return;
 
     d_link[i].a = a;
