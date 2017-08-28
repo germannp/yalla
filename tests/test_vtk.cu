@@ -4,14 +4,14 @@
 #include "../include/vtk.cuh"
 #include "minunit.cuh"
 
-MAKE_PT(Cell, w, theta, phi);
+MAKE_PT(Po_cell4, w, theta, phi);
 
 const char* test_io()
 {
     // Test writing & reading Solution
     const auto n_cells = 100;
-    Solution<Cell, n_cells, Tile_solver> bolls_to_write;
-    Solution<Cell, n_cells, Tile_solver> bolls_to_read;
+    Solution<Po_cell4, n_cells, Tile_solver> bolls_to_write;
+    Solution<Po_cell4, n_cells, Tile_solver> bolls_to_read;
 
     for (auto i = 0; i < n_cells; i++) {
         bolls_to_write.h_X[i].x = rand() / (RAND_MAX + 1.);
@@ -25,9 +25,9 @@ const char* test_io()
     Vtk_output output("test_vtk");
     output.write_positions(bolls_to_write);
     output.write_polarity(bolls_to_write);
-    output.write_field(bolls_to_write, "w", &Cell::w);
+    output.write_field(bolls_to_write, "w", &Po_cell4::w);
     Vtk_input input("output/test_vtk_1.vtk");
-    input.read_field(bolls_to_read, "w", &Cell::w);
+    input.read_field(bolls_to_read, "w", &Po_cell4::w);
     input.read_polarity(bolls_to_read);
     input.read_positions(bolls_to_read);
 
