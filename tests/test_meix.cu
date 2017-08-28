@@ -1,10 +1,11 @@
-
 #include <assert.h>
 #include <curand_kernel.h>
+#include <time.h>
 #include <iostream>
 #include <list>
 #include <string>
 #include <vector>
+
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
 #include "../include/links.cuh"
@@ -12,7 +13,6 @@
 #include "../include/property.cuh"
 #include "../include/solvers.cuh"
 #include "../include/vtk.cuh"
-
 #include "../models/meix/meix.h"
 #include "minunit.cuh"
 
@@ -28,11 +28,9 @@ enum Cell_types { mesenchyme, epithelium };
 
 __device__ Cell_types* d_type;
 
-MAKE_PT(Cell, theta, phi);
-
-__device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j)
+__device__ Po_cell relaxation_force(Po_cell Xi, Po_cell r, float dist, int i, int j)
 {
-    Cell dF{0};
+    Po_cell dF{0};
 
     if (i == j) return dF;
 
@@ -58,7 +56,7 @@ __device__ Cell relaxation_force(Cell Xi, Cell r, float dist, int i, int j)
 }
 
 __global__ void update_protrusions(const int n_cells,
-    const Grid<n_max>* __restrict__ d_grid, const Cell* __restrict d_X,
+    const Grid<n_max>* __restrict__ d_grid, const Po_cell* __restrict d_X,
     curandState* d_state, Link* d_link)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -99,7 +97,7 @@ __global__ void update_protrusions(const int n_cells,
     }
 }
 
-__device__ float relaxation_friction(Cell Xi, Cell r, float dist, int i, int j)
+__device__ float relaxation_friction(Po_cell Xi, Po_cell r, float dist, int i, int j)
 {
     return 0;
 }
@@ -185,7 +183,7 @@ int main(int argc, char const* argv[])
     float boll_vol = 4.f / 3.f * M_PI * pow(r_boll, 3);
     int n_bolls_cube = cube_vol / boll_vol;
 
-    Solution<Cell, n_max, Grid_solver> cube(n_bolls_cube);
+    Solution<Po_cell, n_max, Grid_solver> cube(n_bolls_cube);
 
     // Fill the cube with bolls
     uniform_cubic_rectangle(
@@ -202,7 +200,7 @@ int main(int argc, char const* argv[])
     Links<static_cast<int>(n_max * prots_per_cell)> protrusions(
         protrusion_strength, n_bolls_cube * prots_per_cell);
     auto intercalation =
-    std::bind(link_forces<static_cast<int>(n_max * prots_per_cell), Cell>,
+    std::bind(link_forces<static_cast<int>(n_max * prots_per_cell), Po_cell>,
         protrusions, std::placeholders::_1, std::placeholders::_2);
 
     Grid<n_max> grid;
@@ -210,7 +208,8 @@ int main(int argc, char const* argv[])
     // State for links
     curandState* d_state;
     cudaMalloc(&d_state, n_max * sizeof(curandState));
-    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(d_state, n_max);
+    auto seed = time(NULL);
+    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(n_max, seed, d_state);
 
     for (auto time_step = 0; time_step <= 1000; time_step++)
         cube.take_step<relaxation_force, relaxation_friction>(dt);
@@ -299,7 +298,7 @@ int main(int argc, char const* argv[])
               << n_bolls_epi << " bolls_in_total " << n_bolls_total
               << std::endl;
 
-    Solution<Cell, n_max, Grid_solver> bolls(n_bolls_total);
+    Solution<Po_cell, n_max, Grid_solver> bolls(n_bolls_total);
 
     for (int i = 0; i < n_bolls_mes; i++) {
         bolls.h_X[i].x = mes_cells[i].x;

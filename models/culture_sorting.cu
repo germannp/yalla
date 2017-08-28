@@ -12,8 +12,8 @@
 
 const auto type_ratio = 0.8f;
 const auto n_cells = 1000u;
-const auto prots_per_cell = 3;
-const auto r_protrusion = 1.5;
+const auto prots_per_cell = 5;
+const auto r_protrusion = 2;
 const auto n_time_steps = 300u;
 const auto dt = 0.1;
 const auto n_protrusions = static_cast<int>(n_cells * type_ratio * prots_per_cell);
@@ -26,10 +26,7 @@ __device__ float3 clipped_cubic(float3 Xi, float3 r, float dist, int i, int j)
 
     if (dist > 1.0) return dF;
 
-    auto adhesive = (i < n_cells * type_ratio) and (j < n_cells * type_ratio);
-    auto repulsion = 2 + 2 * adhesive;
-
-    auto F = fmaxf(0.7 - dist, 0) * repulsion - fmaxf(dist - 0.8, 0);
+    auto F = fmaxf(0.7 - dist, 0) * 2 - fmaxf(dist - 0.8, 0);
     dF = r * F / dist;
     return dF;
 }
@@ -45,7 +42,7 @@ __global__ void update_protrusions(
     auto b = d_link[i].b;
     auto dx = d_X[a] - d_X[b];
     auto dist = norm3df(dx.x, dx.y, dx.z);
-    if (dist > r_protrusion) {
+    if ((dist > r_protrusion) or (dist < 1)) {
         d_link[i].a = a;
         d_link[i].b = a;
     }
@@ -69,7 +66,7 @@ int main(int argc, char const* argv[])
     // Prepare initial state
     Solution<float3, n_cells, Grid_solver> bolls;
     uniform_circle(0.5, bolls);
-    Links<n_protrusions> protrusions(0.5);
+    Links<n_protrusions> protrusions(0.15);
     auto prot_forces = std::bind(link_forces<n_protrusions>, protrusions,
         std::placeholders::_1, std::placeholders::_2);
     Property<n_cells> type;

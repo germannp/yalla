@@ -2,6 +2,7 @@
 #include <curand_kernel.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
+#include <time.h>
 
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
@@ -102,7 +103,9 @@ int main(int argc, char const* argv[])
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
     curandState* d_state;
     cudaMalloc(&d_state, n_max * sizeof(curandState));
-    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(d_state, n_max);
+    auto seed = time(NULL);
+    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(
+        n_max, seed, d_state);
 
     // Relax
     for (auto time_step = 0; time_step <= 100; time_step++) {

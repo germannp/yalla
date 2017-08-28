@@ -8,11 +8,13 @@
 // argv[4]=proliferation rate distr. (0=uniform, 1=PD gradient)
 
 #include <curand_kernel.h>
+#include <time.h>
 #include <iostream>
 #include <list>
 #include <sstream>
 #include <string>
 #include <vector>
+
 #include "../../include/dtypes.cuh"
 #include "../../include/inits.cuh"
 #include "../../include/links.cuh"
@@ -333,7 +335,9 @@ int main(int argc, char const* argv[])
     // State for proliferations
     curandState* d_state;
     cudaMalloc(&d_state, n_max * sizeof(curandState));
-    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(d_state, n_max);
+    auto seed = time(NULL);
+    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(
+        n_max, seed, d_state);
 
     int skip_step = 1;  // n_time_steps/10;
     std::cout << "n_time_steps " << n_time_steps << " write interval "

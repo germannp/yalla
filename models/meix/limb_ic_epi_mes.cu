@@ -13,10 +13,12 @@
 // argv[8]=AER flag (activate in limb buds)
 
 #include <curand_kernel.h>
+#include <time.h>
 #include <iostream>
 #include <list>
 #include <string>
 #include <vector>
+
 #include "../../include/dtypes.cuh"
 #include "../../include/inits.cuh"
 #include "../../include/links.cuh"
@@ -364,7 +366,9 @@ int main(int argc, char const* argv[])
     // State for links
     curandState* d_state;
     cudaMalloc(&d_state, n_max * sizeof(curandState));
-    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(d_state, n_max);
+    auto seed = time(NULL);
+    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(
+        n_max, seed, d_state);
 
     // Relaxation of the cube
     int skip_step = 1;  // relax_time/10;

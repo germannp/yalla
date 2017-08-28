@@ -3,13 +3,14 @@
 
 #include <assert.h>
 #include <curand_kernel.h>
+#include <time.h>
 #include <functional>
 
 
-__global__ void setup_rand_states(curandState* d_state, int n_states)
+__global__ void setup_rand_states(int n_states, int seed, curandState* d_state)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < n_states) curand_init(1337, i, 0, &d_state[i]);
+    if (i < n_states) curand_init(seed, i, 0, &d_state[i]);
 }
 
 
@@ -38,7 +39,9 @@ public:
         *h_n = n_0;
         set_d_n(n_0);
         reset();
-        setup_rand_states<<<(n_links + 32 - 1) / 32, 32>>>(d_state, n_links);
+        auto seed = time(NULL);
+        setup_rand_states<<<(n_links + 32 - 1) / 32, 32>>>(
+            n_links, seed, d_state);
         strength = s;
     }
     void set_d_n(int n)
