@@ -152,33 +152,9 @@ __device__ float relaxation_friction(Cell Xi, Cell r, float dist, int i, int j)
 
 __device__ float freeze_friction(Cell Xi, Cell r, float dist, int i, int j)
 {
+    if (i == j) return 0;
     if (d_freeze[i] == 1) return 0;
     return 1;
-}
-
-__device__ float wall_friction(Cell Xi, Cell r, float dist, int i, int j)
-{
-    if (Xi.x < 0) return 0;
-    return 1;
-}
-
-// Distribute bolls uniformly random in rectangular cube
-template<typename Pt, int n_max, template<typename, int> class Solver>
-void uniform_cubic_rectangle(float xmin, float ymin, float zmin, float dx,
-    float dy, float dz, Solution<Pt, n_max, Solver>& bolls,
-    unsigned int n_0 = 0)
-{
-    assert(n_0 < *bolls.h_n);
-
-    for (auto i = n_0; i < *bolls.h_n; i++) {
-        bolls.h_X[i].x = xmin + dx * (rand() / (RAND_MAX + 1.));
-        bolls.h_X[i].y = ymin + dy * (rand() / (RAND_MAX + 1.));
-        bolls.h_X[i].z = zmin + dz * (rand() / (RAND_MAX + 1.));
-        bolls.h_X[i].phi = 0.0f;
-        bolls.h_X[i].theta = 0.0f;
-    }
-
-    bolls.copy_to_device();
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
