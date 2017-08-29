@@ -33,8 +33,9 @@ __device__ float friction_w_neighbour(Pt Xi, Pt r, float dist, int i, int j)
     return 0;
 }
 
+template<typename Pt>
 __device__ float friction_on_background(
-    float3 Xi, float3 r, float dist, int i, int j)
+    Pt Xi, Pt r, float dist, int i, int j)
 {
     return 0;
 }
