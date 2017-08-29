@@ -85,7 +85,6 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
     else
         atomicAdd(&d_mes_nbs[i], 1);
 
-    if (Xi.x < 0) dF.x = 0.f;
     if (Xi.x < 1.f) dF.x = 0.f;
 
     if (Xi.w<0.f) dF.w=0.f;
@@ -95,7 +94,7 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
 
 __device__ float wall_friction(Cell Xi, Cell r, float dist, int i, int j)
 {
-    // if (Xi.x < 0) return 0;
+    if (i == j) return 0;
     if (Xi.x < 1.0f) return 0;
     return 1;
 }
@@ -280,8 +279,8 @@ int main(int argc, char const* argv[])
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     Property<n_max, int> intype;
 
-    input.read_property(intype);  // we read it as an int, then we translate to
-                                  // enum "Cell_types"
+    input.read_property(intype, "cell_type");  // we read it as an int, then we translate to
+                                               // enum "Cell_types"
     for (int i = 0; i < n0; i++) {
         limb.h_X[i].w = 0.0f;
         limb.h_X[i].f = 0.0f;
