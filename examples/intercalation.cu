@@ -36,6 +36,13 @@ __global__ void update_protrusions(
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= n_cells * prots_per_cell) return;
 
+    auto r = d_X[d_link[i].a] - d_X[d_link[i].b];
+    auto dist = norm3df(r.x, r.y, r.z);
+    if ((dist < 1) or (dist > 2)) {
+        d_link[i].a = 0;
+        d_link[i].b = 0;
+    }
+
     auto j = static_cast<int>((i + 0.5) / prots_per_cell);
     auto k = min(
         static_cast<int>(curand_uniform(&d_state[i]) * n_cells), n_cells - 1);

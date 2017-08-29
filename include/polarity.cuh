@@ -59,9 +59,9 @@ __device__ Pt rigidity_force(Pt Xi, Pt r, float dist)
     float3 pj{sinf(Xj.theta) * cosf(Xj.phi), sinf(Xj.theta) * sinf(Xj.phi),
         cosf(Xj.theta)};
     auto prodj = pj.x * r.x + pj.y * r.y + pj.z * r.z;
-    dF.x -= prodj / powf(dist, 2) * pj.x + powf(prodj, 2) / powf(dist, 4) * r.x;
-    dF.y -= prodj / powf(dist, 2) * pj.y + powf(prodj, 2) / powf(dist, 4) * r.y;
-    dF.z -= prodj / powf(dist, 2) * pj.z + powf(prodj, 2) / powf(dist, 4) * r.z;
+    dF.x += -prodj / powf(dist, 2) * pj.x + powf(prodj, 2) / powf(dist, 4) * r.x;
+    dF.y += -prodj / powf(dist, 2) * pj.y + powf(prodj, 2) / powf(dist, 4) * r.y;
+    dF.z += -prodj / powf(dist, 2) * pj.z + powf(prodj, 2) / powf(dist, 4) * r.z;
 
     return dF;
 }
