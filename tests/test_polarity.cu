@@ -4,6 +4,23 @@
 #include "minunit.cuh"
 
 
+const char* test_pcp_force()
+{
+    Po_cell i{0.601, 0.305, 0.320, 0.209, 0.295};
+    Po_cell j{0.762, 0.403, 0.121, 0.340, 0.431};
+
+    auto dF = pcp_force(i, j);
+
+    MU_ASSERT("PCP force wrong in x", MU_ISCLOSE(dF.x, 0));
+    MU_ASSERT("PCP force wrong in y", MU_ISCLOSE(dF.y, 0));
+    MU_ASSERT("PCP force wrong in z", MU_ISCLOSE(dF.z, 0));
+    MU_ASSERT("PCP force wrong in theta", MU_ISCLOSE(dF.theta, 0.126));
+    MU_ASSERT("PCP force wrong in phi", MU_ISCLOSE(dF.phi, 0.215));
+
+    return NULL;
+}
+
+
 __device__ Po_cell pcp_force(Po_cell Xi, Po_cell r, float dist, int i, int j)
 {
     Po_cell dF{0};
@@ -38,6 +55,25 @@ const char* test_pcp()
 
     auto prod = pol_scalar_product(bolls.h_X[0], bolls.h_X[1]);
     MU_ASSERT("PCP not aligned", MU_ISCLOSE(fabs(prod), 1));
+
+    return NULL;
+}
+
+
+const char* test_rigidity_force()
+{
+    Po_cell i{0.935, 0.675, 0.649, 0.793, 0.073};
+    Po_cell j{0.566, 0.809, 0.533, 0.297, 0.658};
+
+    auto r = i - j;
+    auto dist = sqrtf(r.x * r.x + r.y * r.y + r.z * r.z);
+    auto dF = rigidity_force(i, r, dist);
+
+    MU_ASSERT("Rigidity force wrong in x", MU_ISCLOSE(dF.x, 0.214));
+    MU_ASSERT("Rigidity force wrong in y", MU_ISCLOSE(dF.y, -0.971));
+    MU_ASSERT("Rigidity force wrong in z", MU_ISCLOSE(dF.z, -1.802));
+    MU_ASSERT("Rigidity force wrong in theta", MU_ISCLOSE(dF.theta, -0.339));
+    MU_ASSERT("Rigidity force wrong in phi", MU_ISCLOSE(dF.phi, 0.453));
 
     return NULL;
 }
@@ -107,7 +143,9 @@ const char* test_line_of_four()
 
 const char* all_tests()
 {
+    MU_RUN_TEST(test_pcp_force);
     MU_RUN_TEST(test_pcp);
+    MU_RUN_TEST(test_rigidity_force);
     MU_RUN_TEST(test_line_of_four);
     return NULL;
 }
