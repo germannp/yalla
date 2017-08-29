@@ -135,11 +135,6 @@ __device__ Cell epi_turing_mes_noturing(
     return dF;
 }
 
-__device__ float relaxation_friction(Cell Xi, Cell r, float dist, int i, int j)
-{
-    return 0;
-}
-
 
 __global__ void proliferate(
     float mean_distance, Cell* d_X, int* d_n_cells, curandState* d_state)

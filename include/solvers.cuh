@@ -33,6 +33,12 @@ __device__ float friction_w_neighbour(Pt Xi, Pt r, float dist, int i, int j)
     return 0;
 }
 
+__device__ float friction_on_background(
+    float3 Xi, float3 r, float dist, int i, int j)
+{
+    return 0;
+}
+
 // In addition a generic force can be passed optionally:
 template<typename Pt>
 using Generic_forces =
