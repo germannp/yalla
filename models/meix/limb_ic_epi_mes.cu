@@ -313,6 +313,10 @@ int main(int argc, char const* argv[])
     // Fill the cube with bolls
     uniform_cubic_rectangle(
         new_xmin, new_ymin, new_zmin, new_dx, new_dy, new_dz, cube);
+    for (int i = 0; i < n_bolls_cube; i++) {
+        cube.h_X[i].theta = 0.f;
+        cube.h_X[i].phi = 0.f;
+    }
 
     // Variable indicating cell type
     Property<n_max, Cell_types> type;

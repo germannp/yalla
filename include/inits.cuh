@@ -59,8 +59,6 @@ void uniform_cubic_rectangle(float xmin, float ymin, float zmin, float dx,
         bolls.h_X[i].x = xmin + dx * (rand() / (RAND_MAX + 1.));
         bolls.h_X[i].y = ymin + dy * (rand() / (RAND_MAX + 1.));
         bolls.h_X[i].z = zmin + dz * (rand() / (RAND_MAX + 1.));
-        bolls.h_X[i].phi = 0.0f;
-        bolls.h_X[i].theta = 0.0f;
     }
     bolls.copy_to_device();
 }
