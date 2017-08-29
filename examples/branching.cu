@@ -1,12 +1,4 @@
-// This program simulates a branching mechanism on a spheric organoid.
-// A Turing mechanism taking place on its surface creates a pattern,
-// peaks of activator induce local proliferation on the underlying cells,
-// resulting on the growth of a branch.
-
-// Command line arguments
-// argv[1] : output file taking
-// argv[2] : number of time steps
-
+// Simulates branching on a spheroid induced by Turing mechanism on surface
 #include <curand_kernel.h>
 #include <time.h>
 #include <string>
@@ -21,6 +13,7 @@
 #include "../include/vtk.cuh"
 
 const auto r_max = 1.0f;
+const auto n_time_steps = 100;
 const auto skip_steps = 10;
 const auto lambda = 0.01;
 
@@ -94,7 +87,7 @@ __device__ Cell epi_turing_mes_noturing(
                    ((f_u * Xi.u * Xi.u) / (1 + f_v * Xi.v) - m_u * Xi.u + s_u);
             dF.v = lambda * (g_u * Xi.u * Xi.u - m_v * Xi.v);
 
-            // prevent negative values
+            // Prevent negative values
             if (-dF.u > Xi.u) dF.u = 0.0f;
             if (-dF.v > Xi.v) dF.v = 0.0f;
         }
@@ -123,8 +116,7 @@ __device__ Cell epi_turing_mes_noturing(
 
         dF += rigidity_force(Xi, r, dist) * 0.2;
     } else {
-        dF.v = -D_v * r.v;  // Inhibitor diffuses towards the mesenchyme to
-                            // induce proliferation
+        dF.v = -D_v * r.v;  // Diffuses into mesenchyme to induce proliferation
     }
 
     if (d_type[j] == epithelium)
@@ -199,14 +191,13 @@ int main(int argc, char const* argv[])
     curandState* d_state;
     cudaMalloc(&d_state, n_max * sizeof(curandState));
     auto seed = time(NULL);
-    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(
-        n_max, seed, d_state);
+    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(n_max, seed, d_state);
 
     // Relax
     for (auto time_step = 0; time_step <= 500; time_step++) {
         thrust::fill(
             thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
-        bolls.take_step<relaxation_force, relaxation_friction>(dt);
+        bolls.take_step<relaxation_force, friction_on_background>(dt);
     }
 
     // Find epithelium
@@ -240,8 +231,7 @@ int main(int argc, char const* argv[])
     }
 
     // Integrate positions
-    Vtk_output output(argv[1]);
-    auto n_time_steps = std::stoi(argv[2]);
+    Vtk_output output("branching");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
         type.copy_to_host();
