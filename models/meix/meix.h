@@ -10,7 +10,6 @@
 #include <vector>
 #include "../../include/utils.cuh"
 
-using namespace std;
 
 class Point {
 public:
@@ -34,8 +33,6 @@ public:
 };
 
 // overloaded operators
-bool operator==(Point&, Point&);
-bool operator!=(Point&, Point&);
 Point operator+(Point, Point);
 Point operator-(Point, Point);
 Point operator*(Point, float);
@@ -123,24 +120,6 @@ public:
     }
 };
 
-// Overloaded operators for Point
-bool operator==(Point& a, Point& b)
-{
-    if (a.x == b.x && a.y == b.y && a.z == b.z) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-bool operator!=(Point& a, Point& b)
-{
-    if (a.x != b.x && a.y != b.y && a.z != b.z) {
-        return true;
-    } else {
-        return false;
-    }
-}
 
 Point operator+(Point a, Point b)
 {
@@ -248,7 +227,7 @@ public:
     std::vector<Point> vertices;
     std::vector<Triangle> facets;
     int** triangle_to_vertices;
-    std::vector<vector<int> > vertex_to_triangles;
+    std::vector<std::vector<int> > vertex_to_triangles;
 
     Meix();
     Meix(std::string);
@@ -346,7 +325,7 @@ Meix::Meix(std::string file_name)
     // we want to construct the list of triangles adjacent to each vertex
     // (vector of vectors)
     std::vector<int> empty;
-    std::vector<vector<int> > dummy(n_vertices, empty);
+    std::vector<std::vector<int> > dummy(n_vertices, empty);
     vertex_to_triangles = dummy;
 
     int vertex;
@@ -376,7 +355,7 @@ Meix::Meix(const Meix& copy)
     }
 
     std::vector<int> empty;
-    std::vector<vector<int> > dummy(n_vertices, empty);
+    std::vector<std::vector<int> > dummy(n_vertices, empty);
     vertex_to_triangles = dummy;
     for (int i = 0; i < n_vertices; i++)
         vertex_to_triangles[i] = copy.vertex_to_triangles[i];
@@ -396,7 +375,7 @@ Meix& Meix::operator=(const Meix& other)
             sizeof(int) * 3);
     }
     std::vector<int> empty;
-    std::vector<vector<int> > dummy(n_vertices, empty);
+    std::vector<std::vector<int> > dummy(n_vertices, empty);
     vertex_to_triangles = dummy;
     for (int i = 0; i < n_vertices; i++)
         vertex_to_triangles[i] = other.vertex_to_triangles[i];
