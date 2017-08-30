@@ -193,21 +193,17 @@ Point operator*(Point a, float s)
 
 int intersect_3D_ray_triangle(Ray R, Triangle T, Point* I)
 {
-    Point u, v, n;     // triangle vectors
-    Point dir, w0, w;  // ray vectors
-    float r, a, b;     // params to calc ray-plane intersect
-
     // get triangle edge vectors and plane normal
-    u = T.V1 - T.V0;
-    v = T.V2 - T.V0;
-    n = T.N;
+    auto u = T.V1 - T.V0; //Triangle vectors
+    auto v = T.V2 - T.V0;
+    auto n = T.N;
     if (n.x == 0.0f && n.y == 0.0f && n.z == 0.0f)  // triangle is degenerate
         return -1;  // do not deal with this case
 
-    dir = R.P1 - R.P0;  // ray direction vector
-    w0 = R.P0 - T.V0;
-    a = -dot(n, w0);
-    b = dot(n, dir);
+    auto dir = R.P1 - R.P0;  // ray direction vector
+    auto w0 = R.P0 - T.V0;   //ray vector
+    auto a = -dot(n, w0);    // params to calc ray-plane intersect
+    auto b = dot(n, dir);
     if (fabs(b) < SMALL_NUM) {  // ray is  parallel to triangle plane
         if (a == 0)             // ray lies in triangle plane
             return 2;
@@ -216,29 +212,27 @@ int intersect_3D_ray_triangle(Ray R, Triangle T, Point* I)
     }
 
     // get intersect point of ray with triangle plane
-    r = a / b;
-    if (r < 0.0)   // ray goes away from triangle
-        return 0;  // => no intersect
+    auto r = a / b;  // param to calc ray-plane intersect
+    if (r < 0.0)     // ray goes away from triangle
+        return 0;    // => no intersect
     // for a segment, also test if (r > 1.0) => no intersect
 
     *I = R.P0 + (dir * r);  // intersect point of ray and plane
 
     // is I inside T?
-    float uu, uv, vv, wu, wv, D;
-    uu = dot(u, u);
-    uv = dot(u, v);
-    vv = dot(v, v);
-    w = *I - T.V0;
-    wu = dot(w, u);
-    wv = dot(w, v);
-    D = uv * uv - uu * vv;
+    auto uu = dot(u, u);
+    auto uv = dot(u, v);
+    auto vv = dot(v, v);
+    auto w = *I - T.V0;  //ray vector
+    auto wu = dot(w, u);
+    auto wv = dot(w, v);
+    auto D = uv * uv - uu * vv;
 
     // get and test parametric coords
-    float s, t;
-    s = (uv * wv - vv * wu) / D;
+    auto s = (uv * wv - vv * wu) / D;
     if (s < 0.0 || s > 1.0)  // I is outside T
         return 0;
-    t = (uv * wu - uu * wv) / D;
+    auto t = (uv * wu - uu * wv) / D;
     if (t < 0.0 || (s + t) > 1.0)  // I is outside T
         return 0;
 
