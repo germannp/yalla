@@ -102,7 +102,7 @@ public:
 // liable for any real or imagined damage resulting from its use.
 // Users of this code must verify correctness for their application.
 
-// intersect3D_RayTriangle(): find the 3D intersection of a ray with a triangle
+// intersect_3D_ray_triangle():
 //    Input:  a ray R, and a triangle T
 //    Output: *I = intersection point (when it exists)
 //    Return: -1 = triangle is degenerate (a segment or point)
