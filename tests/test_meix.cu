@@ -107,12 +107,12 @@ int main(int argc, char const* argv[])
 
     // meix defines the overall shape of the limb bud (mesench. + ectoderm)
     float resc = 5.f;
-    meix.Rescale_relative(resc);
+    meix.rescale_relative(resc);
 
     // meix_mesench defines the volume occupied by the mesenchyme (smaller than
     // meix)
     Meix meix_mesench = meix;
-    meix_mesench.Rescale_absolute(-r_min);  //*1.3//*1.2
+    meix_mesench.rescale_absolute(-r_min);  //*1.3//*1.2
 
     // Compute min. and max, positions in x,y,z from rescaled mesh
     float xmin = 10000.0f;
@@ -122,18 +122,18 @@ int main(int argc, char const* argv[])
     float zmin = 10000.0f;
     float zmax = -10000.0f;
     for (int i = 0; i < meix.n_vertices; i++) {
-        if (meix.Vertices[i].x < xmin)
-            xmin = meix.Vertices[i].x;
-        if (meix.Vertices[i].x > xmax)
-            xmax = meix.Vertices[i].x;
-        if (meix.Vertices[i].y < ymin)
-            ymin = meix.Vertices[i].y;
-        if (meix.Vertices[i].y > ymax)
-            ymax = meix.Vertices[i].y;
-        if (meix.Vertices[i].z < zmin)
-            zmin = meix.Vertices[i].z;
-        if (meix.Vertices[i].z > zmax)
-            zmax = meix.Vertices[i].z;
+        if (meix.vertices[i].x < xmin)
+            xmin = meix.vertices[i].x;
+        if (meix.vertices[i].x > xmax)
+            xmax = meix.vertices[i].x;
+        if (meix.vertices[i].y < ymin)
+            ymin = meix.vertices[i].y;
+        if (meix.vertices[i].y > ymax)
+            ymax = meix.vertices[i].y;
+        if (meix.vertices[i].z < zmin)
+            zmin = meix.vertices[i].z;
+        if (meix.vertices[i].z > zmax)
+            zmax = meix.vertices[i].z;
     }
     float dx = xmax - xmin;
     float dy = ymax - ymin;
@@ -235,7 +235,7 @@ int main(int argc, char const* argv[])
     // Set direction of ray
     Point dir = Point(0.0f, 1.0f, 0.0f);
 
-    meix_mesench.InclusionTest(cube_points, mesench_result, dir);
+    meix_mesench.test_inclusion(cube_points, mesench_result, dir);
 
     // Make a new list with the ones that are inside
     std::vector<Point> mes_cells;
@@ -256,8 +256,8 @@ int main(int argc, char const* argv[])
     int* epi_result_big = new int[n_bolls_cube];
     int* epi_result_small = new int[n_bolls_cube];
 
-    meix.InclusionTest(cube_relax_points, epi_result_big, dir);
-    meix_mesench.InclusionTest(cube_relax_points, epi_result_small, dir);
+    meix.test_inclusion(cube_relax_points, epi_result_big, dir);
+    meix_mesench.test_inclusion(cube_relax_points, epi_result_small, dir);
 
     // Make a new list with the ones that are inside
     std::vector<Point> epi_cells;
@@ -296,7 +296,7 @@ int main(int argc, char const* argv[])
         // we use the closest facet on meix to determine the polarity of the
         // epithelial cell
         for (int j = 0; j < meix.n_facets; j++) {
-            Point r = p - meix.Facets[j].C;
+            Point r = p - meix.facets[j].C;
             float d = sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
             if (d < dmin) {
                 dmin = d;
@@ -304,8 +304,8 @@ int main(int argc, char const* argv[])
             }
         }
         count++;
-        bolls.h_X[i].phi = atan2(meix.Facets[f].N.y, meix.Facets[f].N.x);
-        bolls.h_X[i].theta = acos(meix.Facets[f].N.z);
+        bolls.h_X[i].phi = atan2(meix.facets[f].N.y, meix.facets[f].N.x);
+        bolls.h_X[i].theta = acos(meix.facets[f].N.z);
     }
 
     bolls.copy_to_device();
@@ -318,8 +318,8 @@ int main(int argc, char const* argv[])
     output.write_polarity(bolls);
     output.write_property(type);
 
-    meix.WriteVtk("trololol");
-    meix_mesench.WriteVtk("trololol_mesench");
+    meix.write_vtk("trololol");
+    meix_mesench.write_vtk("trololol_mesench");
 
     //test with the torus equation (R-sqrt(x^2+y^2)+z^2 <= r^2)
     bolls.copy_to_host();
