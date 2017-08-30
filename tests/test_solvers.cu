@@ -188,12 +188,6 @@ const char* test_generic_forces()
 }
 
 
-__device__ float friction_on_background(
-    float3 Xi, float3 r, float dist, int i, int j)
-{
-    return 0;
-}
-
 const char* test_friction()
 {
     Solution<float3, 2, Tile_solver> tile;

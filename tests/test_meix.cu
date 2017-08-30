@@ -97,29 +97,6 @@ __global__ void update_protrusions(const int n_cells,
     }
 }
 
-__device__ float relaxation_friction(Po_cell Xi, Po_cell r, float dist, int i, int j)
-{
-    return 0;
-}
-
-// Distribute bolls uniformly random in rectangular cube
-template<typename Pt, int n_max, template<typename, int> class Solver>
-void uniform_cubic_rectangle(float xmin, float ymin, float zmin, float dx,
-    float dy, float dz, Solution<Pt, n_max, Solver>& bolls,
-    unsigned int n_0 = 0)
-{
-    assert(n_0 < *bolls.h_n);
-
-    for (auto i = n_0; i < *bolls.h_n; i++) {
-        bolls.h_X[i].x = xmin + dx * (rand() / (RAND_MAX + 1.));
-        bolls.h_X[i].y = ymin + dy * (rand() / (RAND_MAX + 1.));
-        bolls.h_X[i].z = zmin + dz * (rand() / (RAND_MAX + 1.));
-        bolls.h_X[i].phi = 0.0f;
-        bolls.h_X[i].theta = 0.0f;
-    }
-
-    bolls.copy_to_device();
-}
 
 int main(int argc, char const* argv[])
 {
@@ -212,7 +189,7 @@ int main(int argc, char const* argv[])
     setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(n_max, seed, d_state);
 
     for (auto time_step = 0; time_step <= 1000; time_step++)
-        cube.take_step<relaxation_force, relaxation_friction>(dt);
+        cube.take_step<relaxation_force, friction_on_background>(dt);
 
     std::cout<<"Cube 1 integrated"<<std::endl;
 
@@ -233,7 +210,7 @@ int main(int argc, char const* argv[])
             cube.get_d_n(), grid.d_grid, cube.d_X, protrusions.d_state,
             protrusions.d_link);
 
-        cube.take_step<relaxation_force, relaxation_friction>(
+        cube.take_step<relaxation_force, friction_on_background>(
             dt, intercalation);
 
     }
