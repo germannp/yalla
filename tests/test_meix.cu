@@ -2,7 +2,6 @@
 #include <curand_kernel.h>
 #include <time.h>
 #include <iostream>
-#include <list>
 #include <string>
 #include <vector>
 
