@@ -8,40 +8,15 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include "../../include/dtypes.cuh"
 #include "../../include/utils.cuh"
 
 
-class Point {
-public:
-    float x;
-    float y;
-    float z;
-
-    Point()
-    {
-        x = 0.0f;
-        y = 0.0f;
-        z = 0.0f;
-    }
-
-    Point(float a, float b, float c)
-    {
-        x = a;
-        y = b;
-        z = c;
-    }
-};
-
-// overloaded operators
-Point operator+(Point, Point);
-Point operator-(Point, Point);
-Point operator*(Point, float);
-
 class Ray {
 public:
-    Point P0;
-    Point P1;
-    Ray(Point a, Point b)
+    float3 P0;
+    float3 P1;
+    Ray(float3 a, float3 b)
     {
         P0 = a;
         P1 = b;
@@ -50,10 +25,10 @@ public:
 
 class Plane {
 public:
-    Point V0;
-    Point n;
+    float3 V0;
+    float3 n;
 
-    Plane(Point a, Point b)
+    Plane(float3 a, float3 b)
     {
         V0 = a;
         n = b;
@@ -62,11 +37,11 @@ public:
 
 class Triangle {
 public:
-    Point V0;
-    Point V1;
-    Point V2;
-    Point C;
-    Point N;
+    float3 V0;
+    float3 V1;
+    float3 V2;
+    float3 C;
+    float3 N;
 
     Triangle()
     {
@@ -86,7 +61,7 @@ public:
         N.y = 0.0f;
         N.z = 0.0f;
     }
-    Triangle(Point a, Point b, Point c)
+    Triangle(float3 a, float3 b, float3 c)
     {
         V0 = a;
         V1 = b;
@@ -94,7 +69,7 @@ public:
         calculate_centroid();
         calculate_normal();
     }
-    Triangle(Point a, Point b, Point c, Point n)
+    Triangle(float3 a, float3 b, float3 c, float3 n)
     {
         V0 = a;
         V1 = b;
@@ -110,38 +85,37 @@ public:
 
     void calculate_normal()
     {
-        // recalculate normal
         auto v = V2 - V0;
         auto u = V1 - V0;
-        Point n(u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z,
-            u.x * v.y - u.y * v.x);
+        float3 n{u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z,
+            u.x * v.y - u.y * v.x};
         float d = sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
         N = n * (1.f / d);
     }
 };
 
 
-Point operator+(Point a, Point b)
+float3 operator+(float3 a, float3 b)
 {
-    Point p;
+    float3 p;
     p.x = a.x + b.x;
     p.y = a.y + b.y;
     p.z = a.z + b.z;
     return p;
 }
 
-Point operator-(Point a, Point b)
+float3 operator-(float3 a, float3 b)
 {
-    Point p;
+    float3 p;
     p.x = a.x - b.x;
     p.y = a.y - b.y;
     p.z = a.z - b.z;
     return p;
 }
 
-Point operator*(Point a, float s)
+float3 operator*(float3 a, float s)
 {
-    Point p;
+    float3 p;
     p.x = a.x * s;
     p.y = a.y * s;
     p.z = a.z * s;
@@ -170,7 +144,7 @@ Point operator*(Point a, float s)
 // dot product (3D) which allows vector operations in arguments
 #define dot(u, v) ((u).x * (v).x + (u).y * (v).y + (u).z * (v).z)
 
-int intersect_3D_ray_triangle(Ray R, Triangle T, Point* I)
+int intersect_3D_ray_triangle(Ray R, Triangle T, float3* I)
 {
     // get triangle edge vectors and plane normal
     auto u = T.V1 - T.V0; //Triangle vectors
@@ -224,7 +198,7 @@ public:
     float surf_area;
     int n_vertices;
     int n_facets;
-    std::vector<Point> vertices;
+    std::vector<float3> vertices;
     std::vector<Triangle> facets;
     int** triangle_to_vertices;
     std::vector<std::vector<int> > vertex_to_triangles;
@@ -236,9 +210,9 @@ public:
     void rescale_relative(float);
     void rescale_absolute(float, bool);
     void rotate(float, float);
-    void translate(Point);
-    Point get_centroid();
-    void test_inclusion(std::vector<Point>&, int*, Point);
+    void translate(float3);
+    float3 get_centroid();
+    void test_inclusion(std::vector<float3>&, int*, float3);
     void write_vtk(std::string);
 
     ~Meix();
@@ -276,7 +250,7 @@ Meix::Meix(std::string file_name)
 
         int n_points = items.size() / 3;
         for (int i = 0; i < n_points; i++) {
-            Point P;
+            float3 P;
             P.x = stof(items[i * 3]);
             P.y = stof(items[i * 3 + 1]);
             P.z = stof(items[i * 3 + 2]);
@@ -402,7 +376,7 @@ void Meix::rescale_absolute(float resc, bool boundary = false)
     for (int i = 0; i < n_vertices; i++) {
         if (boundary && vertices[i].x == 0.f) continue;
 
-        Point average_normal;
+        float3 average_normal;
         for (int j = 0; j < vertex_to_triangles[i].size(); j++) {
             int triangle = vertex_to_triangles[i][j];
             average_normal = average_normal + facets[triangle].N;
@@ -427,7 +401,7 @@ void Meix::rescale_absolute(float resc, bool boundary = false)
     }
 }
 
-void Meix::translate(Point translation_vector)
+void Meix::translate(float3 translation_vector)
 {
     for (int i = 0; i < n_vertices; i++) {
         vertices[i] = vertices[i] + translation_vector;
@@ -444,7 +418,7 @@ void Meix::translate(Point translation_vector)
 // Function that checks if a point is inside a closed polyhedron defined by
 // a list of facets (or triangles)
 void Meix::test_inclusion(
-    std::vector<Point>& points, int* inclusion, Point direction)
+    std::vector<float3>& points, int* inclusion, float3 direction)
 {
     for (int i = 0; i < points.size(); i++) {
         auto p_0 = points[i];
@@ -452,7 +426,7 @@ void Meix::test_inclusion(
         Ray R(p_0, p_1);
         int intersection_count = 0;
         for (int j = 0; j < n_facets; j++) {
-            auto* intersect = new Point(0.0f, 0.0f, 0.0f);
+            auto* intersect = new float3{0.0f, 0.0f, 0.0f};
             int test = intersect_3D_ray_triangle(R, facets[j], intersect);
             if (test > 0) intersection_count++;
         }
