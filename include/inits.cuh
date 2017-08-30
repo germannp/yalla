@@ -47,9 +47,9 @@ void uniform_sphere(float mean_distance, Solution<Pt, n_max, Solver>& bolls,
     bolls.copy_to_device();
 }
 
-// Distribute bolls uniformly random in rectangular cube
+// Distribute bolls uniformly random in cuboid
 template<typename Pt, int n_max, template<typename, int> class Solver>
-void uniform_cubic_rectangle(float xmin, float ymin, float zmin, float dx,
+void uniform_cuboid(float xmin, float ymin, float zmin, float dx,
     float dy, float dz, Solution<Pt, n_max, Solver>& bolls,
     unsigned int n_0 = 0)
 {

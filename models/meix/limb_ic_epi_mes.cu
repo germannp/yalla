@@ -311,7 +311,7 @@ int main(int argc, char const* argv[])
 
     Solution<Cell, n_max, Grid_solver> cube(n_bolls_cube);
     // Fill the cube with bolls
-    uniform_cubic_rectangle(
+    uniform_cuboid(
         new_xmin, new_ymin, new_zmin, new_dx, new_dy, new_dz, cube);
     for (int i = 0; i < n_bolls_cube; i++) {
         cube.h_X[i].theta = 0.f;

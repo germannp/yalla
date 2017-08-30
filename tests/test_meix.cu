@@ -163,7 +163,7 @@ int main(int argc, char const* argv[])
     Solution<Po_cell, n_max, Grid_solver> cube(n_bolls_cube);
 
     // Fill the cube with bolls
-    uniform_cubic_rectangle(
+    uniform_cuboid(
         new_xmin, new_ymin, new_zmin, new_dx, new_dy, new_dz, cube);
 
     // Variable indicating cell type
