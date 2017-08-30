@@ -14,6 +14,8 @@
 #include <typeinfo>
 #include <vector>
 
+#include "utils.cuh"
+
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
 class Solution;
@@ -205,27 +207,6 @@ protected:
     std::string file_name;
 };
 
-// Split a string by whitespace adapted from:
-// https://stackoverflow.com/questions/236129/split-a-string-in-c
-template<typename Out>
-void split(const std::string& s, char delim, Out result)
-{
-    if (s.length() == 0) return;
-    std::stringstream ss;
-    ss.str(s);
-    std::string item;
-    while (std::getline(ss, item, delim)) {
-        *(result++) = item;
-    }
-}
-
-std::vector<std::string> split(const std::string& s, char delim)
-{
-    std::vector<std::string> elems;
-    split(s, delim, std::back_inserter(elems));
-    return elems;
-}
-
 Vtk_input::Vtk_input(std::string filename)
 {
     file_name = filename;
@@ -238,7 +219,7 @@ Vtk_input::Vtk_input(std::string filename)
     assert(input_file.is_open());
 
     for (auto i = 0; i < 6; i++) getline(input_file, line);
-    split(line, ' ', std::back_inserter(items));
+    items = split(line);
     n_bolls = stoi(items[1]);
     items.clear();
 }
@@ -262,7 +243,7 @@ std::streampos Vtk_input::find_entry(std::string keyword1, std::string keyword2)
 
     while (word1 != keyword1 or word2 != keyword2) {
         getline(input_file, line);
-        split(line, ' ', std::back_inserter(items));
+        items = split(line);
         if(items.size() > 1) {
             word1 = items[0];
             word2 = items[1];
@@ -286,7 +267,7 @@ void Vtk_input::read_positions(Solution<Pt, n_max, Solver>& bolls)
     // Read coordinates
     for (int i = 0; i < n_bolls; i++) {
         getline(input_file, line);
-        split(line, ' ', std::back_inserter(items));
+        items = split(line);
         bolls.h_X[i].x = stof(items[0]);
         bolls.h_X[i].y = stof(items[1]);
         bolls.h_X[i].z = stof(items[2]);
@@ -309,7 +290,7 @@ void Vtk_input::read_polarity(Solution<Pt, n_max, Solver>& bolls)
     // Read normals
     for (auto i = 0; i < n_bolls; i++) {
         getline(input_file, line);
-        split(line, ' ', std::back_inserter(items));
+        items = split(line);
         items.clear();
         auto x = stof(items[0]);
         auto y = stof(items[1]);

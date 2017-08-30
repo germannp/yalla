@@ -163,19 +163,19 @@ void fill_solver_w_meix_no_flank(
 {
     // eliminate the flank boundary
     int i = 0;
-    while (i < meix.Facets.size()) {
-        if (meix.Facets[i].N.x > -1.01f && meix.Facets[i].N.x < -0.99f)
-            meix.Facets.erase(meix.Facets.begin() + i);
+    while (i < meix.facets.size()) {
+        if (meix.facets[i].N.x > -1.01f && meix.facets[i].N.x < -0.99f)
+            meix.facets.erase(meix.facets.begin() + i);
         else
             i++;
     }
-    meix.n_facets = meix.Facets.size();
+    meix.n_facets = meix.facets.size();
 
     *bolls.h_n = meix.n_facets;
     assert(n_0 < *bolls.h_n);
 
     for (int j = 0; j < meix.n_facets; j++) {
-        Triangle T = meix.Facets[j];
+        auto T = meix.facets[j];
         float r = sqrt(pow(T.N.x, 2) + pow(T.N.y, 2) + pow(T.N.z, 2));
         bolls.h_X[j].x = T.C.x;
         bolls.h_X[j].y = T.C.y;
@@ -240,8 +240,8 @@ int main(int argc, char const* argv[])
     float dx, dy, dz;
 
     for (int i = 0; i < meix.n_vertices; i++) {
-        if (meix.Vertices[i].x < xmin) xmin = meix.Vertices[i].x;
-        if (meix.Vertices[i].x > xmax) xmax = meix.Vertices[i].x;
+        if (meix.vertices[i].x < xmin) xmin = meix.vertices[i].x;
+        if (meix.vertices[i].x > xmax) xmax = meix.vertices[i].x;
     }
     dx = xmax - xmin;
 
@@ -265,18 +265,18 @@ int main(int argc, char const* argv[])
     zmin = 10000.0f;
     zmax = -10000.0f;
     for (int i = 0; i < meix.n_vertices; i++) {
-        if (meix.Vertices[i].x < xmin)
-            xmin = meix.Vertices[i].x;
-        if (meix.Vertices[i].x > xmax)
-            xmax = meix.Vertices[i].x;
-        if (meix.Vertices[i].y < ymin)
-            ymin = meix.Vertices[i].y;
-        if (meix.Vertices[i].y > ymax)
-            ymax = meix.Vertices[i].y;
-        if (meix.Vertices[i].z < zmin)
-            zmin = meix.Vertices[i].z;
-        if (meix.Vertices[i].z > zmax)
-            zmax = meix.Vertices[i].z;
+        if (meix.vertices[i].x < xmin)
+            xmin = meix.vertices[i].x;
+        if (meix.vertices[i].x > xmax)
+            xmax = meix.vertices[i].x;
+        if (meix.vertices[i].y < ymin)
+            ymin = meix.vertices[i].y;
+        if (meix.vertices[i].y > ymax)
+            ymax = meix.vertices[i].y;
+        if (meix.vertices[i].z < zmin)
+            zmin = meix.vertices[i].z;
+        if (meix.vertices[i].z > zmax)
+            zmax = meix.vertices[i].z;
     }
     dx = xmax - xmin;
     dy = ymax - ymin;
@@ -376,7 +376,7 @@ int main(int argc, char const* argv[])
     cube.copy_to_host();
     std::vector<Point> cube_relax_points;
     for (auto i = 0; i < n_bolls_cube; i++) {
-        Point p = Point(cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z);
+        auto p = Point(cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z);
         cube_relax_points.push_back(p);
     }
 
@@ -420,16 +420,16 @@ int main(int argc, char const* argv[])
     // Setup the list of points
     std::vector<Point> cube_points;
     for (auto i = 0; i < n_bolls_cube; i++) {
-        Point p = Point(cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z);
+        auto p = Point(cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z);
         cube_points.push_back(p);
     }
 
     // Setup the list of inclusion test results
     int* mesench_result = new int[n_bolls_cube];
     // Set direction of ray
-    Point dir = Point(0.0f, 1.0f, 0.0f);
+    auto dir = Point(0.0f, 1.0f, 0.0f);
 
-    meix_mesench.inclusion_test(cube_points, mesench_result, dir);
+    meix_mesench.test_inclusion(cube_points, mesench_result, dir);
 
     // Make a new list with the ones that are inside
     std::vector<Point> mes_cells;
@@ -450,8 +450,8 @@ int main(int argc, char const* argv[])
     int* epi_result_big = new int[n_bolls_cube];
     int* epi_result_small = new int[n_bolls_cube];
 
-    meix.inclusion_test(cube_relax_points, epi_result_big, dir);
-    meix_mesench.inclusion_test(cube_relax_points, epi_result_small, dir);
+    meix.test_inclusion(cube_relax_points, epi_result_big, dir);
+    meix_mesench.test_inclusion(cube_relax_points, epi_result_small, dir);
 
     // Make a new list with the ones that are inside
     std::vector<Point> epi_cells;
@@ -486,13 +486,13 @@ int main(int argc, char const* argv[])
         type.h_prop[i] = epithelium;
         freeze.h_prop[i] = 0;
         // polarity
-        Point p = epi_cells[count];
+        auto p = epi_cells[count];
         int f = -1;
         float dmin = 1000000.f;
         // we use the closest facet on meix to determine the polarity of the
         // epithelial cell
         for (int j = 0; j < meix.n_facets; j++) {
-            Point r = p - meix.Facets[j].C;
+            auto r = p - meix.facets[j].C;
             float d = sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
             if (d < dmin) {
                 dmin = d;
@@ -500,14 +500,14 @@ int main(int argc, char const* argv[])
             }
         }
         count++;
-        if (meix.Facets[f].C.x < 0.1f && wall_flag) {  // the cells contacting the flank
+        if (meix.facets[f].C.x < 0.1f && wall_flag) {  // the cells contacting the flank
                                                        // boundary can't be epithelial 0.001
             type.h_prop[i] = mesenchyme;
             freeze.h_prop[i] = 1;
             continue;
         }
-        bolls.h_X[i].phi = atan2(meix.Facets[f].N.y, meix.Facets[f].N.x);
-        bolls.h_X[i].theta = acos(meix.Facets[f].N.z);
+        bolls.h_X[i].phi = atan2(meix.facets[f].N.y, meix.facets[f].N.x);
+        bolls.h_X[i].theta = acos(meix.facets[f].N.z);
     }
     std::cout << "count " << count << " epi_cells " << n_bolls_epi << std::endl;
 
@@ -528,7 +528,7 @@ int main(int argc, char const* argv[])
         for (int i = n_bolls_mes; i < n_bolls_total; i++) {
             Point p(bolls.h_X[i].x, bolls.h_X[i].y, bolls.h_X[i].z);
             for (int j = 0; j < AER.n_facets; j++) {
-                Point r = p - AER.Facets[j].C;
+                auto r = p - AER.facets[j].C;
                 float d = sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
                 if (d < r_min*1.5f) {
                     type.h_prop[i]=aer;
@@ -587,8 +587,8 @@ int main(int argc, char const* argv[])
     Triangle ABC(A, B, C, N);
     Triangle BCD(B, C, D, N);
     wall.n_facets = 2;
-    wall.Facets.push_back(ABC);
-    wall.Facets.push_back(BCD);
+    wall.facets.push_back(ABC);
+    wall.facets.push_back(BCD);
     wall.write_vtk(output_tag + ".wall");
 
     // for shape comparison purposes we write down the initial mesh as the

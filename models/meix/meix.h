@@ -1,5 +1,4 @@
-#ifndef _MEIX_H_
-#define _MEIX_H_
+#pragma once
 
 #include <assert.h>
 #include <cmath>
@@ -9,6 +8,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include "../../include/utils.cuh"
 
 using namespace std;
 
@@ -114,8 +114,8 @@ public:
     void calculate_normal()
     {
         // recalculate normal
-        Point v = V2 - V0;
-        Point u = V1 - V0;
+        auto v = V2 - V0;
+        auto u = V1 - V0;
         Point n(u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z,
             u.x * v.y - u.y * v.x);
         float d = sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
@@ -246,28 +246,13 @@ int intersect_3D_ray_triangle(Ray R, Triangle T, Point* I)
 }
 
 
-// Split a string by whitespace adapted from:
-// https://stackoverflow.com/questions/236129/split-a-string-in-c
-template<typename Out>
-void line_split(const std::string& s, char delim, Out result)
-{
-    if (s.length() == 0) return;
-    std::stringstream ss;
-    ss.str(s);
-    std::string item;
-    while (std::getline(ss, item, delim)) {
-        *(result++) = item;
-    }
-}
-
-
 class Meix {
 public:
     float surf_area;
     int n_vertices;
     int n_facets;
-    std::vector<Point> Vertices;
-    std::vector<Triangle> Facets;
+    std::vector<Point> vertices;
+    std::vector<Triangle> facets;
     int** triangle_to_vertices;
     std::vector<vector<int> > vertex_to_triangles;
 
@@ -280,7 +265,7 @@ public:
     void rotate(float, float);
     void translate(Point);
     Point get_centroid();
-    void inclusion_test(std::vector<Point>&, int*, Point);
+    void test_inclusion(std::vector<Point>&, int*, Point);
     void write_vtk(std::string);
 
     ~Meix();
@@ -306,7 +291,7 @@ Meix::Meix(std::string file_name)
     assert(input_file.is_open());
 
     for (auto i = 0; i < 5; i++) getline(input_file, line);
-    line_split(line, ' ', std::back_inserter(items));
+    items = split(line);
     n_vertices = stoi(items[1]);
     items.clear();
 
@@ -314,15 +299,15 @@ Meix::Meix(std::string file_name)
     int count = 0;
     while (count < n_vertices) {
         getline(input_file, line);
-        line_split(line, ' ', std::back_inserter(items));
+        items = split(line);
 
         int n_points = items.size() / 3;
-        Point P;
         for (int i = 0; i < n_points; i++) {
+            Point P;
             P.x = stof(items[i * 3]);
             P.y = stof(items[i * 3 + 1]);
             P.z = stof(items[i * 3 + 2]);
-            Vertices.push_back(P);
+            vertices.push_back(P);
             count++;
         }
         items.clear();
@@ -330,14 +315,14 @@ Meix::Meix(std::string file_name)
 
     //at this point there may be a black line or not, so we have to check
     getline(input_file, line);
-    line_split(line, ' ', std::back_inserter(items));
+    items = split(line);
     if(items[0] == "POLYGONS" or items[0] == "CELLS") {
         n_facets = stoi(items[1]);
         items.clear();
     } else {
         items.clear();
         getline(input_file, line);
-        line_split(line, ' ', std::back_inserter(items));
+        items = split(line);
         n_facets = stoi(items[1]);
         items.clear();
     }
@@ -352,14 +337,14 @@ Meix::Meix(std::string file_name)
 
     while (count < n_facets) {
         getline(input_file, line);
-        line_split(line, ' ', std::back_inserter(items));
+        items = split(line);
 
         triangle_to_vertices[count][0] = stoi(items[1]);
         triangle_to_vertices[count][1] = stoi(items[2]);
         triangle_to_vertices[count][2] = stoi(items[3]);
-        Triangle T(Vertices[stoi(items[1])], Vertices[stoi(items[2])],
-            Vertices[stoi(items[3])]);
-        Facets.push_back(T);
+        Triangle T(vertices[stoi(items[1])], vertices[stoi(items[2])],
+            vertices[stoi(items[3])]);
+        facets.push_back(T);
         items.clear();
         count++;
     }
@@ -386,13 +371,12 @@ Meix::Meix(const Meix& copy)
     surf_area = 0.f;
     n_vertices = copy.n_vertices;
     n_facets = copy.n_facets;
-    Vertices = copy.Vertices;
-    Facets = copy.Facets;
+    vertices = copy.vertices;
+    facets = copy.facets;
 
     triangle_to_vertices = (int**)malloc(n_facets * sizeof(int*));
     for (int i = 0; i < n_facets; i++) {
         triangle_to_vertices[i] = (int*)malloc(3 * sizeof(int));
-        // *triangle_to_vertices[i] = *copy.triangle_to_vertices[i];
         memcpy(triangle_to_vertices[i], copy.triangle_to_vertices[i],
             sizeof(int) * 3);
     }
@@ -409,8 +393,8 @@ Meix& Meix::operator=(const Meix& other)
     surf_area = 0.f;
     n_vertices = other.n_vertices;
     n_facets = other.n_facets;
-    Vertices = other.Vertices;
-    Facets = other.Facets;
+    vertices = other.vertices;
+    facets = other.facets;
     triangle_to_vertices = (int**)malloc(n_facets * sizeof(int*));
     for (int i = 0; i < n_facets; i++) {
         triangle_to_vertices[i] = (int*)malloc(3 * sizeof(int));
@@ -429,74 +413,74 @@ Meix& Meix::operator=(const Meix& other)
 void Meix::rescale_relative(float resc)
 {
     for (int i = 0; i < n_vertices; i++) {
-        Vertices[i] = Vertices[i] * resc;
+        vertices[i] = vertices[i] * resc;
     }
 
     for (int i = 0; i < n_facets; i++) {
-        Facets[i].V0 = Facets[i].V0 * resc;
-        Facets[i].V1 = Facets[i].V1 * resc;
-        Facets[i].V2 = Facets[i].V2 * resc;
-        Facets[i].C = Facets[i].C * resc;
+        facets[i].V0 = facets[i].V0 * resc;
+        facets[i].V1 = facets[i].V1 * resc;
+        facets[i].V2 = facets[i].V2 * resc;
+        facets[i].C = facets[i].C * resc;
     }
 }
 
 void Meix::rescale_absolute(float resc, bool boundary = false)
 {
     for (int i = 0; i < n_vertices; i++) {
-        if (boundary && Vertices[i].x == 0.f) continue;
+        if (boundary && vertices[i].x == 0.f) continue;
 
         Point average_normal;
         for (int j = 0; j < vertex_to_triangles[i].size(); j++) {
             int triangle = vertex_to_triangles[i][j];
-            average_normal = average_normal + Facets[triangle].N;
+            average_normal = average_normal + facets[triangle].N;
         }
 
         float d = sqrt(pow(average_normal.x, 2) + pow(average_normal.y, 2) +
                        pow(average_normal.z, 2));
         average_normal = average_normal * (resc / d);
 
-        Vertices[i] = Vertices[i] + average_normal;
+        vertices[i] = vertices[i] + average_normal;
     }
-    // rescaled the vertices, now we need to rescale the Facets
+    // rescaled the vertices, now we need to rescale the facets
     for (int i = 0; i < n_facets; i++) {
         int V0 = triangle_to_vertices[i][0];
         int V1 = triangle_to_vertices[i][1];
         int V2 = triangle_to_vertices[i][2];
-        Facets[i].V0 = Vertices[V0];
-        Facets[i].V1 = Vertices[V1];
-        Facets[i].V2 = Vertices[V2];
-        Facets[i].calculate_centroid();
-        Facets[i].calculate_normal();
+        facets[i].V0 = vertices[V0];
+        facets[i].V1 = vertices[V1];
+        facets[i].V2 = vertices[V2];
+        facets[i].calculate_centroid();
+        facets[i].calculate_normal();
     }
 }
 
 void Meix::translate(Point translation_vector)
 {
     for (int i = 0; i < n_vertices; i++) {
-        Vertices[i] = Vertices[i] + translation_vector;
+        vertices[i] = vertices[i] + translation_vector;
     }
 
     for (int i = 0; i < n_facets; i++) {
-        Facets[i].V0 = Facets[i].V0 + translation_vector;
-        Facets[i].V1 = Facets[i].V1 + translation_vector;
-        Facets[i].V2 = Facets[i].V2 + translation_vector;
-        Facets[i].C = Facets[i].C + translation_vector;
+        facets[i].V0 = facets[i].V0 + translation_vector;
+        facets[i].V1 = facets[i].V1 + translation_vector;
+        facets[i].V2 = facets[i].V2 + translation_vector;
+        facets[i].C = facets[i].C + translation_vector;
     }
 }
 
 // Function that checks if a point is inside a closed polyhedron defined by
 // a list of facets (or triangles)
-void Meix::inclusion_test(
+void Meix::test_inclusion(
     std::vector<Point>& points, int* inclusion, Point direction)
 {
     for (int i = 0; i < points.size(); i++) {
-        Point p_0 = points[i];
-        Point p_1 = p_0 + direction;
+        auto p_0 = points[i];
+        auto p_1 = p_0 + direction;
         Ray R(p_0, p_1);
         int intersection_count = 0;
         for (int j = 0; j < n_facets; j++) {
-            Point* intersect = new Point(0.0f, 0.0f, 0.0f);
-            int test = intersect_3D_ray_triangle(R, Facets[j], intersect);
+            auto* intersect = new Point(0.0f, 0.0f, 0.0f);
+            int test = intersect_3D_ray_triangle(R, facets[j], intersect);
             if (test > 0) intersection_count++;
         }
         if (intersection_count % 2 == 0) {
@@ -522,12 +506,12 @@ void Meix::write_vtk(std::string output_tag)
 
     meix_file << "\nPOINTS " << 3 * n_facets << " float\n";
     for (auto i = 0; i < n_facets; i++) {
-        meix_file << Facets[i].V0.x << " " << Facets[i].V0.y << " "
-                  << Facets[i].V0.z << "\n";
-        meix_file << Facets[i].V1.x << " " << Facets[i].V1.y << " "
-                  << Facets[i].V1.z << "\n";
-        meix_file << Facets[i].V2.x << " " << Facets[i].V2.y << " "
-                  << Facets[i].V2.z << "\n";
+        meix_file << facets[i].V0.x << " " << facets[i].V0.y << " "
+                  << facets[i].V0.z << "\n";
+        meix_file << facets[i].V1.x << " " << facets[i].V1.y << " "
+                  << facets[i].V1.z << "\n";
+        meix_file << facets[i].V2.x << " " << facets[i].V2.y << " "
+                  << facets[i].V2.z << "\n";
     }
 
     meix_file << "\nPOLYGONS " << n_facets << " " << 4 * n_facets << "\n";
@@ -539,8 +523,8 @@ void Meix::write_vtk(std::string output_tag)
 
 Meix::~Meix()
 {
-    Vertices.clear();
-    Facets.clear();
+    vertices.clear();
+    facets.clear();
 
     if (triangle_to_vertices != NULL) {
         for (int i = 0; i < n_facets; i++) {
@@ -554,5 +538,3 @@ Meix::~Meix()
 
     vertex_to_triangles.clear();
 }
-
-#endif
