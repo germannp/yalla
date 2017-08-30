@@ -8,6 +8,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
 #include "../../include/dtypes.cuh"
 #include "../../include/utils.cuh"
 
@@ -27,7 +28,6 @@ class Plane {
 public:
     float3 V0;
     float3 n;
-
     Plane(float3 a, float3 b)
     {
         V0 = a;
@@ -42,7 +42,6 @@ public:
     float3 V2;
     float3 C;
     float3 N;
-
     Triangle()
     {
         V0.x = 0.0f;
@@ -77,12 +76,10 @@ public:
         C = (V0 + V1 + V2) * (1.f / 3.f);
         N = n;
     }
-
     void calculate_centroid()
     {
         C = (V0 + V1 + V2) * (1.f / 3.f);
     }
-
     void calculate_normal()
     {
         auto v = V2 - V0;
@@ -94,33 +91,6 @@ public:
     }
 };
 
-
-float3 operator+(float3 a, float3 b)
-{
-    float3 p;
-    p.x = a.x + b.x;
-    p.y = a.y + b.y;
-    p.z = a.z + b.z;
-    return p;
-}
-
-float3 operator-(float3 a, float3 b)
-{
-    float3 p;
-    p.x = a.x - b.x;
-    p.y = a.y - b.y;
-    p.z = a.z - b.z;
-    return p;
-}
-
-float3 operator*(float3 a, float s)
-{
-    float3 p;
-    p.x = a.x * s;
-    p.y = a.y * s;
-    p.z = a.z * s;
-    return p;
-}
 
 // The following function checks if a ray intersects with a triangle
 // Theory and algorithm: http://geomalgorithms.com/a06-_intersect-2.html
@@ -202,7 +172,6 @@ public:
     std::vector<Triangle> facets;
     int** triangle_to_vertices;
     std::vector<std::vector<int> > vertex_to_triangles;
-
     Meix();
     Meix(std::string);
     Meix(const Meix& copy);
@@ -214,7 +183,6 @@ public:
     float3 get_centroid();
     void test_inclusion(std::vector<float3>&, int*, float3);
     void write_vtk(std::string);
-
     ~Meix();
 };
 
