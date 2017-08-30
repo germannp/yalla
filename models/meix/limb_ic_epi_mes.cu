@@ -252,11 +252,11 @@ int main(int argc, char const* argv[])
 
 
     // meix defines the overall shape of the limb bud (mesench. + ectoderm)
-    meix.Rescale_relative(resc);
+    meix.rescale_relative(resc);
     // meix_mesench defines the volume occupied by the mesenchyme (smaller than
     // meix)
     Meix meix_mesench = meix;
-    meix_mesench.Rescale_absolute(-r_min, wall_flag);  //*1.3//*1.2
+    meix_mesench.rescale_absolute(-r_min, wall_flag);  //*1.3//*1.2
     // Compute min. and max, positions in x,y,z from rescaled mesh
     xmin = 10000.0f;
     xmax = -10000.0f;
@@ -429,7 +429,7 @@ int main(int argc, char const* argv[])
     // Set direction of ray
     Point dir = Point(0.0f, 1.0f, 0.0f);
 
-    meix_mesench.InclusionTest(cube_points, mesench_result, dir);
+    meix_mesench.inclusion_test(cube_points, mesench_result, dir);
 
     // Make a new list with the ones that are inside
     std::vector<Point> mes_cells;
@@ -450,8 +450,8 @@ int main(int argc, char const* argv[])
     int* epi_result_big = new int[n_bolls_cube];
     int* epi_result_small = new int[n_bolls_cube];
 
-    meix.InclusionTest(cube_relax_points, epi_result_big, dir);
-    meix_mesench.InclusionTest(cube_relax_points, epi_result_small, dir);
+    meix.inclusion_test(cube_relax_points, epi_result_big, dir);
+    meix_mesench.inclusion_test(cube_relax_points, epi_result_small, dir);
 
     // Make a new list with the ones that are inside
     std::vector<Point> epi_cells;
@@ -523,7 +523,7 @@ int main(int argc, char const* argv[])
         AER_file.insert(AER_file.length() - 4, "_AER");
         std::cout<<"AER file "<<AER_file<<std::endl;
         Meix AER(AER_file);
-        AER.Rescale_relative(resc);
+        AER.rescale_relative(resc);
 
         for (int i = n_bolls_mes; i < n_bolls_total; i++) {
             Point p(bolls.h_X[i].x, bolls.h_X[i].y, bolls.h_X[i].z);
@@ -537,7 +537,7 @@ int main(int argc, char const* argv[])
             }
         }
 
-        AER.WriteVtk(output_tag + ".aer");
+        AER.write_vtk(output_tag + ".aer");
     }
 
     Vtk_output output(output_tag);
@@ -571,10 +571,10 @@ int main(int argc, char const* argv[])
 
     // write down the meix in the vtk file to compare it with the posterior
     // seeding
-    meix.WriteVtk(output_tag);
+    meix.write_vtk(output_tag);
     // write down the mesenchymal mesh in the vtk file to compare it with the
     // posterior filling
-    meix_mesench.WriteVtk(output_tag + ".mesench");
+    meix_mesench.write_vtk(output_tag + ".mesench");
 
     // Create a dummy meix that depicts the x=0 plane, depicting the flank
     // boundary
@@ -589,7 +589,7 @@ int main(int argc, char const* argv[])
     wall.n_facets = 2;
     wall.Facets.push_back(ABC);
     wall.Facets.push_back(BCD);
-    wall.WriteVtk(output_tag + ".wall");
+    wall.write_vtk(output_tag + ".wall");
 
     // for shape comparison purposes we write down the initial mesh as the
     // facets

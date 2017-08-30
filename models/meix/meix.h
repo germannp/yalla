@@ -94,8 +94,8 @@ public:
         V0 = a;
         V1 = b;
         V2 = c;
-        Calculate_Centroid();
-        Calculate_Normal();
+        calculate_centroid();
+        calculate_normal();
     }
     Triangle(Point a, Point b, Point c, Point n)
     {
@@ -106,9 +106,12 @@ public:
         N = n;
     }
 
-    void Calculate_Centroid() { C = (V0 + V1 + V2) * (1.f / 3.f); }
+    void calculate_centroid()
+    {
+        C = (V0 + V1 + V2) * (1.f / 3.f);
+    }
 
-    void Calculate_Normal()
+    void calculate_normal()
     {
         // recalculate normal
         Point v = V2 - V0;
@@ -188,7 +191,7 @@ Point operator*(Point a, float s)
 // dot product (3D) which allows vector operations in arguments
 #define dot(u, v) ((u).x * (v).x + (u).y * (v).y + (u).z * (v).z)
 
-int intersect3D_RayTriangle(Ray R, Triangle T, Point* I)
+int intersect_3D_ray_triangle(Ray R, Triangle T, Point* I)
 {
     Point u, v, n;     // triangle vectors
     Point dir, w0, w;  // ray vectors
@@ -272,13 +275,13 @@ public:
     Meix(std::string);
     Meix(const Meix& copy);
     Meix& operator=(const Meix& other);
-    void Rescale_relative(float);
-    void Rescale_absolute(float, bool);
-    void Rotate(float, float);
-    void Translate(Point);
-    Point Get_centroid();
-    void InclusionTest(std::vector<Point>&, int*, Point);
-    void WriteVtk(std::string);
+    void rescale_relative(float);
+    void rescale_absolute(float, bool);
+    void rotate(float, float);
+    void translate(Point);
+    Point get_centroid();
+    void inclusion_test(std::vector<Point>&, int*, Point);
+    void write_vtk(std::string);
 
     ~Meix();
 };
@@ -423,7 +426,7 @@ Meix& Meix::operator=(const Meix& other)
     return *this;
 }
 
-void Meix::Rescale_relative(float resc)
+void Meix::rescale_relative(float resc)
 {
     for (int i = 0; i < n_vertices; i++) {
         Vertices[i] = Vertices[i] * resc;
@@ -437,7 +440,7 @@ void Meix::Rescale_relative(float resc)
     }
 }
 
-void Meix::Rescale_absolute(float resc, bool boundary = false)
+void Meix::rescale_absolute(float resc, bool boundary = false)
 {
     for (int i = 0; i < n_vertices; i++) {
         if (boundary && Vertices[i].x == 0.f) continue;
@@ -462,12 +465,12 @@ void Meix::Rescale_absolute(float resc, bool boundary = false)
         Facets[i].V0 = Vertices[V0];
         Facets[i].V1 = Vertices[V1];
         Facets[i].V2 = Vertices[V2];
-        Facets[i].Calculate_Centroid();
-        Facets[i].Calculate_Normal();
+        Facets[i].calculate_centroid();
+        Facets[i].calculate_normal();
     }
 }
 
-void Meix::Translate(Point translation_vector)
+void Meix::translate(Point translation_vector)
 {
     for (int i = 0; i < n_vertices; i++) {
         Vertices[i] = Vertices[i] + translation_vector;
@@ -483,7 +486,7 @@ void Meix::Translate(Point translation_vector)
 
 // Function that checks if a point is inside a closed polyhedron defined by
 // a list of facets (or triangles)
-void Meix::InclusionTest(
+void Meix::inclusion_test(
     std::vector<Point>& points, int* inclusion, Point direction)
 {
     for (int i = 0; i < points.size(); i++) {
@@ -493,7 +496,7 @@ void Meix::InclusionTest(
         int intersection_count = 0;
         for (int j = 0; j < n_facets; j++) {
             Point* intersect = new Point(0.0f, 0.0f, 0.0f);
-            int test = intersect3D_RayTriangle(R, Facets[j], intersect);
+            int test = intersect_3D_ray_triangle(R, Facets[j], intersect);
             if (test > 0) intersection_count++;
         }
         if (intersection_count % 2 == 0) {
@@ -505,7 +508,7 @@ void Meix::InclusionTest(
 }
 
 // writes the whole meix data structure as a vtk file
-void Meix::WriteVtk(std::string output_tag)
+void Meix::write_vtk(std::string output_tag)
 {
     std::string filename = "output/" + output_tag + ".meix.vtk";
     std::ofstream meix_file(filename);
