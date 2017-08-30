@@ -195,9 +195,9 @@ int main(int argc, char const* argv[])
 
     // The relaxed cube positions will be used to imprint epithelial cells
     cube.copy_to_host();
-    std::vector<Point> cube_relax_points;
+    std::vector<float3> cube_relax_points;
     for (auto i = 0; i < n_bolls_cube; i++) {
-        Point p = Point(cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z);
+        float3 p = float3{cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z};
         cube_relax_points.push_back(p);
     }
 
@@ -224,21 +224,21 @@ int main(int argc, char const* argv[])
 
     // Mesenchyme
     // Setup the list of points
-    std::vector<Point> cube_points;
+    std::vector<float3> cube_points;
     for (auto i = 0; i < n_bolls_cube; i++) {
-        Point p = Point(cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z);
+        float3 p = float3{cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z};
         cube_points.push_back(p);
     }
 
     // Setup the list of inclusion test results
     int* mesench_result = new int[n_bolls_cube];
     // Set direction of ray
-    Point dir = Point(0.0f, 1.0f, 0.0f);
+    float3 dir = float3{0, 1, 0};
 
     meix_mesench.test_inclusion(cube_points, mesench_result, dir);
 
     // Make a new list with the ones that are inside
-    std::vector<Point> mes_cells;
+    std::vector<float3> mes_cells;
     int n_bolls_mes = 0;
     for (int i = 0; i < n_bolls_cube; i++) {
         if (mesench_result[i] == 1) {
@@ -260,7 +260,7 @@ int main(int argc, char const* argv[])
     meix_mesench.test_inclusion(cube_relax_points, epi_result_small, dir);
 
     // Make a new list with the ones that are inside
-    std::vector<Point> epi_cells;
+    std::vector<float3> epi_cells;
     int n_bolls_epi = 0;
     for (int i = 0; i < n_bolls_cube; i++) {
         if (epi_result_big[i] == 1 and epi_result_small[i] == 0) {
@@ -290,13 +290,13 @@ int main(int argc, char const* argv[])
         bolls.h_X[i].z = epi_cells[count].z;
         type.h_prop[i] = epithelium;
         // polarity
-        Point p = epi_cells[count];
+        float3 p = epi_cells[count];
         int f = -1;
         float dmin = 1000000.f;
         // we use the closest facet on meix to determine the polarity of the
         // epithelial cell
         for (int j = 0; j < meix.n_facets; j++) {
-            Point r = p - meix.facets[j].C;
+            float3 r = p - meix.facets[j].C;
             float d = sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
             if (d < dmin) {
                 dmin = d;
