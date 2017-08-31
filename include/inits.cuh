@@ -62,3 +62,60 @@ void uniform_cuboid(float xmin, float ymin, float zmin, float dx,
     }
     bolls.copy_to_device();
 }
+
+// Distribute bolls with regular hexagonal distribution
+template<typename Pt, int n_max, template<typename, int> class Solver>
+void regular_hexagon(float mean_distance, Solution<Pt, n_max, Solver>& bolls,
+    unsigned int n_0 = 0)
+{
+    assert(n_0 < *bolls.h_n);
+
+    auto beta = M_PI / 3.f;
+    auto starting_angle = M_PI / 12.f;
+    auto n_cells = *bolls.h_n;
+
+    //boll in the centre;
+    bolls.h_X[0].x = 0.f;
+    bolls.h_X[0].y = 0.f;
+    bolls.h_X[0].z = 0.f;
+    auto cell_counter = 1;
+    if(cell_counter >= n_cells) {
+        bolls.copy_to_device();
+        return;
+    }
+    auto i = 1;
+    while (true) {
+        for (auto j = 0 ; j < 6 ; j++) {
+            //main axis node
+            auto angle = starting_angle + beta * j;
+            float3 p {-mean_distance * i * sinf(angle),
+                mean_distance * i * cosf(angle), 0.f};
+            bolls.h_X[cell_counter] = p;
+            cell_counter++;
+            if(cell_counter >= n_cells) {
+                bolls.copy_to_device();
+                return;
+            }
+            //intermediate nodes
+            auto n_int = i - 1;
+            if(n_int < 1) continue;
+            auto next_angle = starting_angle + beta * (j + 1);
+            float3 q {-mean_distance * i * sinf(next_angle),
+                mean_distance * i * cosf(next_angle), 0.f};
+            auto v = q - p;
+            auto modulus = sqrt(pow(v.x, 2) + pow(v.y, 2));
+            v = v * (1.f / modulus);
+            for (auto k = 1 ; k <= n_int ; k++) {
+                auto u = v * modulus * (float(k) / float(n_int + 1));
+                bolls.h_X[cell_counter] = p + u;
+                cell_counter++;
+                if(cell_counter >= n_cells) {
+                    bolls.copy_to_device();
+                    return;
+                }
+            }
+        }
+        i++;
+    }
+
+}
