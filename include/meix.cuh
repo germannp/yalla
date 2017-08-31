@@ -14,8 +14,7 @@
 #include "utils.cuh"
 
 
-class Ray {
-public:
+struct Ray {
     float3 P0;
     float3 P1;
     Ray(float3 a, float3 b)
@@ -26,8 +25,7 @@ public:
 };
 
 
-class Triangle {
-public:
+struct Triangle {
     float3 V0;
     float3 V1;
     float3 V2;
