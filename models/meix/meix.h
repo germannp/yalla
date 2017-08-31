@@ -41,7 +41,7 @@ public:
     float3 V2;
     float3 C;
     float3 N;
-    Triangle() : Triangle(float3 {0}, float3 {0}, float3 {0}) {}
+    Triangle() : Triangle(float3{0}, float3{0}, float3{0}) {}
     Triangle(float3 a, float3 b, float3 c)
     {
         V0 = a;
@@ -58,10 +58,7 @@ public:
         calculate_centroid();
         N = n;
     }
-    void calculate_centroid()
-    {
-        C = (V0 + V1 + V2) / 3.f;
-    }
+    void calculate_centroid() { C = (V0 + V1 + V2) / 3.f; }
     void calculate_normal()
     {
         auto v = V2 - V0;
@@ -99,14 +96,14 @@ public:
 int intersect_3D_ray_triangle(Ray R, Triangle T, float3* I)
 {
     // get triangle edge vectors and plane normal
-    auto u = T.V1 - T.V0; //Triangle vectors
+    auto u = T.V1 - T.V0;  // Triangle vectors
     auto v = T.V2 - T.V0;
     auto n = T.N;
     if (n.x == 0.0f && n.y == 0.0f && n.z == 0.0f)  // triangle is degenerate
         return -1;  // do not deal with this case
 
     auto dir = R.P1 - R.P0;  // ray direction vector
-    auto w0 = R.P0 - T.V0;   //ray vector
+    auto w0 = R.P0 - T.V0;   // ray vector
     auto a = -dot(n, w0);    // params to calc ray-plane intersect
     auto b = dot(n, dir);
     if (fabs(b) < SMALL_NUM) {  // ray is  parallel to triangle plane
@@ -128,7 +125,7 @@ int intersect_3D_ray_triangle(Ray R, Triangle T, float3* I)
     auto uu = dot(u, u);
     auto uv = dot(u, v);
     auto vv = dot(v, v);
-    auto w = *I - T.V0;  //ray vector
+    auto w = *I - T.V0;  // ray vector
     auto wu = dot(w, u);
     auto wv = dot(w, v);
     auto D = uv * uv - uu * vv;
@@ -210,10 +207,10 @@ Meix::Meix(std::string file_name)
         items.clear();
     }
 
-    //at this point there may be a black line or not, so we have to check
+    // at this point there may be a black line or not, so we have to check
     getline(input_file, line);
     items = split(line);
-    if(items[0] == "POLYGONS" or items[0] == "CELLS") {
+    if (items[0] == "POLYGONS" or items[0] == "CELLS") {
         n_facets = stoi(items[1]);
         items.clear();
     } else {
