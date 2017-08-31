@@ -41,24 +41,7 @@ public:
     float3 V2;
     float3 C;
     float3 N;
-    Triangle()
-    {
-        V0.x = 0.0f;
-        V0.y = 0.0f;
-        V0.z = 0.0f;
-        V1.x = 0.0f;
-        V1.y = 0.0f;
-        V1.z = 0.0f;
-        V2.x = 0.0f;
-        V2.y = 0.0f;
-        V2.z = 0.0f;
-        C.x = 0.0f;
-        C.y = 0.0f;
-        C.z = 0.0f;
-        N.x = 0.0f;
-        N.y = 0.0f;
-        N.z = 0.0f;
-    }
+    Triangle() : Triangle(float3 {0}, float3 {0}, float3 {0}) {}
     Triangle(float3 a, float3 b, float3 c)
     {
         V0 = a;
@@ -72,12 +55,12 @@ public:
         V0 = a;
         V1 = b;
         V2 = c;
-        C = (V0 + V1 + V2) * (1.f / 3.f);
+        calculate_centroid();
         N = n;
     }
     void calculate_centroid()
     {
-        C = (V0 + V1 + V2) * (1.f / 3.f);
+        C = (V0 + V1 + V2) / 3.f;
     }
     void calculate_normal()
     {
@@ -86,7 +69,7 @@ public:
         float3 n{u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z,
             u.x * v.y - u.y * v.x};
         float d = sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
-        N = n * (1.f / d);
+        N = n / d;
     }
 };
 
