@@ -10,18 +10,17 @@ const char* test_torus()
 {
     const auto n_bolls = 1000;
     Solution<float3, n_bolls, Grid_solver> bolls;
-    uniform_cuboid(-1.f, -1.f, -0.5f, 2.f, 2.f, 1.f, bolls);
+    uniform_cuboid(-1.5, -1.5, -0.5, 3, 3, 1, bolls);
 
     Meix meix("tests/torus.vtk");
-    auto in = meix.test_inclusion(bolls);
-
     for (auto i = 0; i < n_bolls; i++) {
         auto dist_from_ring = sqrt(
             pow(1 - sqrt(pow(bolls.h_X[i].x, 2) + pow(bolls.h_X[i].y, 2)), 2) +
             pow(bolls.h_X[i].z, 2));
         if (abs(dist_from_ring - 0.5) < 0.01) continue;  // Tolerance for mesh
 
-        MU_ASSERT("Inclusion test wrong", (dist_from_ring <= 0.5) == in[i]);
+        auto out = meix.test_exclusion(bolls.h_X[i]);
+        MU_ASSERT("Inclusion test wrong", (dist_from_ring >= 0.5) == out);
     }
 
     return NULL;
