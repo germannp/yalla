@@ -24,16 +24,6 @@ public:
     }
 };
 
-class Plane {
-public:
-    float3 V0;
-    float3 n;
-    Plane(float3 a, float3 b)
-    {
-        V0 = a;
-        n = b;
-    }
-};
 
 class Triangle {
 public:
