@@ -12,7 +12,7 @@ const char* test_torus()
     Solution<float3, n_bolls, Grid_solver> bolls;
     uniform_cuboid(-1.f, -1.f, -0.5f, 2.f, 2.f, 1.f, bolls);
 
-    Meix meix("tests/DonutR1r05.vtk");
+    Meix meix("tests/torus.vtk");
     auto in = meix.test_inclusion(bolls);
 
     for (auto i = 0; i < n_bolls; i++) {
