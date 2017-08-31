@@ -19,7 +19,7 @@ const auto dt = 0.1;
 const auto n_protrusions = static_cast<int>(n_cells * type_ratio * prots_per_cell);
 
 
-__device__ float3 clipped_cubic(float3 Xi, float3 r, float dist, int i, int j)
+__device__ float3 relu_force(float3 Xi, float3 r, float dist, int i, int j)
 {
     float3 dF{0};
     if (i == j) return dF;
@@ -81,7 +81,7 @@ int main(int argc, char const* argv[])
         protrusions.copy_to_host();
         update_protrusions<<<(n_protrusions + 32 - 1) / 32, 32>>>(
             bolls.d_X, protrusions.d_state, protrusions.d_link);
-        bolls.take_step<clipped_cubic>(dt, prot_forces);
+        bolls.take_step<relu_force>(dt, prot_forces);
         output.write_positions(bolls);
         output.write_links(protrusions);
         output.write_property(type);
