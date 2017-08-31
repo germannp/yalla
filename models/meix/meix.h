@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <array>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -160,7 +161,8 @@ public:
     void rotate(float, float);
     void translate(float3);
     float3 get_centroid();
-    void test_inclusion(std::vector<float3>&, int*, float3);
+    template<typename Pt, int n_max, template<typename, int> class Solver>
+    std::array<bool, n_max> test_inclusion(Solution<Pt, n_max, Solver>& bolls);
     void write_vtk(std::string);
     ~Meix();
 };
@@ -364,12 +366,13 @@ void Meix::translate(float3 translation_vector)
 
 // Function that checks if a point is inside a closed polyhedron defined by
 // a list of facets (or triangles)
-void Meix::test_inclusion(
-    std::vector<float3>& points, int* inclusion, float3 direction)
+template<typename Pt, int n_max, template<typename, int> class Solver>
+std::array<bool, n_max> Meix::test_inclusion(Solution<Pt, n_max, Solver>& bolls)
 {
-    for (int i = 0; i < points.size(); i++) {
-        auto p_0 = points[i];
-        auto p_1 = p_0 + direction;
+    std::array<bool, n_max> inclusion;
+    for (int i = 0; i < *bolls.h_n; i++) {
+        auto p_0 = bolls.h_X[i];
+        auto p_1 = p_0 + float3{1, 0, 0};
         Ray R(p_0, p_1);
         int intersection_count = 0;
         for (int j = 0; j < n_facets; j++) {
@@ -377,12 +380,9 @@ void Meix::test_inclusion(
             int test = intersect_3D_ray_triangle(R, facets[j], intersect);
             if (test > 0) intersection_count++;
         }
-        if (intersection_count % 2 == 0) {
-            inclusion[i] = 0;
-        } else {
-            inclusion[i] = 1;
-        }
+        inclusion[i] = (intersection_count % 2 != 0);
     }
+    return inclusion;
 }
 
 // writes the whole meix data structure as a vtk file
