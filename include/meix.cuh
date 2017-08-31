@@ -142,7 +142,7 @@ public:
     std::vector<float3> vertices;
     std::vector<Triangle> facets;
     int** triangle_to_vertices;
-    std::vector<std::vector<int> > vertex_to_triangles;
+    std::vector<std::vector<int>> vertex_to_triangles;
     Meix();
     Meix(std::string);
     Meix(const Meix& copy);
@@ -239,7 +239,7 @@ Meix::Meix(std::string file_name)
     // we want to construct the list of triangles adjacent to each vertex
     // (vector of vectors)
     std::vector<int> empty;
-    std::vector<std::vector<int> > dummy(n_vertices, empty);
+    std::vector<std::vector<int>> dummy(n_vertices, empty);
     vertex_to_triangles = dummy;
 
     int vertex;
@@ -269,7 +269,7 @@ Meix::Meix(const Meix& copy)
     }
 
     std::vector<int> empty;
-    std::vector<std::vector<int> > dummy(n_vertices, empty);
+    std::vector<std::vector<int>> dummy(n_vertices, empty);
     vertex_to_triangles = dummy;
     for (int i = 0; i < n_vertices; i++)
         vertex_to_triangles[i] = copy.vertex_to_triangles[i];
@@ -289,7 +289,7 @@ Meix& Meix::operator=(const Meix& other)
             sizeof(int) * 3);
     }
     std::vector<int> empty;
-    std::vector<std::vector<int> > dummy(n_vertices, empty);
+    std::vector<std::vector<int>> dummy(n_vertices, empty);
     vertex_to_triangles = dummy;
     for (int i = 0; i < n_vertices; i++)
         vertex_to_triangles[i] = other.vertex_to_triangles[i];
