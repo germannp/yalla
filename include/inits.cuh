@@ -3,7 +3,31 @@
 
 #include <assert.h>
 #include <time.h>
+#include <iostream>
 
+template<typename Pt>
+__device__ Pt relaxation_linear_force(Pt Xi, Pt r, float dist, int i, int j)
+{
+    Pt dF{0};
+
+    if (i == j) return dF;
+
+    if (dist > 1.f) return dF;
+
+    auto F = fmaxf(0.8f - dist, 0) * 2.f - fmaxf(dist - 0.8f, 0);
+    dF.x = r.x * F / dist;
+    dF.y = r.y * F / dist;
+    dF.z = r.z * F / dist;
+
+    return dF;
+}
+
+template<typename Pt>
+__device__ float local_friction(Pt Xi, Pt r, float dist, int i, int j)
+{
+    if(i == j) return 0;
+    return 1;
+}
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
 class Solution;
@@ -25,6 +49,20 @@ void uniform_circle(float mean_distance, Solution<Pt, n_max, Solver>& bolls,
         bolls.h_X[i].z = r * cos(phi);
     }
     bolls.copy_to_device();
+
+    //relax initial state
+    int relax_time;
+    if(*bolls.h_n <= 100) relax_time = 1000;
+    else if(*bolls.h_n <= 1000) relax_time = 2000;
+    else if(*bolls.h_n <= 1500) relax_time = 3000;
+    else relax_time = 4000;
+    if(*bolls.h_n > 2000)
+        std::cout<<"The system is quite large, most likely"<<
+            " is not going to be mechanically relaxed"<<std::endl;
+
+    for (int i = 0 ; i < relax_time ; i++)
+        bolls. template take_step<relaxation_linear_force,
+            local_friction>(0.1f);
 }
 
 // Distribute bolls uniformly random in sphere
@@ -45,6 +83,20 @@ void uniform_sphere(float mean_distance, Solution<Pt, n_max, Solver>& bolls,
         bolls.h_X[i].z = r * cos(theta);
     }
     bolls.copy_to_device();
+
+    //relax initial state
+    int relax_time;
+    if(*bolls.h_n <= 100) relax_time = 500;
+    else if(*bolls.h_n <= 1000) relax_time = 1000;
+    else if(*bolls.h_n <= 6000) relax_time = 2000;
+    else relax_time = 3000;
+    if(*bolls.h_n > 10000)
+        std::cout<<"The system is quite large, most likely"<<
+            " is not going to be mechanically relaxed"<<std::endl;
+
+    for (int i = 0 ; i < relax_time ; i++)
+        bolls. template take_step<relaxation_linear_force,
+            local_friction>(0.1f);
 }
 
 // Distribute bolls uniformly random in cuboid
