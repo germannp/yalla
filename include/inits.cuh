@@ -90,7 +90,9 @@ void regular_hexagon(float mean_distance, Solution<Pt, n_max, Solver>& bolls,
             auto angle = starting_angle + beta * j;
             float3 p {-mean_distance * i * sinf(angle),
                 mean_distance * i * cosf(angle), 0.f};
-            bolls.h_X[cell_counter] = p;
+            bolls.h_X[cell_counter].x = p.x;
+            bolls.h_X[cell_counter].y = p.y;
+            bolls.h_X[cell_counter].z = p.z;
             cell_counter++;
             if(cell_counter >= n_cells) {
                 bolls.copy_to_device();
@@ -107,7 +109,9 @@ void regular_hexagon(float mean_distance, Solution<Pt, n_max, Solver>& bolls,
             v = v * (1.f / modulus);
             for (auto k = 1 ; k <= n_int ; k++) {
                 auto u = v * modulus * (float(k) / float(n_int + 1));
-                bolls.h_X[cell_counter] = p + u;
+                bolls.h_X[cell_counter].x = p.x + u.x;
+                bolls.h_X[cell_counter].y = p.y + u.y;
+                bolls.h_X[cell_counter].z = p.z + u.z;
                 cell_counter++;
                 if(cell_counter >= n_cells) {
                     bolls.copy_to_device();
