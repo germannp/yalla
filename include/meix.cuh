@@ -85,7 +85,7 @@ public:
 // dot product (3D) which allows vector operations in arguments
 #define dot(u, v) ((u).x * (v).x + (u).y * (v).y + (u).z * (v).z)
 
-int intersect_3D_ray_triangle(Ray R, Triangle T, float3* I)
+int intersect_3D_ray_triangle(Ray R, Triangle T)
 {
     // get triangle edge vectors and plane normal
     auto u = T.V1 - T.V0;  // Triangle vectors
@@ -111,13 +111,13 @@ int intersect_3D_ray_triangle(Ray R, Triangle T, float3* I)
         return 0;    // => no intersect
     // for a segment, also test if (r > 1.0) => no intersect
 
-    *I = R.P0 + (dir * r);  // intersect point of ray and plane
+    auto I = R.P0 + (dir * r);  // intersect point of ray and plane
 
     // is I inside T?
     auto uu = dot(u, u);
     auto uv = dot(u, v);
     auto vv = dot(v, v);
-    auto w = *I - T.V0;  // ray vector
+    auto w = I - T.V0;  // ray vector
     auto wu = dot(w, u);
     auto wv = dot(w, v);
     auto D = uv * uv - uu * vv;
@@ -367,8 +367,7 @@ std::array<bool, n_max> Meix::test_inclusion(Solution<Pt, n_max, Solver>& bolls)
         Ray R(p_0, p_1);
         int intersection_count = 0;
         for (int j = 0; j < n_facets; j++) {
-            auto* intersect = new float3{0.0f, 0.0f, 0.0f};
-            int test = intersect_3D_ray_triangle(R, facets[j], intersect);
+            int test = intersect_3D_ray_triangle(R, facets[j]);
             if (test > 0) intersection_count++;
         }
         inclusion[i] = (intersection_count % 2 != 0);
