@@ -1,7 +1,7 @@
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
+#include "../include/meix.cuh"
 #include "../include/solvers.cuh"
-#include "../models/meix/meix.h"
 #include "minunit.cuh"
 
 #include <iostream>

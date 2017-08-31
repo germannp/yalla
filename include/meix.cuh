@@ -10,8 +10,8 @@
 #include <string>
 #include <vector>
 
-#include "../../include/dtypes.cuh"
-#include "../../include/utils.cuh"
+#include "dtypes.cuh"
+#include "utils.cuh"
 
 
 class Ray {

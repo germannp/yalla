@@ -12,6 +12,7 @@
 #include "../../include/inits.cuh"
 #include "../../include/solvers.cuh"
 #include "../../include/vtk.cuh"
+#include "../../include/meix.cuh"
 #include "../../include/polarity.cuh"
 #include "../../include/property.cuh"
 #include <sstream>
@@ -20,7 +21,6 @@
 #include <vector>
 #include <iostream>
 
-#include "meix.h"
 
 const auto n_max = 150000;
 

@@ -4,7 +4,7 @@
 #include <vector>
 #include <iostream>
 
-#include "../models/meix/meix.h"
+#include "../../include/meix.cuh"
 
 int main(int argc, char const *argv[])
 {
