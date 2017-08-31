@@ -144,13 +144,12 @@ public:
     int** triangle_to_vertices;
     std::vector<std::vector<int>> vertex_to_triangles;
     Meix();
-    Meix(std::string);
+    Meix(std::string file_name);
     Meix(const Meix& copy);
     Meix& operator=(const Meix& other);
-    void rescale_relative(float);
-    void rescale_absolute(float, bool);
-    void rotate(float, float);
-    void translate(float3);
+    void rescale_relative(float scale);
+    void rescale_absolute(float scale, bool boundary);
+    void translate(float3 offset);
     float3 get_centroid();
     template<typename Pt, int n_max, template<typename, int> class Solver>
     std::array<bool, n_max> test_inclusion(Solution<Pt, n_max, Solver>& bolls);
@@ -297,21 +296,21 @@ Meix& Meix::operator=(const Meix& other)
     return *this;
 }
 
-void Meix::rescale_relative(float resc)
+void Meix::rescale_relative(float scale)
 {
     for (int i = 0; i < n_vertices; i++) {
-        vertices[i] = vertices[i] * resc;
+        vertices[i] = vertices[i] * scale;
     }
 
     for (int i = 0; i < n_facets; i++) {
-        facets[i].V0 = facets[i].V0 * resc;
-        facets[i].V1 = facets[i].V1 * resc;
-        facets[i].V2 = facets[i].V2 * resc;
-        facets[i].C = facets[i].C * resc;
+        facets[i].V0 = facets[i].V0 * scale;
+        facets[i].V1 = facets[i].V1 * scale;
+        facets[i].V2 = facets[i].V2 * scale;
+        facets[i].C = facets[i].C * scale;
     }
 }
 
-void Meix::rescale_absolute(float resc, bool boundary = false)
+void Meix::rescale_absolute(float scale, bool boundary = false)
 {
     for (int i = 0; i < n_vertices; i++) {
         if (boundary && vertices[i].x == 0.f) continue;
@@ -324,7 +323,7 @@ void Meix::rescale_absolute(float resc, bool boundary = false)
 
         float d = sqrt(pow(average_normal.x, 2) + pow(average_normal.y, 2) +
                        pow(average_normal.z, 2));
-        average_normal = average_normal * (resc / d);
+        average_normal = average_normal * (scale / d);
 
         vertices[i] = vertices[i] + average_normal;
     }
@@ -341,17 +340,17 @@ void Meix::rescale_absolute(float resc, bool boundary = false)
     }
 }
 
-void Meix::translate(float3 translation_vector)
+void Meix::translate(float3 offset)
 {
     for (int i = 0; i < n_vertices; i++) {
-        vertices[i] = vertices[i] + translation_vector;
+        vertices[i] = vertices[i] + offset;
     }
 
     for (int i = 0; i < n_facets; i++) {
-        facets[i].V0 = facets[i].V0 + translation_vector;
-        facets[i].V1 = facets[i].V1 + translation_vector;
-        facets[i].V2 = facets[i].V2 + translation_vector;
-        facets[i].C = facets[i].C + translation_vector;
+        facets[i].V0 = facets[i].V0 + offset;
+        facets[i].V1 = facets[i].V1 + offset;
+        facets[i].V2 = facets[i].V2 + offset;
+        facets[i].C = facets[i].C + offset;
     }
 }
 
