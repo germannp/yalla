@@ -6,6 +6,7 @@
 
 #include <iostream>
 
+
 const char* test_torus()
 {
     const auto n_bolls = 1000;
