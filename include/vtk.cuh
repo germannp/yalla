@@ -171,10 +171,9 @@ void Vtk_output::write_property(Property<n_max, Prop>& property)
         point_data_started = true;
     }
 
-    std::string ptype =
-        typeid(Prop).name();  // Check whether Prop is int or float
+    std::string ptype = typeid(Prop).name();
     if (ptype == "f")
-        ptype = "float";  // to define the type in vtk format
+        ptype = "float";
     else
         ptype = "int";
 
@@ -184,7 +183,6 @@ void Vtk_output::write_property(Property<n_max, Prop>& property)
 }
 
 
-// Files have to be read in the same order as they have been written.
 class Vtk_input {
 public:
     Vtk_input(std::string filename);
@@ -229,15 +227,15 @@ std::streampos Vtk_input::find_entry(std::string keyword1, std::string keyword2)
     std::ifstream input_file(file_name);
     assert(input_file.is_open());
 
-    input_file.seekg(0); //reset the bookmark to the beginning of file
+    input_file.seekg(0); // Start at beginning of file
 
     std::string word1 = "";
     std::string word2 = "";
     std::string line;
     std::vector<std::string> items;
 
-    getline(input_file, line); // these are the header lines,
-    getline(input_file, line); // we skip them to avoid false matches
+    getline(input_file, line); // Skip header to avoid false matches
+    getline(input_file, line);
     getline(input_file, line);
     getline(input_file, line);
 
