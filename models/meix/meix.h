@@ -1,3 +1,4 @@
+// Handle meshes for image-based models
 #pragma once
 
 #include <assert.h>
