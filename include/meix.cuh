@@ -3,7 +3,6 @@
 
 #include <assert.h>
 #include <math.h>
-#include <array>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -201,7 +200,6 @@ Meix::Meix(std::string file_name)
         n_facets = stoi(items[1]);
         items.clear();
     }
-
 
     // read facets
     count = 0;
