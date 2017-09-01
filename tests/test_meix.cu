@@ -4,14 +4,12 @@
 #include "../include/solvers.cuh"
 #include "minunit.cuh"
 
-#include <iostream>
-
 
 const char* test_torus()
 {
-    const auto n_bolls = 1000;
+    const auto n_bolls = 1500;
     Solution<float3, n_bolls, Grid_solver> bolls;
-    uniform_cuboid(-1.5, -1.5, -0.5, 3, 3, 1, bolls);
+    uniform_cuboid(0.25, float3{-1.5, -1.5, -0.5}, float3{3, 3, 1}, bolls);
 
     Meix meix("tests/torus.vtk");
     for (auto i = 0; i < n_bolls; i++) {
@@ -21,7 +19,7 @@ const char* test_torus()
         if (abs(dist_from_ring - 0.5) < 0.01) continue;  // Tolerance for mesh
 
         auto out = meix.test_exclusion(bolls.h_X[i]);
-        MU_ASSERT("Inclusion test wrong", (dist_from_ring >= 0.5) == out);
+        MU_ASSERT("Exclusion test wrong", (dist_from_ring >= 0.5) == out);
     }
 
     return NULL;

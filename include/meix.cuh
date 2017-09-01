@@ -3,7 +3,6 @@
 
 #include <assert.h>
 #include <math.h>
-#include <array>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -30,7 +29,7 @@ struct Triangle {
     float3 V1;
     float3 V2;
     float3 C;
-    float3 N;
+    float3 n;
     Triangle() : Triangle(float3{0}, float3{0}, float3{0}) {}
     Triangle(float3 a, float3 b, float3 c)
     {
@@ -40,95 +39,16 @@ struct Triangle {
         calculate_centroid();
         calculate_normal();
     }
-    Triangle(float3 a, float3 b, float3 c, float3 n)
-    {
-        V0 = a;
-        V1 = b;
-        V2 = c;
-        calculate_centroid();
-        N = n;
-    }
     void calculate_centroid() { C = (V0 + V1 + V2) / 3.f; }
     void calculate_normal()
     {
         auto v = V2 - V0;
         auto u = V1 - V0;
-        float3 n{u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z,
-            u.x * v.y - u.y * v.x};
-        float d = sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
-        N = n / d;
+        n = float3{u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z,
+                u.x * v.y - u.y * v.x};
+        n /= sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
     }
 };
-
-
-// The following function checks if a ray intersects with a triangle
-// Theory and algorithm: http://geomalgorithms.com/a06-_intersect-2.html
-
-// Copyright 2001 softSurfer, 2012 Dan Sunday
-// This code may be freely used and modified for any purpose
-// providing that this copyright notice is included with it.
-// SoftSurfer makes no warranty for this code, and cannot be held
-// liable for any real or imagined damage resulting from its use.
-// Users of this code must verify correctness for their application.
-
-// intersect_3D_ray_triangle():
-//    Input:  a ray R, and a triangle T
-//    Return: -1 = triangle is degenerate (a segment or point)
-//             0 =  disjoint (no intersect)
-//             1 =  intersect in unique point I1
-//             2 =  are in the same plane
-
-#define SMALL_NUM 0.00000001  // anything that avoids division overflow
-// dot product (3D) which allows vector operations in arguments
-#define dot(u, v) ((u).x * (v).x + (u).y * (v).y + (u).z * (v).z)
-
-int intersect_3D_ray_triangle(Ray R, Triangle T)
-{
-    // get triangle edge vectors and plane normal
-    auto u = T.V1 - T.V0;  // Triangle vectors
-    auto v = T.V2 - T.V0;
-    auto n = T.N;
-    if (n.x == 0.0f && n.y == 0.0f && n.z == 0.0f)  // triangle is degenerate
-        return -1;  // do not deal with this case
-
-    auto dir = R.P1 - R.P0;  // ray direction vector
-    auto w0 = R.P0 - T.V0;   // ray vector
-    auto a = -dot(n, w0);    // params to calc ray-plane intersect
-    auto b = dot(n, dir);
-    if (fabs(b) < SMALL_NUM) {  // ray is  parallel to triangle plane
-        if (a == 0)             // ray lies in triangle plane
-            return 2;
-        else
-            return 0;  // ray disjoint from plane
-    }
-
-    // get intersect point of ray with triangle plane
-    auto r = a / b;  // param to calc ray-plane intersect
-    if (r < 0.0)     // ray goes away from triangle
-        return 0;    // => no intersect
-    // for a segment, also test if (r > 1.0) => no intersect
-
-    auto I = R.P0 + (dir * r);  // intersect point of ray and plane
-
-    // is I inside T?
-    auto uu = dot(u, u);
-    auto uv = dot(u, v);
-    auto vv = dot(v, v);
-    auto w = I - T.V0;  // ray vector
-    auto wu = dot(w, u);
-    auto wv = dot(w, v);
-    auto D = uv * uv - uu * vv;
-
-    // get and test parametric coords
-    auto s = (uv * wv - vv * wu) / D;
-    if (s < 0.0 || s > 1.0)  // I is outside T
-        return 0;
-    auto t = (uv * wu - uu * wv) / D;
-    if (t < 0.0 || (s + t) > 1.0)  // I is outside T
-        return 0;
-
-    return 1;  // I is in T
-}
 
 
 class Meix {
@@ -214,7 +134,6 @@ Meix::Meix(std::string file_name)
         n_facets = stoi(items[1]);
         items.clear();
     }
-
 
     // read facets
     count = 0;
@@ -350,7 +269,7 @@ void Meix::rescale_absolute(float scale, bool boundary = false)
         float3 average_normal;
         for (int j = 0; j < vertex_to_triangles[i].size(); j++) {
             int triangle = vertex_to_triangles[i][j];
-            average_normal = average_normal + facets[triangle].N;
+            average_normal = average_normal + facets[triangle].n;
         }
 
         float d = sqrt(pow(average_normal.x, 2) + pow(average_normal.y, 2) +
@@ -388,23 +307,55 @@ void Meix::translate(float3 offset)
     }
 }
 
-// Function that checks if a point is inside a closed polyhedron defined by
-// a list of facets (or triangles)
+template<typename Pt_a, typename Pt_b>
+float scalar_product(Pt_a a, Pt_b b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+// Theory and algorithm: http://geomalgorithms.com/a06-_intersect-2.html
+bool intersect(Ray R, Triangle T)
+{
+    // Find intersection point PI
+    auto r =
+        scalar_product(T.n, T.V0 - R.P0) / scalar_product(T.n, R.P1 - R.P0);
+    if (r < 0) return false;  // Ray going away
+
+    auto PI = R.P0 + ((R.P1 - R.P0) * r);
+
+    // Check if PI in T
+    auto u = T.V1 - T.V0;
+    auto v = T.V2 - T.V0;
+    auto w = PI - T.V0;
+    auto uu = scalar_product(u, u);
+    auto uv = scalar_product(u, v);
+    auto vv = scalar_product(v, v);
+    auto wu = scalar_product(w, u);
+    auto wv = scalar_product(w, v);
+    auto denom = uv * uv - uu * vv;
+
+    auto s = (uv * wv - vv * wu) / denom;
+    if (s < 0.0 or s > 1.0) return false;
+
+    auto t = (uv * wu - uu * wv) / denom;
+    if (t < 0.0 or (s + t) > 1.0) return false;
+
+    return true;
+}
+
 template<typename Pt>
 bool Meix::test_exclusion(const Pt boll)
 {
-        auto p_0 = float3{boll.x, boll.y, boll.z};
-        auto p_1 = p_0 + float3{1, 0, 0};
-        Ray R(p_0, p_1);
-        int intersection_count = 0;
-        for (int j = 0; j < n_facets; j++) {
-            int test = intersect_3D_ray_triangle(R, facets[j]);
-            if (test > 0) intersection_count++;
-        }
-        return (intersection_count % 2 == 0);
+    auto p_0 = float3{boll.x, boll.y, boll.z};
+    auto p_1 = p_0 + float3{0.22788,  0.38849,  0.81499};
+    Ray R(p_0, p_1);
+    int n_intersections = 0;
+    for (int j = 0; j < n_facets; j++) {
+        n_intersections += intersect(R, facets[j]);
+    }
+    return (n_intersections % 2 == 0);
 }
 
-// writes the whole meix data structure as a vtk file
 void Meix::write_vtk(std::string output_tag)
 {
     std::string filename = "output/" + output_tag + ".meix.vtk";
