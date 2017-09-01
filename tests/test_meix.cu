@@ -21,7 +21,7 @@ const char* test_torus()
         if (abs(dist_from_ring - 0.5) < 0.01) continue;  // Tolerance for mesh
 
         auto out = meix.test_exclusion(bolls.h_X[i]);
-        MU_ASSERT("Inclusion test wrong", (dist_from_ring >= 0.5) == out);
+        MU_ASSERT("Exclusion test wrong", (dist_from_ring >= 0.5) == out);
     }
 
     return NULL;
