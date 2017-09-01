@@ -57,8 +57,8 @@ void uniform_circle(float mean_distance, Solution<Pt, n_max, Solver>& bolls,
     else if(*bolls.h_n <= 1500) relax_time = 3000;
     else relax_time = 4000;
     if(*bolls.h_n > 2000)
-        std::cout<<"The system is quite large, most likely"<<
-            " is not going to be mechanically relaxed"<<std::endl;
+    std::cout<<"The system is quite large, it may not be"<<
+        " completely relaxed"<<std::endl;
 
     for (int i = 0 ; i < relax_time ; i++)
         bolls. template take_step<relaxation_linear_force,
@@ -91,8 +91,8 @@ void uniform_sphere(float mean_distance, Solution<Pt, n_max, Solver>& bolls,
     else if(*bolls.h_n <= 6000) relax_time = 2000;
     else relax_time = 3000;
     if(*bolls.h_n > 10000)
-        std::cout<<"The system is quite large, most likely"<<
-            " is not going to be mechanically relaxed"<<std::endl;
+    std::cout<<"The system is quite large, it may not be"<<
+        " completely relaxed"<<std::endl;
 
     for (int i = 0 ; i < relax_time ; i++)
         bolls. template take_step<relaxation_linear_force,
@@ -107,35 +107,33 @@ void uniform_cuboid(float mean_distance, float3 min_point,
 {
     assert(n_0 < *bolls.h_n);
 
-    //Calculate cube volume and how many bolls you need to fill it
-    auto factor = 0.1f;
-    auto new_xmin = min_point.x - diagonal_vector.x * factor / 2;
-    auto new_ymin = min_point.y - diagonal_vector.y * factor / 2;
-    auto new_zmin = min_point.z - diagonal_vector.z * factor / 2;
-    auto new_dx = diagonal_vector.x * (1 + factor);
-    auto new_dy = diagonal_vector.y * (1 + factor);
-    auto new_dz = diagonal_vector.z * (1 + factor);
-
-    auto cube_volume = new_dx * new_dy * new_dz;
-    auto boll_volume = 4.f / 3.f * M_PI * pow(0.5f * mean_distance, 3);
-    auto n_bolls_cube = cube_volume / boll_volume;
-
-    std::cout << "cube dims " << diagonal_vector.x << " " << diagonal_vector.y << " " << diagonal_vector.z << std::endl;
-    std::cout << "cube_vol " << cube_volume << std::endl;
-    std::cout << "boll_vol " << boll_volume << std::endl;
-    std::cout << "nbolls in cube " << n_bolls_cube << std::endl;
-
+    auto cube_volume = diagonal_vector.x * diagonal_vector.y * diagonal_vector.z;
+    auto boll_volume = 4.f / 3.f * M_PI * pow(0.5f * 0.85f * mean_distance, 3);
+    int n_bolls_cube = cube_volume / boll_volume;
 
     assert(n_0 + n_bolls_cube < n_max);
     *bolls.h_n = n_0 + n_bolls_cube;
 
     srand(time(NULL));
     for (auto i = n_0; i < *bolls.h_n; i++) {
-        bolls.h_X[i].x = new_xmin + new_dx * (rand() / (RAND_MAX + 1.));
-        bolls.h_X[i].y = new_ymin + new_dy * (rand() / (RAND_MAX + 1.));
-        bolls.h_X[i].z = new_zmin + new_dz * (rand() / (RAND_MAX + 1.));
+        bolls.h_X[i].x = min_point.x + diagonal_vector.x * (rand() / (RAND_MAX + 1.));
+        bolls.h_X[i].y = min_point.y + diagonal_vector.y * (rand() / (RAND_MAX + 1.));
+        bolls.h_X[i].z = min_point.z + diagonal_vector.z * (rand() / (RAND_MAX + 1.));
     }
     bolls.copy_to_device();
+
+    //relax initial state
+    int relax_time;
+    if(*bolls.h_n <= 3000) relax_time = 1000;
+    else if(*bolls.h_n <= 12000) relax_time = 2000;
+    else relax_time = 3000;
+    if(*bolls.h_n > 15000)
+        std::cout<<"The system is quite large, it may not be"<<
+            " completely relaxed"<<std::endl;
+
+    for (int i = 0 ; i < relax_time ; i++)
+        bolls. template take_step<relaxation_linear_force,
+            local_friction>(0.1f);
 }
 
 // Distribute bolls with regular hexagonal distribution

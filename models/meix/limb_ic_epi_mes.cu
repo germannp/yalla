@@ -247,9 +247,19 @@ int main(int argc, char const* argv[])
     Solution<Cell, n_max, Grid_solver> cube;
     uniform_cuboid(r_min, meix.min_point, meix.diagonal_vector, cube);
     auto n_bolls_cube = *cube.h_n;
+
+    cube.copy_to_host();
+
     for (int i = 0; i < n_bolls_cube; i++) {
         cube.h_X[i].theta = 0.f;
         cube.h_X[i].phi = 0.f;
+    }
+
+    // The relaxed cube positions will be used to imprint epithelial cells
+    std::vector<float3> cube_relax_points;
+    for (auto i = 0; i < n_bolls_cube; i++) {
+        auto p = float3{cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z};
+        cube_relax_points.push_back(p);
     }
 
     // Variable indicating cell type
@@ -289,30 +299,23 @@ int main(int argc, char const* argv[])
     // std::cout<<"relax_time "<<relax_time<<" write interval "<<
     // skip_step<<std::endl;
 
-    Vtk_output cubic_output1(output_tag+".cubic_relaxation1");
+    // Vtk_output cubic_output1(output_tag+".cubic_relaxation1");
+    //
+    // for (auto time_step = 0; time_step <= cube_relax_time; time_step++) {
+    //     if(time_step%skip_step==0 || time_step==cube_relax_time){
+    //         cube.copy_to_host();
+    //     }
+    //
+    //     cube.take_step<relaxation_force, relaxation_friction>(dt);
+    //
+    //     // write the output
+    //     if(time_step%skip_step==0 || time_step==cube_relax_time) {
+    //         cubic_output1.write_positions(cube);
+    //     }
+    // }
 
-    for (auto time_step = 0; time_step <= cube_relax_time; time_step++) {
-        if(time_step%skip_step==0 || time_step==cube_relax_time){
-            cube.copy_to_host();
-        }
+    // std::cout<<"Cube 1 integrated"<<std::endl;
 
-        cube.take_step<relaxation_force, relaxation_friction>(dt);
-
-        // write the output
-        if(time_step%skip_step==0 || time_step==cube_relax_time) {
-            cubic_output1.write_positions(cube);
-        }
-    }
-
-    std::cout<<"Cube 1 integrated"<<std::endl;
-
-    // The relaxed cube positions will be used to imprint epithelial cells
-    cube.copy_to_host();
-    std::vector<float3> cube_relax_points;
-    for (auto i = 0; i < n_bolls_cube; i++) {
-        auto p = float3{cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z};
-        cube_relax_points.push_back(p);
-    }
 
     if(links_flag) {
 
