@@ -10,14 +10,14 @@
 #include "../include/vtk.cuh"
 
 
-const auto n_cells = 800u;
+const auto n_cells = 1500u;
 
 
 int main(int argc, const char* argv[])
 {
     // Prepare cuboid
     Solution<float3, n_cells, Tile_solver> bolls;
-    uniform_cuboid(-1.5, -1.5, -0.5, 3, 3, 1, bolls);
+    uniform_cuboid(0.25, float3{-1.5, -1.5, -0.5}, float3{3, 3, 1}, bolls);
     Vtk_output output("teapot");
     output.write_positions(bolls);
 
