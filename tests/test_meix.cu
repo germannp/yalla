@@ -4,8 +4,6 @@
 #include "../include/solvers.cuh"
 #include "minunit.cuh"
 
-#include <iostream>
-
 
 const char* test_torus()
 {
