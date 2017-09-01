@@ -73,7 +73,6 @@ struct Triangle {
 
 // intersect_3D_ray_triangle():
 //    Input:  a ray R, and a triangle T
-//    Output: *I = intersection point (when it exists)
 //    Return: -1 = triangle is degenerate (a segment or point)
 //             0 =  disjoint (no intersect)
 //             1 =  intersect in unique point I1
