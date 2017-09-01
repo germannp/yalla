@@ -216,37 +216,21 @@ int main(int argc, char const* argv[])
     int cube_relax_time = std::stoi(argv[4]);
     int epi_relax_time = std::stoi(argv[5]);
     bool links_flag = false;
-    if(stoi(argv[6]) == 1)
+    if(std::stoi(argv[6]) == 1)
         links_flag = true;
     bool wall_flag = false;
-    if(stoi(argv[7]) == 1)
+    if(std::stoi(argv[7]) == 1)
         wall_flag = true;
     bool AER_flag = false;
-    if(stoi(argv[8]) == 1)
+    if(std::stoi(argv[8]) == 1)
         AER_flag = true;
 
-    // First, load the mesh file so we can get the maximum dimensions of the
-    // system
     Meix meix(file_name);
 
     // Compute max length in X axis to know how much we need to rescale
-    //**********************************************************************
-    // Attention! we are assuming the PD axis of the limb is aligned with X
-    //**********************************************************************
-
-    float xmin = 10000.0f, xmax = -10000.0f;
-    float ymin, ymax, zmin, zmax;
-    float dx, dy, dz;
-
-    for (int i = 0; i < meix.n_vertices; i++) {
-        if (meix.vertices[i].x < xmin) xmin = meix.vertices[i].x;
-        if (meix.vertices[i].x > xmax) xmax = meix.vertices[i].x;
-    }
-    dx = xmax - xmin;
-
-    float resc = target_dx / dx;
-    std::cout << "xmax= " << xmax << " xmin= " << xmin << std::endl;
-    std::cout << "dx= " << dx << " target_dx= " << target_dx
+    float resc = target_dx / meix.diagonal_vector.x;
+    std::cout << "xmax= " << meix.min_point.x + meix.diagonal_vector.x << " xmin= " << meix.min_point.x << std::endl;
+    std::cout << "dx= " << meix.diagonal_vector.x << " target_dx= " << target_dx
               << " rescaling factor resc= " << resc << std::endl;
 
 
@@ -256,62 +240,13 @@ int main(int argc, char const* argv[])
     // meix)
     Meix meix_mesench = meix;
     meix_mesench.rescale_absolute(-r_min, wall_flag);  //*1.3//*1.2
-    // Compute min. and max, positions in x,y,z from rescaled mesh
-    xmin = 10000.0f;
-    xmax = -10000.0f;
-    ymin = 10000.0f;
-    ymax = -10000.0f;
-    zmin = 10000.0f;
-    zmax = -10000.0f;
-    for (int i = 0; i < meix.n_vertices; i++) {
-        if (meix.vertices[i].x < xmin)
-            xmin = meix.vertices[i].x;
-        if (meix.vertices[i].x > xmax)
-            xmax = meix.vertices[i].x;
-        if (meix.vertices[i].y < ymin)
-            ymin = meix.vertices[i].y;
-        if (meix.vertices[i].y > ymax)
-            ymax = meix.vertices[i].y;
-        if (meix.vertices[i].z < zmin)
-            zmin = meix.vertices[i].z;
-        if (meix.vertices[i].z > zmax)
-            zmax = meix.vertices[i].z;
-    }
-    dx = xmax - xmin;
-    dy = ymax - ymin;
-    dz = zmax - zmin;
 
     // we use the maximum lengths of the mesh to draw a cube that includes the
     // mesh
     // Let's fill the cube with bolls
-
-    // Now we include intercalation in the cubic relaxation, so we must assume a
-    // larger cube, since the end result will be compressed to some extent
-    float factor = 0.1f;
-    float r = dx * factor / 2;
-    float new_xmin = xmin - r;
-    r = dy * factor / 2;
-    float new_ymin = ymin - r;
-    r = dz * factor / 2;
-    float new_zmin = zmin - r;
-    float new_dx = dx + dx * factor, new_dy = dy + dy * factor,
-          new_dz = dz + dz * factor;
-
-    float cube_vol = new_dx * new_dy * new_dz;
-    float r_boll = 0.5f * r_min;
-    float boll_vol = 4.f / 3.f * M_PI * pow(r_boll, 3);
-    int n_bolls_cube = cube_vol / boll_vol;
-
-    std::cout << "cube dims " << dx << " " << dy << " " << dz << std::endl;
-    std::cout << "cube_vol " << cube_vol << std::endl;
-    std::cout << "r_boll " << r_boll << std::endl;
-    std::cout << "boll_vol " << boll_vol << std::endl;
-    std::cout << "nbolls in cube " << n_bolls_cube << std::endl;
-
-    Solution<Cell, n_max, Grid_solver> cube(n_bolls_cube);
-    // Fill the cube with bolls
-    uniform_cuboid(
-        new_xmin, new_ymin, new_zmin, new_dx, new_dy, new_dz, cube);
+    Solution<Cell, n_max, Grid_solver> cube;
+    uniform_cuboid(r_min, meix.min_point, meix.diagonal_vector, cube);
+    auto n_bolls_cube = *cube.h_n;
     for (int i = 0; i < n_bolls_cube; i++) {
         cube.h_X[i].theta = 0.f;
         cube.h_X[i].phi = 0.f;
@@ -354,42 +289,42 @@ int main(int argc, char const* argv[])
     // std::cout<<"relax_time "<<relax_time<<" write interval "<<
     // skip_step<<std::endl;
 
-    // Vtk_output cubic_output1(output_tag+".cubic_relaxation1");
+    Vtk_output cubic_output1(output_tag+".cubic_relaxation1");
 
     for (auto time_step = 0; time_step <= cube_relax_time; time_step++) {
-        // if(time_step%skip_step==0 || time_step==cube_relax_time){
-        //     cube.copy_to_host();
-        // }
+        if(time_step%skip_step==0 || time_step==cube_relax_time){
+            cube.copy_to_host();
+        }
 
         cube.take_step<relaxation_force, relaxation_friction>(dt);
 
         // write the output
-        // if(time_step%skip_step==0 || time_step==cube_relax_time) {
-        //     cubic_output1.write_positions(cube);
-        // }
+        if(time_step%skip_step==0 || time_step==cube_relax_time) {
+            cubic_output1.write_positions(cube);
+        }
     }
 
     std::cout<<"Cube 1 integrated"<<std::endl;
 
     // The relaxed cube positions will be used to imprint epithelial cells
     cube.copy_to_host();
-    std::vector<Point> cube_relax_points;
+    std::vector<float3> cube_relax_points;
     for (auto i = 0; i < n_bolls_cube; i++) {
-        auto p = Point(cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z);
+        auto p = float3{cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z};
         cube_relax_points.push_back(p);
     }
 
     if(links_flag) {
 
-        // Vtk_output cubic_output(output_tag+".cubic_relaxation");
+        Vtk_output cubic_output(output_tag+".cubic_relaxation");
 
         // We apply the links to the relaxed cube to compress it (as will be the
         // mesench in the limb bud)
         for (auto time_step = 0; time_step <= cube_relax_time; time_step++) {
-            // if(time_step%skip_step==0 || time_step==cube_relax_time){
-            //     cube.copy_to_host();
-            //     protrusions.copy_to_host();
-            // }
+            if(time_step%skip_step==0 || time_step==cube_relax_time){
+                cube.copy_to_host();
+                protrusions.copy_to_host();
+            }
 
             protrusions.set_d_n(cube.get_d_n() * prots_per_cell);
             grid.build(cube, r_protrusion);
@@ -401,10 +336,10 @@ int main(int argc, char const* argv[])
                 dt, intercalation);
 
             // write the output
-            // if(time_step%skip_step==0 || time_step==cube_relax_time) {
-            //     cubic_output.write_positions(cube);
-            //     cubic_output.write_links(protrusions);
-            // }
+            if(time_step%skip_step==0 || time_step==cube_relax_time) {
+                cubic_output.write_positions(cube);
+                cubic_output.write_links(protrusions);
+            }
         }
         std::cout
             <<"Cube 2 integrated with links (only when links flag is active)"
@@ -417,24 +352,24 @@ int main(int argc, char const* argv[])
 
     // Mesenchyme
     // Setup the list of points
-    std::vector<Point> cube_points;
+    std::vector<float3> cube_points;
     for (auto i = 0; i < n_bolls_cube; i++) {
-        auto p = Point(cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z);
+        auto p = float3{cube.h_X[i].x, cube.h_X[i].y, cube.h_X[i].z};
         cube_points.push_back(p);
     }
 
     // Setup the list of inclusion test results
-    int* mesench_result = new int[n_bolls_cube];
+    // int* mesench_result = new int[n_bolls_cube];
     // Set direction of ray
-    auto dir = Point(0.0f, 1.0f, 0.0f);
+    // auto dir = float3{0.0f, 1.0f, 0.0f};
 
-    meix_mesench.test_inclusion(cube_points, mesench_result, dir);
+    // meix_mesench.test_inclusion(cube_points, mesench_result, dir);
 
     // Make a new list with the ones that are inside
-    std::vector<Point> mes_cells;
+    std::vector<float3> mes_cells;
     int n_bolls_mes = 0;
     for (int i = 0; i < n_bolls_cube; i++) {
-        if (mesench_result[i] == 1) {
+        if (!meix_mesench.test_exclusion(cube_points[i])) {
             mes_cells.push_back(cube_points[i]);
             n_bolls_mes++;
         }
@@ -446,17 +381,18 @@ int main(int argc, char const* argv[])
     // Epithelium (we have to sort out which ones are inside the big mesh and
     // out of the small one)
     // Setup the list of inclusion test results
-    int* epi_result_big = new int[n_bolls_cube];
-    int* epi_result_small = new int[n_bolls_cube];
+    // int* epi_result_big = new int[n_bolls_cube];
+    // int* epi_result_small = new int[n_bolls_cube];
 
-    meix.test_inclusion(cube_relax_points, epi_result_big, dir);
-    meix_mesench.test_inclusion(cube_relax_points, epi_result_small, dir);
+    // meix.test_inclusion(cube_relax_points, epi_result_big, dir);
+    // meix_mesench.test_inclusion(cube_relax_points, epi_result_small, dir);
 
     // Make a new list with the ones that are inside
-    std::vector<Point> epi_cells;
+    std::vector<float3> epi_cells;
     int n_bolls_epi = 0;
     for (int i = 0; i < n_bolls_cube; i++) {
-        if (epi_result_big[i] == 1 and epi_result_small[i] == 0) {
+        if (!meix.test_exclusion(cube_relax_points[i])
+            and meix_mesench.test_exclusion(cube_relax_points[i])) {
             epi_cells.push_back(cube_relax_points[i]);
             n_bolls_epi++;
         }
@@ -525,12 +461,12 @@ int main(int argc, char const* argv[])
         AER.rescale_relative(resc);
 
         for (int i = n_bolls_mes; i < n_bolls_total; i++) {
-            Point p(bolls.h_X[i].x, bolls.h_X[i].y, bolls.h_X[i].z);
+            float3 p{bolls.h_X[i].x, bolls.h_X[i].y, bolls.h_X[i].z};
             for (int j = 0; j < AER.n_facets; j++) {
                 auto r = p - AER.facets[j].C;
                 float d = sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
-                if (d < r_min*1.5f) {
-                    type.h_prop[i]=aer;
+                if (d < r_min * 1.5f) {
+                    type.h_prop[i] = aer;
                     break;
                 }
             }
@@ -578,13 +514,13 @@ int main(int argc, char const* argv[])
     // Create a dummy meix that depicts the x=0 plane, depicting the flank
     // boundary
     Meix wall;
-    Point A(0.f, 2 * ymin, 2 * zmin);
-    Point B(0.f, 2 * ymin, 2 * zmax);
-    Point C(0.f, 2 * ymax, 2 * zmin);
-    Point D(0.f, 2 * ymax, 2 * zmax);
-    Point N(1.f, 0.f, 0.f);
-    Triangle ABC(A, B, C, N);
-    Triangle BCD(B, C, D, N);
+    float3 A{0.f, 2 * meix.min_point.y, 2 * meix.min_point.z};
+    float3 B{0.f, 2 * meix.min_point.y, 2 * (meix.min_point.z + meix.diagonal_vector.z)};
+    float3 C{0.f, 2 * (meix.min_point.y + meix.diagonal_vector.y), 2 * meix.min_point.z};
+    float3 D{0.f, 2 * (meix.min_point.y + meix.diagonal_vector.y), 2 * (meix.min_point.z + meix.diagonal_vector.z)};
+    float3 N{1.f, 0.f, 0.f};
+    Triangle ABC{A, B, C, N};
+    Triangle BCD{B, C, D, N};
     wall.n_facets = 2;
     wall.facets.push_back(ABC);
     wall.facets.push_back(BCD);

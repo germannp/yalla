@@ -137,6 +137,8 @@ public:
     float surf_area;
     int n_vertices;
     int n_facets;
+    float3 min_point;
+    float3 diagonal_vector;
     std::vector<float3> vertices;
     std::vector<Triangle> facets;
     int** triangle_to_vertices;
@@ -145,6 +147,7 @@ public:
     Meix(std::string file_name);
     Meix(const Meix& copy);
     Meix& operator=(const Meix& other);
+    void calculate_dimensions();
     void rescale_relative(float scale);
     void rescale_absolute(float scale, bool boundary);
     void translate(float3 offset);
@@ -160,6 +163,8 @@ Meix::Meix()
     surf_area = 0.f;
     n_vertices = 0;
     n_facets = 0;
+    min_point = {0};
+    diagonal_vector = {0};
     triangle_to_vertices = NULL;
 }
 
@@ -248,6 +253,8 @@ Meix::Meix(std::string file_name)
         vertex = triangle_to_vertices[i][2];
         vertex_to_triangles[vertex].push_back(i);
     }
+
+    calculate_dimensions();
 }
 
 Meix::Meix(const Meix& copy)
@@ -294,6 +301,32 @@ Meix& Meix::operator=(const Meix& other)
     return *this;
 }
 
+void Meix::calculate_dimensions()
+{
+    float3 max_point {-10000.f};
+    min_point.x = 10000.f;
+    min_point.y = 10000.f;
+    min_point.z = 10000.f;
+
+    for (int i = 0; i < n_vertices; i++) {
+        if (vertices[i].x < min_point.x)
+            min_point.x = vertices[i].x;
+        if (vertices[i].x > max_point.x)
+            max_point.x = vertices[i].x;
+        if (vertices[i].y < min_point.y)
+            min_point.y = vertices[i].y;
+        if (vertices[i].y > max_point.y)
+            max_point.y = vertices[i].y;
+        if (vertices[i].z < min_point.z)
+            min_point.z = vertices[i].z;
+        if (vertices[i].z > max_point.z)
+            max_point.z = vertices[i].z;
+    }
+    diagonal_vector.x = max_point.x - min_point.x;
+    diagonal_vector.y = max_point.y - min_point.y;
+    diagonal_vector.z = max_point.z - min_point.z;
+}
+
 void Meix::rescale_relative(float scale)
 {
     for (int i = 0; i < n_vertices; i++) {
@@ -306,6 +339,8 @@ void Meix::rescale_relative(float scale)
         facets[i].V2 = facets[i].V2 * scale;
         facets[i].C = facets[i].C * scale;
     }
+
+    calculate_dimensions();
 }
 
 void Meix::rescale_absolute(float scale, bool boundary = false)
@@ -336,6 +371,8 @@ void Meix::rescale_absolute(float scale, bool boundary = false)
         facets[i].calculate_centroid();
         facets[i].calculate_normal();
     }
+
+    calculate_dimensions();
 }
 
 void Meix::translate(float3 offset)

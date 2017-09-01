@@ -101,16 +101,39 @@ void uniform_sphere(float mean_distance, Solution<Pt, n_max, Solver>& bolls,
 
 // Distribute bolls uniformly random in cuboid
 template<typename Pt, int n_max, template<typename, int> class Solver>
-void uniform_cuboid(float xmin, float ymin, float zmin, float dx,
-    float dy, float dz, Solution<Pt, n_max, Solver>& bolls,
+void uniform_cuboid(float mean_distance, float3 min_point,
+    float3 diagonal_vector, Solution<Pt, n_max, Solver>& bolls,
     unsigned int n_0 = 0)
 {
     assert(n_0 < *bolls.h_n);
+
+    //Calculate cube volume and how many bolls you need to fill it
+    auto factor = 0.1f;
+    auto new_xmin = min_point.x - diagonal_vector.x * factor / 2;
+    auto new_ymin = min_point.y - diagonal_vector.y * factor / 2;
+    auto new_zmin = min_point.z - diagonal_vector.z * factor / 2;
+    auto new_dx = diagonal_vector.x * (1 + factor);
+    auto new_dy = diagonal_vector.y * (1 + factor);
+    auto new_dz = diagonal_vector.z * (1 + factor);
+
+    auto cube_volume = new_dx * new_dy * new_dz;
+    auto boll_volume = 4.f / 3.f * M_PI * pow(0.5f * mean_distance, 3);
+    auto n_bolls_cube = cube_volume / boll_volume;
+
+    std::cout << "cube dims " << diagonal_vector.x << " " << diagonal_vector.y << " " << diagonal_vector.z << std::endl;
+    std::cout << "cube_vol " << cube_volume << std::endl;
+    std::cout << "boll_vol " << boll_volume << std::endl;
+    std::cout << "nbolls in cube " << n_bolls_cube << std::endl;
+
+
+    assert(n_0 + n_bolls_cube < n_max);
+    *bolls.h_n = n_0 + n_bolls_cube;
+
     srand(time(NULL));
     for (auto i = n_0; i < *bolls.h_n; i++) {
-        bolls.h_X[i].x = xmin + dx * (rand() / (RAND_MAX + 1.));
-        bolls.h_X[i].y = ymin + dy * (rand() / (RAND_MAX + 1.));
-        bolls.h_X[i].z = zmin + dz * (rand() / (RAND_MAX + 1.));
+        bolls.h_X[i].x = new_xmin + new_dx * (rand() / (RAND_MAX + 1.));
+        bolls.h_X[i].y = new_ymin + new_dy * (rand() / (RAND_MAX + 1.));
+        bolls.h_X[i].z = new_zmin + new_dz * (rand() / (RAND_MAX + 1.));
     }
     bolls.copy_to_device();
 }
