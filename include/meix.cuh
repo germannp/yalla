@@ -141,7 +141,6 @@ public:
     std::vector<Triangle> facets;
     int** triangle_to_vertices;
     std::vector<std::vector<int>> vertex_to_triangles;
-    Meix();
     Meix(std::string file_name);
     Meix(const Meix& copy);
     Meix& operator=(const Meix& other);
@@ -155,13 +154,6 @@ public:
     ~Meix();
 };
 
-Meix::Meix()
-{
-    surf_area = 0.f;
-    n_vertices = 0;
-    n_facets = 0;
-    triangle_to_vertices = NULL;
-}
 
 Meix::Meix(std::string file_name)
 {
