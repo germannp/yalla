@@ -93,29 +93,29 @@ public:
 // variables in Pt.
 template<typename Pt>
 __global__ void euler_step(const int n, const float dt,
-    const Pt* __restrict__ d_X0, const Pt mean_dX, Pt* d_dX, Pt* d_X)
+    const Pt* __restrict__ d_X0, const Pt fix_dX, Pt* d_dX, Pt* d_X)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= n) return;
 
-    d_dX[i].x -= mean_dX.x;
-    d_dX[i].y -= mean_dX.y;
-    d_dX[i].z -= mean_dX.z;
+    d_dX[i].x -= fix_dX.x;
+    d_dX[i].y -= fix_dX.y;
+    d_dX[i].z -= fix_dX.z;
 
     d_X[i] = d_X0[i] + d_dX[i] * dt;
 }
 
 template<typename Pt>
 __global__ void heun_step(const int n, const float dt,
-    const Pt* __restrict__ d_dX, const Pt mean_dX1, Pt* d_dX1, Pt* d_X,
+    const Pt* __restrict__ d_dX, const Pt fix_dX1, Pt* d_dX1, Pt* d_X,
     float3* d_old_v)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= n) return;
 
-    d_dX1[i].x -= mean_dX1.x;
-    d_dX1[i].y -= mean_dX1.y;
-    d_dX1[i].z -= mean_dX1.z;
+    d_dX1[i].x -= fix_dX1.x;
+    d_dX1[i].y -= fix_dX1.y;
+    d_dX1[i].z -= fix_dX1.z;
 
     d_X[i] += (d_dX[i] + d_dX1[i]) * 0.5 * dt;
 
@@ -144,11 +144,20 @@ __global__ void add_rhs(const int n, const float3* __restrict__ d_sum_v,
 // Computer specifies how pairwise interactions are computed.
 template<typename Pt, int n_max, template<typename, int> class Computer>
 class Heun_solver : public Computer<Pt, n_max> {
+public:
+    void set_fixed() { fix_com = true; }
+    void set_fixed(int point_id) {
+        fix_com = false;
+        fix_point = point_id;
+    }
+
 protected:
     Pt *d_X, *d_dX, *d_X1, *d_dX1;
     float3 *d_old_v, *d_sum_v;
     float* d_sum_friction;
     int* d_n;
+    bool fix_com = true;
+    int fix_point;
     Heun_solver()
     {
         cudaMalloc(&d_X, n_max * sizeof(Pt));
@@ -184,9 +193,13 @@ protected:
             n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
         add_rhs<<<(n + 32 - 1) / 32, 32>>>(
             n, d_sum_v, d_sum_friction, d_dX);  // ceil int div.
-        auto mean_dX =
-            thrust::reduce(thrust::device, d_dX, d_dX + n, Pt{0}) / n;
-        euler_step<<<(n + 32 - 1) / 32, 32>>>(n, dt, d_X, mean_dX, d_dX, d_X1);
+        Pt fix_dX;
+        if (fix_com) {
+            fix_dX = thrust::reduce(thrust::device, d_dX, d_dX + n, Pt{0}) / n;
+        } else {
+            cudaMemcpy(&fix_dX, &d_dX[fix_point], sizeof(Pt), cudaMemcpyDeviceToHost);
+        }
+        euler_step<<<(n + 32 - 1) / 32, 32>>>(n, dt, d_X, fix_dX, d_dX, d_X1);
 
         // 2nd step
         thrust::fill(thrust::device, d_dX1, d_dX1 + n, Pt{0});
@@ -196,10 +209,14 @@ protected:
         Computer<Pt, n_max>::template pwints<pw_int, pw_friction>(
             n, d_X1, d_dX1, d_old_v, d_sum_v, d_sum_friction);
         add_rhs<<<(n + 32 - 1) / 32, 32>>>(n, d_sum_v, d_sum_friction, d_dX1);
-        auto mean_dX1 =
-            thrust::reduce(thrust::device, d_dX1, d_dX1 + n, Pt{0}) / n;
+        Pt fix_dX1;
+        if (fix_com) {
+            fix_dX1 = thrust::reduce(thrust::device, d_dX1, d_dX1 + n, Pt{0}) / n;
+        } else {
+            cudaMemcpy(&fix_dX1, &d_dX1[fix_point], sizeof(Pt), cudaMemcpyDeviceToHost);
+        }
         heun_step<<<(n + 32 - 1) / 32, 32>>>(
-            n, dt, d_dX, mean_dX1, d_dX1, d_X, d_old_v);
+            n, dt, d_dX, fix_dX1, d_dX1, d_X, d_old_v);
     }
 };
 

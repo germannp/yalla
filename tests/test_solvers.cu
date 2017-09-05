@@ -230,6 +230,25 @@ const char* test_friction()
 }
 
 
+const char* test_fix_point()
+{
+    Solution<float3, 100, Tile_solver> tile;
+    uniform_sphere(0.733333, tile);
+    auto fix_point = 13;
+    tile.h_X[fix_point] = float3{0};
+    tile.copy_to_device();
+    tile.set_fixed(fix_point);
+    tile.take_step<clipped_spring>(0.1);
+    tile.copy_to_host();
+
+    MU_ASSERT("Fixed point moved in x", MU_ISCLOSE(tile.h_X[fix_point].x, 0));
+    MU_ASSERT("Fixed point moved in y", MU_ISCLOSE(tile.h_X[fix_point].y, 0));
+    MU_ASSERT("Fixed point moved in z", MU_ISCLOSE(tile.h_X[fix_point].z, 0));
+
+    return NULL;
+}
+
+
 template<int n_max>
 __global__ void single_grid(const Grid<n_max>* __restrict__ d_grid)
 {
@@ -302,13 +321,14 @@ const char* test_grid_spacing()
 
 const char* all_tests()
 {
-    MU_RUN_TEST(test_oscillation);
-    MU_RUN_TEST(test_tile_tetrahedron);
-    MU_RUN_TEST(test_grid_tetrahedron);
-    MU_RUN_TEST(test_compare_methods);
-    MU_RUN_TEST(test_generic_forces);
-    MU_RUN_TEST(test_friction);
-    MU_RUN_TEST(test_grid_spacing);
+    // MU_RUN_TEST(test_oscillation);
+    // MU_RUN_TEST(test_tile_tetrahedron);
+    // MU_RUN_TEST(test_grid_tetrahedron);
+    // MU_RUN_TEST(test_compare_methods);
+    // MU_RUN_TEST(test_generic_forces);
+    // MU_RUN_TEST(test_friction);
+    MU_RUN_TEST(test_fix_point);
+    // MU_RUN_TEST(test_grid_spacing);
     return NULL;
 }
 
