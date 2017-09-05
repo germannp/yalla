@@ -5,6 +5,9 @@
 #include <time.h>
 #include <iostream>
 
+#include "solvers.cuh"
+
+
 template<typename Pt>
 __device__ Pt relaxation_linear_force(Pt Xi, Pt r, float dist, int i, int j)
 {
@@ -22,15 +25,6 @@ __device__ Pt relaxation_linear_force(Pt Xi, Pt r, float dist, int i, int j)
     return dF;
 }
 
-template<typename Pt>
-__device__ float local_friction(Pt Xi, Pt r, float dist, int i, int j)
-{
-    if(i == j) return 0;
-    return 1;
-}
-
-template<typename Pt, int n_max, template<typename, int> class Solver>
-class Solution;
 
 // Distribute bolls uniformly random in circle
 template<typename Pt, int n_max, template<typename, int> class Solver>
@@ -62,7 +56,8 @@ void uniform_circle(float mean_distance, Solution<Pt, n_max, Solver>& bolls,
 
     for (int i = 0 ; i < relax_time ; i++)
         bolls. template take_step<relaxation_linear_force,
-            local_friction>(0.1f);
+            friction_on_background>(0.1f);
+    bolls.copy_to_host();
 }
 
 // Distribute bolls uniformly random in sphere
@@ -96,7 +91,8 @@ void uniform_sphere(float mean_distance, Solution<Pt, n_max, Solver>& bolls,
 
     for (int i = 0 ; i < relax_time ; i++)
         bolls. template take_step<relaxation_linear_force,
-            local_friction>(0.1f);
+            friction_on_background>(0.1f);
+    bolls.copy_to_host();
 }
 
 // Distribute bolls uniformly random in cuboid
@@ -133,7 +129,8 @@ void uniform_cuboid(float mean_distance, float3 min_point,
 
     for (int i = 0 ; i < relax_time ; i++)
         bolls. template take_step<relaxation_linear_force,
-            local_friction>(0.1f);
+            friction_on_background>(0.1f);
+    bolls.copy_to_host();
 }
 
 // Distribute bolls with regular hexagonal distribution

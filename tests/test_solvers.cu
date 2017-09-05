@@ -115,8 +115,8 @@ const char* test_compare_methods()
         grid.h_X[i].z = tile.h_X[i].z;
     }
     grid.copy_to_device();
-    for (auto i = 0; i < 2; i++) tile.take_step<clipped_spring>(0.5);
-    for (auto i = 0; i < 2; i++) grid.take_step<clipped_spring>(0.5);
+    for (auto i = 0; i < 2; i++) tile.take_step<clipped_spring>(0.1);
+    for (auto i = 0; i < 2; i++) grid.take_step<clipped_spring>(0.1);
 
     tile.copy_to_host();
     grid.copy_to_host();
