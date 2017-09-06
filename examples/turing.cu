@@ -1,4 +1,4 @@
-// Simulate a Meinhard equations within a 2D epithelium
+// Simulate Meinhard equations within a 2D epithelium
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
 #include "../include/polarity.cuh"
