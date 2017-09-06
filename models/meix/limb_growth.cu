@@ -85,7 +85,11 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
     else
         atomicAdd(&d_mes_nbs[i], 1);
 
-    if (Xi.x < 1.f) dF.x = 0.f;
+    // if (Xi.x < 1.f) {
+    //     dF.x = 0.f;
+    //     dF.f = 0.f;
+    //     dF.w = 0.f;
+    // }
 
     if (Xi.w<0.f) dF.w=0.f;
     if (Xi.f<0.f) dF.f=0.f;
@@ -95,7 +99,7 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
 __device__ float wall_friction(Cell Xi, Cell r, float dist, int i, int j)
 {
     if (i == j) return 0;
-    if (Xi.x < 1.0f) return 0;
+    // if (Xi.x < 1.0f) return 0;
     return 1;
 }
 
@@ -154,27 +158,30 @@ __global__ void update_protrusions(const int n_cells,
     auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
     auto noise = curand_uniform(&d_state[i]);
 
-    auto high_f = (d_X[a].f + d_X[b].f) > 0.2f;
-    auto distal = (d_X[a].f + d_X[b].f) > 0.025f; //0.05
-    bool more_along_w;
-    bool normal_to_f_gradient;
-    bool normal_to_w;
+    auto high_f = false;
+    // auto high_f = (d_X[a].f + d_X[b].f) > 0.2f;
+    auto distal = (d_X[a].f + d_X[b].f) > 0.010f;//0.025f;//0.20f; //0.025
+    bool more_along_w = false;
+    bool normal_to_f_gradient = false;
+    bool normal_to_w = false;
     if(distal) {
-        more_along_w = false;
+        // more_along_w =
+        //     fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
         normal_to_f_gradient =
             fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
-        normal_to_w =
-            fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
-        // normal_to_w = true;
+        // normal_to_w =
+        //     fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
+        // high_f = true;
     } else {
-        normal_to_f_gradient = false;
-        normal_to_w = false;
         more_along_w =
             fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
+        // normal_to_f_gradient =
+        //     fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
+        // high_f = true;
     }
-    // auto high_f = false;
-    if (not_initialized or more_along_w or high_f or (normal_to_f_gradient and
-        normal_to_w)) {
+    // high_f = false;
+    // high_f = true;
+    if (not_initialized or more_along_w or high_f or normal_to_f_gradient) {
         link->a = a;
         link->b = b;
     }
@@ -189,7 +196,8 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
         return;  // Dividing new cells is problematic!
 
     // float rate = d_prolif_rate[i] * d_X[i].f;
-    float rate = d_prolif_rate[i] - d_prolif_rate[i]*(1.f - 0.25f)*(1.f-d_X[i].f);
+    // float rate = d_prolif_rate[i] - d_prolif_rate[i]*(1.f - 0.25f)*(1.f-d_X[i].f);
+    float rate = d_prolif_rate[i];
 
 
     switch (d_type[i]) {
