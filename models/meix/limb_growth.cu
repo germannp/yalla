@@ -77,7 +77,7 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
     dF.f = -r.f * (d_type[i] == mesenchyme) * 0.5f;
 
     if (d_type[i] >= epithelium && d_type[j] >= epithelium)
-        dF += rigidity_force(Xi, r, dist) * 0.10f;
+        dF += rigidity_force(Xi, r, dist) * 0.1f;
 
 
     if (d_type[j] >= epithelium)
@@ -160,15 +160,15 @@ __global__ void update_protrusions(const int n_cells,
 
     auto high_f = false;
     // auto high_f = (d_X[a].f + d_X[b].f) > 0.2f;
-    auto distal = (d_X[a].f + d_X[b].f) > 0.010f;//0.025f;//0.20f; //0.025
+    auto distal = (d_X[a].f + d_X[b].f) > 0.025f;//0.025f;//0.20f; //0.025
     bool more_along_w = false;
     bool normal_to_f_gradient = false;
     bool normal_to_w = false;
     if(distal) {
-        // more_along_w =
-        //     fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
-        normal_to_f_gradient =
-            fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
+        more_along_w =
+            fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
+        // normal_to_f_gradient =
+        //     fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
         // normal_to_w =
         //     fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
         // high_f = true;
