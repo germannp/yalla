@@ -38,28 +38,30 @@ const char* test_relaxation()
     Solution<float3, n_max, Grid_solver> bolls;
 
     relaxed_sphere(r_mean, bolls);
-    auto position_before = store(bolls);
+    auto pos_before = store(bolls);
     bolls.take_step<relu_force>(dt);
     bolls.copy_to_host();
-    auto postion_after = store(bolls);
-    auto diff = mean_difference<n_max>(position_before, postion_after, *bolls.h_n);
+    auto pos_after = store(bolls);
+    auto diff = mean_difference<n_max>(pos_before, pos_after, *bolls.h_n);
     MU_ASSERT("Sphere not relaxed", MU_ISCLOSE(diff, 0));
 
-    relaxed_cuboid(r_mean, float3 {0}, float3{7, 7, 7}, bolls);
-    position_before = store(bolls);
+    relaxed_cuboid(r_mean, float3{0}, float3{7, 7, 7}, bolls);
+    pos_before = store(bolls);
     bolls.take_step<relu_force>(dt);
     bolls.copy_to_host();
-    postion_after = store(bolls);
-    diff = mean_difference<n_max>(position_before, postion_after, *bolls.h_n);
+    pos_after = store(bolls);
+    diff = mean_difference<n_max>(pos_before, pos_after, *bolls.h_n);
     MU_ASSERT("Cuboid not relaxed", MU_ISCLOSE(diff, 0));
 
     return NULL;
 }
 
 
+
 const char* all_tests()
 {
     MU_RUN_TEST(test_relaxation);
+    MU_RUN_TEST(test_cuboid_dimensions);
     return NULL;
 }
 
