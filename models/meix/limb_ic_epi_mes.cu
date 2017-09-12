@@ -163,7 +163,7 @@ void fill_solver_w_meix_no_flank(
     // eliminate the flank boundary
     int i = 0;
     while (i < meix.facets.size()) {
-        if (meix.facets[i].N.x > -1.01f && meix.facets[i].N.x < -0.99f)
+        if (meix.facets[i].n.x > -1.01f && meix.facets[i].n.x < -0.99f)
             meix.facets.erase(meix.facets.begin() + i);
         else
             i++;
@@ -175,12 +175,12 @@ void fill_solver_w_meix_no_flank(
 
     for (int j = 0; j < meix.n_facets; j++) {
         auto T = meix.facets[j];
-        float r = sqrt(pow(T.N.x, 2) + pow(T.N.y, 2) + pow(T.N.z, 2));
+        float r = sqrt(pow(T.n.x, 2) + pow(T.n.y, 2) + pow(T.n.z, 2));
         bolls.h_X[j].x = T.C.x;
         bolls.h_X[j].y = T.C.y;
         bolls.h_X[j].z = T.C.z;
-        bolls.h_X[j].phi = atan2(T.N.y, T.N.x);
-        bolls.h_X[j].theta = acos(T.N.z / r);
+        bolls.h_X[j].phi = atan2(T.n.y, T.n.x);
+        bolls.h_X[j].theta = acos(T.n.z / r);
     }
 }
 
@@ -236,6 +236,8 @@ int main(int argc, char const* argv[])
 
     // meix defines the overall shape of the limb bud (mesench. + ectoderm)
     meix.rescale_relative(resc);
+    meix.rotate(0.0f,0.0f,-0.2f);
+
     // meix_mesench defines the volume occupied by the mesenchyme (smaller than
     // meix)
     Meix meix_mesench = meix;
@@ -319,15 +321,15 @@ int main(int argc, char const* argv[])
 
     if(links_flag) {
 
-        Vtk_output cubic_output(output_tag+".cubic_relaxation");
+        // Vtk_output cubic_output(output_tag+".cubic_relaxation");
 
         // We apply the links to the relaxed cube to compress it (as will be the
         // mesench in the limb bud)
         for (auto time_step = 0; time_step <= cube_relax_time; time_step++) {
-            if(time_step%skip_step==0 || time_step==cube_relax_time){
-                cube.copy_to_host();
-                protrusions.copy_to_host();
-            }
+            // if(time_step%skip_step==0 || time_step==cube_relax_time){
+            //     cube.copy_to_host();
+            //     protrusions.copy_to_host();
+            // }
 
             protrusions.set_d_n(cube.get_d_n() * prots_per_cell);
             grid.build(cube, r_protrusion);
@@ -339,10 +341,10 @@ int main(int argc, char const* argv[])
                 dt, intercalation);
 
             // write the output
-            if(time_step%skip_step==0 || time_step==cube_relax_time) {
-                cubic_output.write_positions(cube);
-                cubic_output.write_links(protrusions);
-            }
+            // if(time_step%skip_step==0 || time_step==cube_relax_time) {
+            //     cubic_output.write_positions(cube);
+            //     cubic_output.write_links(protrusions);
+            // }
         }
         std::cout
             <<"Cube 2 integrated with links (only when links flag is active)"
@@ -413,6 +415,8 @@ int main(int argc, char const* argv[])
         bolls.h_X[i].x = mes_cells[i].x;
         bolls.h_X[i].y = mes_cells[i].y;
         bolls.h_X[i].z = mes_cells[i].z;
+        bolls.h_X[i].phi = 0.f;
+        bolls.h_X[i].theta = 0.f;
         type.h_prop[i] = mesenchyme;
         freeze.h_prop[i] = 1;
     }
@@ -441,11 +445,13 @@ int main(int argc, char const* argv[])
         if (meix.facets[f].C.x < 0.1f && wall_flag) {  // the cells contacting the flank
                                                        // boundary can't be epithelial 0.001
             type.h_prop[i] = mesenchyme;
+            bolls.h_X[i].phi = 0.f;
+            bolls.h_X[i].theta = 0.f;
             freeze.h_prop[i] = 1;
             continue;
         }
-        bolls.h_X[i].phi = atan2(meix.facets[f].N.y, meix.facets[f].N.x);
-        bolls.h_X[i].theta = acos(meix.facets[f].N.z);
+        bolls.h_X[i].phi = atan2(meix.facets[f].n.y, meix.facets[f].n.x);
+        bolls.h_X[i].theta = acos(meix.facets[f].n.z);
     }
     std::cout << "count " << count << " epi_cells " << n_bolls_epi << std::endl;
 
@@ -482,30 +488,25 @@ int main(int argc, char const* argv[])
 
     skip_step = 1;  // relax_time/10;
     for (auto time_step = 0; time_step <= epi_relax_time; time_step++) {
-        if (time_step % skip_step == 0 || time_step == epi_relax_time) {
-            bolls.copy_to_host();
-        }
+        // if (time_step % skip_step == 0 || time_step == epi_relax_time) {
+        //     bolls.copy_to_host();
+        // }
 
         bolls.take_step<relaxation_force, freeze_friction>(dt);
 
         // write the output
-        if (time_step % skip_step == 0 || time_step == epi_relax_time) {
-            output.write_positions(bolls);
-            output.write_polarity(bolls);
-            output.write_property(type);
-            output.write_property(freeze);
-        }
+        // if (time_step % skip_step == 0 || time_step == epi_relax_time) {
+        //     output.write_positions(bolls);
+        //     output.write_polarity(bolls);
+        //     output.write_property(type);
+        //     output.write_property(freeze);
+        // }
     }
 
-    // bolls.copy_to_device();
-    // output.write_positions(bolls);
-    // output.write_polarity(bolls);
-    // output.write_property(type);
-
-    // Unfreeze the mesenchyme
-    for (int i = 0; i < n_bolls_total; i++) {
-        if (type.h_prop[i] == mesenchyme) freeze.h_prop[i] = 0;
-    }
+    bolls.copy_to_host();
+    output.write_positions(bolls);
+    output.write_polarity(bolls);
+    output.write_property(type);
 
     // write down the meix in the vtk file to compare it with the posterior
     // seeding
@@ -521,9 +522,8 @@ int main(int argc, char const* argv[])
     float3 B{0.f, 2 * meix.min_point.y, 2 * (meix.min_point.z + meix.diagonal_vector.z)};
     float3 C{0.f, 2 * (meix.min_point.y + meix.diagonal_vector.y), 2 * meix.min_point.z};
     float3 D{0.f, 2 * (meix.min_point.y + meix.diagonal_vector.y), 2 * (meix.min_point.z + meix.diagonal_vector.z)};
-    float3 N{1.f, 0.f, 0.f};
-    Triangle ABC{A, B, C, N};
-    Triangle BCD{B, C, D, N};
+    Triangle ABC{A, B, C};
+    Triangle BCD{B, C, D};
     wall.n_facets = 2;
     wall.facets.push_back(ABC);
     wall.facets.push_back(BCD);

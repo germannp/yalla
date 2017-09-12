@@ -70,6 +70,7 @@ public:
     void rescale_relative(float scale);
     void rescale_absolute(float scale, bool boundary);
     void translate(float3 offset);
+    void rotate(float theta, float phi, float otherphi);
     float3 get_centroid();
     template<typename Pt>
     bool test_exclusion(const Pt boll);
@@ -305,6 +306,93 @@ void Meix::translate(float3 offset)
         facets[i].V2 = facets[i].V2 + offset;
         facets[i].C = facets[i].C + offset;
     }
+}
+
+void Meix::rotate(float theta, float phi, float otherphi) {
+    //rotation around z axis (theta correction)
+    // std::cout<<"normal of facet 0 before theta rotation: "<<Facets[0].N.x<<" "<<Facets[0].N.y<<" "<<Facets[0].N.z<<std::endl;
+    for(int i = 0 ; i < n_facets ; i++) {
+        float3 old = facets[i].V0;
+        facets[i].V0.x = old.x*cos(theta) - old.y*sin(theta);
+        facets[i].V0.y = old.x*sin(theta) + old.y*cos(theta);
+
+        old = facets[i].V1;
+        facets[i].V1.x = old.x*cos(theta) - old.y*sin(theta);
+        facets[i].V1.y = old.x*sin(theta) + old.y*cos(theta);
+
+        old = facets[i].V2;
+        facets[i].V2.x = old.x*cos(theta) - old.y*sin(theta);
+        facets[i].V2.y = old.x*sin(theta) + old.y*cos(theta);
+
+        old = facets[i].C;
+        facets[i].C.x = old.x*cos(theta) - old.y*sin(theta);
+        facets[i].C.y = old.x*sin(theta) + old.y*cos(theta);
+
+        facets[i].calculate_normal();
+    }
+
+    for(int i = 0 ; i < n_vertices ; i++) {
+        float3 old = vertices[i];
+        vertices[i].x = old.x*cos(theta) - old.y*sin(theta);
+        vertices[i].y = old.x*sin(theta) + old.y*cos(theta);
+    }
+    // std::cout<<"normal of facet 0 after theta rotation: "<<facets[0].N.x<<" "<<facets[0].N.y<<" "<<facets[0].N.z<<std::endl;
+
+    //rotation around y axis (phi correction)
+    for(int i = 0 ; i < n_facets ; i++) {
+        float3 old = facets[i].V0;
+        facets[i].V0.x = old.x*cos(phi) - old.z*sin(phi);
+        facets[i].V0.z = old.x*sin(phi) + old.z*cos(phi);
+
+        old = facets[i].V1;
+        facets[i].V1.x = old.x*cos(phi) - old.z*sin(phi);
+        facets[i].V1.z = old.x*sin(phi) + old.z*cos(phi);
+
+        old = facets[i].V2;
+        facets[i].V2.x = old.x*cos(phi) - old.z*sin(phi);
+        facets[i].V2.z = old.x*sin(phi) + old.z*cos(phi);
+
+        old = facets[i].C;
+        facets[i].C.x = old.x*cos(phi) - old.z*sin(phi);
+        facets[i].C.z = old.x*sin(phi) + old.z*cos(phi);
+
+        facets[i].calculate_normal();
+    }
+
+    for(int i = 0 ; i < n_vertices ; i++) {
+        float3 old = vertices[i];
+        vertices[i].x = old.x*cos(phi) - old.z*sin(phi);
+        vertices[i].z = old.x*sin(phi) + old.z*cos(phi);
+    }
+
+    //rotation around x axis (otherphi correction)
+    for(int i = 0 ; i < n_facets ; i++) {
+        float3 old=facets[i].V0;
+        facets[i].V0.y = old.y*cos(otherphi) - old.z*sin(otherphi);
+        facets[i].V0.z = old.y*sin(otherphi) + old.z*cos(otherphi);
+
+        old = facets[i].V1;
+        facets[i].V1.y = old.y*cos(otherphi) - old.z*sin(otherphi);
+        facets[i].V1.z = old.y*sin(otherphi) + old.z*cos(otherphi);
+
+        old = facets[i].V2;
+        facets[i].V2.y = old.y*cos(otherphi) - old.z*sin(otherphi);
+        facets[i].V2.z = old.y*sin(otherphi) + old.z*cos(otherphi);
+
+        old = facets[i].C;
+        facets[i].C.y = old.y*cos(otherphi) - old.z*sin(otherphi);
+        facets[i].C.z = old.y*sin(otherphi) + old.z*cos(otherphi);
+
+        facets[i].calculate_normal();
+    }
+    for(int i = 0 ; i < n_vertices ; i++) {
+        float3 old = vertices[i];
+        vertices[i].y = old.y*cos(otherphi) - old.z*sin(otherphi);
+        vertices[i].z = old.y*sin(otherphi) + old.z*cos(otherphi);
+    }
+    calculate_dimensions();
+    // std::cout<<"normal of facet 0 after phi rotation: "<<Facets[0].N.x<<" "<<Facets[0].N.y<<" "<<Facets[0].N.z<<std::endl;
+
 }
 
 template<typename Pt_a, typename Pt_b>
