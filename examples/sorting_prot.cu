@@ -74,7 +74,7 @@ int main(int argc, char const* argv[])
 {
     // Prepare initial state
     Solution<float3, n_cells, Grid_solver> bolls;
-    uniform_sphere(r_min, bolls);
+    random_sphere(r_min, bolls);
     Links<n_protrusions> protrusions;
     auto prot_forces = std::bind(link_forces<n_protrusions>, protrusions,
         std::placeholders::_1, std::placeholders::_2);

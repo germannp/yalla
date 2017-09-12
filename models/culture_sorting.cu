@@ -65,7 +65,7 @@ int main(int argc, char const* argv[])
 {
     // Prepare initial state
     Solution<float3, n_cells, Grid_solver> bolls;
-    uniform_circle(0.5, bolls);
+    random_disk(0.5, bolls);
     Links<n_protrusions> protrusions(0.15);
     auto prot_forces = std::bind(link_forces<n_protrusions>, protrusions,
         std::placeholders::_1, std::placeholders::_2);

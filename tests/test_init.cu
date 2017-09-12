@@ -1,117 +1,65 @@
+#include <array>
+#include "math.h"
+
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
 #include "../include/solvers.cuh"
 #include "minunit.cuh"
 
-const auto n_max = 20000;
-const auto dt = 0.1f;
-const auto r_min = 0.8f;
-const auto n_replicates = 1;
-const auto threshold = 5E-4;
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
-float mean_differential(
-    Solution<Pt, n_max, Solver>& bolls1, Solution<Pt, n_max, Solver>& bolls2)
+std::array<Pt, n_max> store(Solution<Pt, n_max, Solver>& bolls)
 {
-    float mean = 0.f;
-    for (int i = 0 ; i < *bolls1.h_n ; i++) {
-        float diff = pow(bolls1.h_X[i].x - bolls2.h_X[i].x, 2) +
-            pow(bolls1.h_X[i].y - bolls2.h_X[i].y, 2) +
-            pow(bolls1.h_X[i].z - bolls2.h_X[i].z, 2) ;
-        mean += sqrt(diff);
-        // std::cout<<"i "<<i<<" y "<<bolls1.h_X[i].y<<" "<<bolls2.h_X[i].y<<std::endl;
+    std::array<float3, n_max> position;
+    for (auto i = 0; i < n_max; i++) {
+        position[i] = bolls.h_X[i];
     }
-    mean = mean/(*bolls1.h_n);
-    return mean;
+    return position;
 }
 
-const char* test_initial_conditions()
+template<int n_max>
+float mean_difference(
+    std::array<float3, n_max>& a, std::array<float3, n_max>& b, int n = n_max)
 {
-
-    auto n_cells = 100;
-
-    Solution<float3, n_max, Tile_solver> bolls_pre_step(n_cells);
-    Solution<float3, n_max, Tile_solver> bolls_post_step(n_cells);
-
-    //Testing sphere initial conditions
-    for (int c = 1 ; c <= 7 ; c++) {
-        if(c < 3)
-            n_cells = pow(10, c + 1);
-        else
-            n_cells = 2000 * (c - 2);
-
-        *bolls_post_step.h_n = n_cells;
-        *bolls_pre_step.h_n = n_cells;
-        for (int r = 1 ; r <= n_replicates ; r++) {
-            uniform_sphere(0.75 * r_min, bolls_post_step);
-            bolls_post_step.copy_to_host();
-            for (int j = 0 ; j < n_cells ; j++)
-                bolls_pre_step.h_X[j]=bolls_post_step.h_X[j];
-
-            bolls_post_step.take_step<relaxation_linear_force,
-                local_friction>(dt);
-
-            bolls_post_step.copy_to_host();
-            float diff = mean_differential(bolls_pre_step, bolls_post_step);
-
-            MU_ASSERT("system not relaxed", diff < threshold );
-        }
+    float total_diff = 0.f;
+    for (int i = 0; i < n; i++) {
+        float diff = pow(a[i].x - b[i].x, 2) + pow(a[i].y - b[i].y, 2) +
+                     pow(a[i].z - b[i].z, 2);
+        total_diff += sqrt(diff);
     }
+    return total_diff / n_max;
+}
 
-    //Testing 2D circle initial conditions
-    for (int c = 1 ; c <= 10 ; c++) {
-        n_cells = 200 * c;
-        *bolls_post_step.h_n = n_cells;
-        *bolls_pre_step.h_n = n_cells;
-        for (int r = 1 ; r <= n_replicates ; r++) {
-            uniform_circle(0.75 * r_min, bolls_post_step);
+const char* test_relaxation()
+{
+    const auto r_mean = 0.8;
+    const auto dt = 0.1;
+    const auto n_max = 5000;
+    Solution<float3, n_max, Grid_solver> bolls;
 
-            bolls_post_step.copy_to_host();
-            for (int j = 0 ; j < n_cells ; j++)
-                bolls_pre_step.h_X[j]=bolls_post_step.h_X[j];
+    relaxed_sphere(r_mean, bolls);
+    auto position_before = store(bolls);
+    bolls.take_step<relu_force>(dt);
+    bolls.copy_to_host();
+    auto postion_after = store(bolls);
+    auto diff = mean_difference<n_max>(position_before, postion_after, *bolls.h_n);
+    MU_ASSERT("Sphere not relaxed", MU_ISCLOSE(diff, 0));
 
-            bolls_post_step.take_step<relaxation_linear_force,
-                local_friction>(dt);
-
-            bolls_post_step.copy_to_host();
-            float diff = mean_differential(bolls_pre_step, bolls_post_step);
-
-            MU_ASSERT("system not relaxed", diff < threshold );
-        }
-    }
-
-    //Testing cuboid initial conditions
-    for (int c = 1 ; c <= 4 ; c++) {
-        float side = cbrt(500.f * c);
-        float3 min_point {0};
-        float3 diagonal_vector {side, side, side};
-        float mean_dist = 0.8f;
-        for (int r = 1 ; r <= n_replicates ; r++) {
-            uniform_cuboid(mean_dist, min_point, diagonal_vector, bolls_post_step);
-            *bolls_pre_step.h_n = *bolls_post_step.h_n;
-            auto n_cells = *bolls_post_step.h_n;
-
-            bolls_post_step.copy_to_host();
-            for (int j = 0 ; j < n_cells ; j++)
-                bolls_pre_step.h_X[j]=bolls_post_step.h_X[j];
-
-            bolls_post_step.take_step<relaxation_linear_force,
-                local_friction>(dt);
-
-            bolls_post_step.copy_to_host();
-            float diff = mean_differential(bolls_pre_step, bolls_post_step);
-
-            MU_ASSERT("system not relaxed", diff < threshold );
-        }
-    }
-
+    relaxed_cuboid(r_mean, float3 {0}, float3{7, 7, 7}, bolls);
+    position_before = store(bolls);
+    bolls.take_step<relu_force>(dt);
+    bolls.copy_to_host();
+    postion_after = store(bolls);
+    diff = mean_difference<n_max>(position_before, postion_after, *bolls.h_n);
+    MU_ASSERT("Cuboid not relaxed", MU_ISCLOSE(diff, 0));
 
     return NULL;
 }
 
+
 const char* all_tests()
 {
-    MU_RUN_TEST(test_initial_conditions);
+    MU_RUN_TEST(test_relaxation);
     return NULL;
 }
 

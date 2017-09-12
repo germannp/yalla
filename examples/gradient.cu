@@ -37,7 +37,7 @@ int main(int argc, char const* argv[])
     for (auto i = 0; i < n_cells; i++) {
         bolls.h_X[i].w = i == 0 ? 1 : 0;
     }
-    uniform_circle(0.5, bolls);
+    random_disk(0.5, bolls);
 
     // Integrate cell positions
     Vtk_output output("gradient");

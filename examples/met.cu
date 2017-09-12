@@ -35,7 +35,7 @@ int main(int argc, char const* argv[])
 {
     // Prepare initial state
     Solution<Po_cell, n_cells, Grid_solver> bolls;
-    uniform_sphere(0.6, bolls);
+    random_sphere(0.6, bolls);
     for (auto i = 0; i < n_cells; i++) {
         auto dist = sqrtf(bolls.h_X[i].x * bolls.h_X[i].x +
                           bolls.h_X[i].y * bolls.h_X[i].y +

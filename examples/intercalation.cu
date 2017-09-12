@@ -61,7 +61,7 @@ int main(int argc, char const* argv[])
 {
     // Prepare initial state
     Solution<float3, n_cells, Grid_solver> bolls;
-    uniform_sphere(r_min, bolls);
+    random_sphere(r_min, bolls);
     Links<n_cells * prots_per_cell> protrusions;
     auto intercalation = std::bind(link_forces<n_cells * prots_per_cell>,
         protrusions, std::placeholders::_1, std::placeholders::_2);

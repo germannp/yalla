@@ -25,7 +25,7 @@ int main(int argc, const char* argv[])
 {
     // Prepare initial state
     Solution<float3, n_cells, Tile_solver> bolls;
-    uniform_sphere(L_0, bolls);
+    random_sphere(L_0, bolls);
 
     // Integrate positions
     Vtk_output output("springs");  // Writes to output/springs_###.vtk

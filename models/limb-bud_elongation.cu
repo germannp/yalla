@@ -161,7 +161,7 @@ int main(int argc, char const* argv[])
 {
     // Prepare initial state
     Solution<Lb_cell, n_max, Grid_solver> bolls(n_0);
-    uniform_sphere(0.733333, bolls);
+    random_sphere(0.733333, bolls);
     Property<n_max, Cell_types> type;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     for (auto i = 0; i < n_0; i++) {

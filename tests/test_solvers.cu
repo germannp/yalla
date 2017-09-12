@@ -54,7 +54,7 @@ __device__ float3 clipped_spring(float3 Xi, float3 r, float dist, int i, int j)
 const char* test_tile_tetrahedron()
 {
     Solution<float3, 4, Tile_solver> tile;
-    uniform_sphere(L_0, tile);
+    random_sphere(L_0, tile);
     auto com_i = center_of_mass(tile);
     for (auto i = 0; i < 500; i++) {
         tile.take_step<clipped_spring>(0.1);
@@ -79,7 +79,7 @@ const char* test_tile_tetrahedron()
 const char* test_grid_tetrahedron()
 {
     Solution<float3, 4, Grid_solver> grid;
-    uniform_sphere(L_0, grid);
+    random_sphere(L_0, grid);
     auto com_i = center_of_mass(grid);
     for (auto i = 0; i < 500; i++) {
         grid.take_step<clipped_spring>(0.1);
@@ -108,7 +108,7 @@ const char* test_compare_methods()
 {
     Solution<float3, n_max, Tile_solver> tile;
     Solution<float3, n_max, Grid_solver> grid;
-    uniform_sphere(0.733333, tile);
+    random_sphere(0.733333, tile);
     for (auto i = 0; i < n_max; i++) {
         grid.h_X[i].x = tile.h_X[i].x;
         grid.h_X[i].y = tile.h_X[i].y;
@@ -233,7 +233,7 @@ const char* test_friction()
 const char* test_fix_point()
 {
     Solution<float3, 100, Tile_solver> tile;
-    uniform_sphere(0.733333, tile);
+    random_sphere(0.733333, tile);
     auto fix_point = 13;
     tile.h_X[fix_point] = float3{0};
     tile.copy_to_device();

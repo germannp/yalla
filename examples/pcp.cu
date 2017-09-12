@@ -50,7 +50,7 @@ int main(int argc, char const* argv[])
         bolls.h_X[i].theta = acos(2. * rand() / (RAND_MAX + 1.) - 1.);
         bolls.h_X[i].phi = 2. * M_PI * rand() / (RAND_MAX + 1.);
     }
-    uniform_sphere(0.5, bolls);
+    random_sphere(0.5, bolls);
 
     // Integrate cell positions
     Vtk_output output("pcp");
