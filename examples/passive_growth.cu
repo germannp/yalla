@@ -92,7 +92,7 @@ int main(int argc, char const* argv[])
 {
     // Prepare initial state
     Solution<Po_cell, n_max, Grid_solver> bolls(n_0);
-    uniform_sphere(mean_dist, bolls);
+    random_sphere(mean_dist, bolls);
     Property<n_max, Cell_types> type;
     for (auto i = 0; i < n_0; i++) type.h_prop[i] = mesenchyme;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));

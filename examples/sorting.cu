@@ -32,7 +32,7 @@ int main(int argc, char const* argv[])
 {
     // Prepare initial state
     Solution<float3, n_cells, Grid_solver> bolls;
-    uniform_sphere(r_min, bolls);
+    random_sphere(r_min, bolls);
     Property<n_cells> type;
     for (auto i = 0; i < n_cells; i++) {
         type.h_prop[i] = (i < n_cells / 2) ? 0 : 1;

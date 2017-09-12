@@ -67,7 +67,7 @@ int main(int argc, char const* argv[])
         bolls.h_X[i].u = rand() / (RAND_MAX + 1.) / 5 - 0.1;
         bolls.h_X[i].v = rand() / (RAND_MAX + 1.) / 5 - 0.1;
     }
-    uniform_circle(0.5, bolls);
+    random_disk(0.5, bolls);
 
     // Integrate positions
     Vtk_output output("turing2D");

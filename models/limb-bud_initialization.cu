@@ -166,7 +166,7 @@ int main(int argc, char const* argv[])
 {
     // Prepare initial state
     Solution<Lb_cell, n_max, Grid_solver> bolls(n_0);
-    uniform_circle(r_max / 2, bolls);
+    random_disk(r_max / 2, bolls);
     Property<n_max, Cell_types> type;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     for (auto i = 0; i < n_0 / 2; i++) {
@@ -194,7 +194,7 @@ int main(int argc, char const* argv[])
         }
     }
     *bolls.h_n += 100;
-    uniform_circle(mean_distance * 1.5, bolls, n_0);
+    random_disk(mean_distance * 1.5, bolls, n_0);
     for (auto i = n_0; i < *bolls.h_n; i++) {
         bolls.h_X[i].x = 0.1;
         bolls.h_X[i].y /= 2.5;

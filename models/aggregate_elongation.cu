@@ -104,7 +104,7 @@ int main(int argc, char const* argv[])
 {
     // Prepare initial state
     Solution<Po_cell, n_cells, Grid_solver> bolls;
-    uniform_circle(0.733333, bolls);
+    random_disk(0.733333, bolls);
     for (auto i = 0; i < n_cells; i++) {
         bolls.h_X[i].x = bolls.h_X[i].z;
         bolls.h_X[i].z = rand() / (RAND_MAX + 1.) / 2;
