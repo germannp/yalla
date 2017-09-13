@@ -17,7 +17,7 @@ int main(int argc, const char* argv[])
 {
     // Prepare cuboid
     Solution<float3, n_cells, Tile_solver> bolls;
-    random_cuboid0.25, float3{-1.5, -1.5, -0.5}, float3{3, 3, 1}, bolls);
+    random_cuboid(0.25, float3{-1.5, -1.5, -0.5}, float3{3, 3, 1}, bolls);
     Vtk_output output("teapot");
     output.write_positions(bolls);
 
