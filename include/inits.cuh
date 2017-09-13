@@ -102,16 +102,25 @@ void relaxed_sphere(
         std::cout << "Warning: The system is quite large, it may "
                   << "not be completely relaxed." << std::endl;
 
-    for (int i = 0; i < relax_steps; i++)
+    for (auto i = 0; i < relax_steps; i++)
         bolls.template take_step<relu_force>(0.1f);
     bolls.copy_to_host();
+
+    auto scale = dist_to_nb / 0.8;
+    for (auto i = 0; i < *bolls.h_n; i++) {
+        bolls.h_X[i].x *= scale;
+        bolls.h_X[i].y *= scale;
+        bolls.h_X[i].z *= scale;
+    }
+    bolls.copy_to_device();
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
 void relaxed_cuboid(float dist_to_nb, float3 mins, float3 dims,
     Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0)
 {
-    random_cuboid(0.8, mins, dims, bolls, n_0);
+    auto scale = dist_to_nb / 0.8;
+    random_cuboid(0.8, mins / scale, dims / scale, bolls, n_0);
 
     int relax_steps;
     if (*bolls.h_n <= 3000) relax_steps = 1000;
@@ -124,6 +133,13 @@ void relaxed_cuboid(float dist_to_nb, float3 mins, float3 dims,
     for (int i = 0; i < relax_steps; i++)
         bolls.template take_step<relu_force>(0.1f);
     bolls.copy_to_host();
+
+    for (auto i = 0; i < *bolls.h_n; i++) {
+        bolls.h_X[i].x *= scale;
+        bolls.h_X[i].y *= scale;
+        bolls.h_X[i].z *= scale;
+    }
+    bolls.copy_to_device();
 }
 
 

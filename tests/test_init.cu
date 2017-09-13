@@ -45,7 +45,7 @@ const char* test_relaxation()
     bolls.copy_to_host();
     auto pos_after = store(bolls);
     auto diff = mean_difference<n_max>(pos_before, pos_after, *bolls.h_n);
-    MU_ASSERT("Sphere not relaxed", MU_ISCLOSE(diff, 0));
+    MU_ASSERT("Sphere not relaxed", diff < 5e-4);
 
     relaxed_cuboid(r_mean, float3{0}, float3{9, 9, 9}, bolls);
     pos_before = store(bolls);
@@ -53,7 +53,7 @@ const char* test_relaxation()
     bolls.copy_to_host();
     pos_after = store(bolls);
     diff = mean_difference<n_max>(pos_before, pos_after, *bolls.h_n);
-    MU_ASSERT("Cuboid not relaxed", MU_ISCLOSE(diff, 0));
+    MU_ASSERT("Cuboid not relaxed", diff < 5e-4);
 
     return NULL;
 }
@@ -65,6 +65,12 @@ float3 compwise_min(const Pt& a, const Pt& b)
     return float3{min(a.x, b.x), min(a.y, b.y), min(a.z, b.z)};
 }
 
+template<typename Pt>
+float3 compwise_max(const Pt& a, const Pt& b)
+{
+    return float3{max(a.x, b.x), max(a.y, b.y), max(a.z, b.z)};
+}
+
 const char* test_cuboid_dimensions()
 {
     const auto r_mean = 0.8;
@@ -72,16 +78,32 @@ const char* test_cuboid_dimensions()
     Solution<float3, n_max, Grid_solver> bolls;
 
     relaxed_cuboid(r_mean, float3{0}, float3{9, 9, 9}, bolls);
-
     auto mins = thrust::reduce(bolls.h_X, bolls.h_X + *bolls.h_n, bolls.h_X[0],
         compwise_min<float3>);
     MU_ASSERT("Cuboid too small in x", mins.x < 0);
     MU_ASSERT("Cuboid too small in y", mins.y < 0);
     MU_ASSERT("Cuboid too small in z", mins.z < 0);
+    MU_ASSERT("Cuboid too large in x", mins.x > -r_mean * 2);
+    MU_ASSERT("Cuboid too large in y", mins.y > -r_mean * 2);
+    MU_ASSERT("Cuboid too large in z", mins.z > -r_mean * 2);
 
-    MU_ASSERT("Cuboid too large in x", mins.x > -r_mean);
-    MU_ASSERT("Cuboid too large in y", mins.y > -r_mean);
-    MU_ASSERT("Cuboid too large in z", mins.z > -r_mean);
+    relaxed_cuboid(r_mean / 2, float3{0}, float3{4, 4, 4}, bolls);
+    mins = thrust::reduce(bolls.h_X, bolls.h_X + *bolls.h_n, bolls.h_X[0],
+        compwise_min<float3>);
+    MU_ASSERT("Scaled cuboid too small in x", mins.x < 0);
+    MU_ASSERT("Scaled cuboid too small in y", mins.y < 0);
+    MU_ASSERT("Scaled cuboid too small in z", mins.z < 0);
+    MU_ASSERT("Scaled cuboid too large in x", mins.x > -r_mean);
+    MU_ASSERT("Scaled cuboid too large in y", mins.y > -r_mean);
+    MU_ASSERT("Scaled cuboid too large in z", mins.z > -r_mean);
+    auto maxs = thrust::reduce(bolls.h_X, bolls.h_X + *bolls.h_n, bolls.h_X[0],
+        compwise_max<float3>);
+    MU_ASSERT("Scaled cuboid too small in x", maxs.x > 4);
+    MU_ASSERT("Scaled cuboid too small in y", maxs.y > 4);
+    MU_ASSERT("Scaled cuboid too small in z", maxs.z > 4);
+    MU_ASSERT("Scaled cuboid too large in x", maxs.x < 4 + r_mean);
+    MU_ASSERT("Scaled cuboid too large in y", maxs.y < 4 + r_mean);
+    MU_ASSERT("Scaled cuboid too large in z", maxs.z < 4 + r_mean);
 
     return NULL;
 }
@@ -89,7 +111,7 @@ const char* test_cuboid_dimensions()
 
 const char* all_tests()
 {
-    // MU_RUN_TEST(test_relaxation);
+    MU_RUN_TEST(test_relaxation);
     MU_RUN_TEST(test_cuboid_dimensions);
     return NULL;
 }
