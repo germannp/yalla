@@ -79,9 +79,9 @@ const char* test_cuboid_dimensions()
     MU_ASSERT("Cuboid too small in y", mins.y < 0);
     MU_ASSERT("Cuboid too small in z", mins.z < 0);
 
-    MU_ASSERT("Cuboid too large in x", mins.x > -2 * r_mean);
-    MU_ASSERT("Cuboid too large in y", mins.y > -2 * r_mean);
-    MU_ASSERT("Cuboid too large in z", mins.z > -2 * r_mean);
+    MU_ASSERT("Cuboid too large in x", mins.x > -r_mean);
+    MU_ASSERT("Cuboid too large in y", mins.y > -r_mean);
+    MU_ASSERT("Cuboid too large in z", mins.z > -r_mean);
 
     return NULL;
 }
