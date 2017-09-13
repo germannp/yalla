@@ -21,9 +21,9 @@ template<int n_max>
 float mean_difference(
     std::array<float3, n_max>& a, std::array<float3, n_max>& b, int n = n_max)
 {
-    float total_diff = 0.f;
+    auto total_diff = 0.f;
     for (int i = 0; i < n; i++) {
-        float diff = pow(a[i].x - b[i].x, 2) + pow(a[i].y - b[i].y, 2) +
+        auto diff = pow(a[i].x - b[i].x, 2) + pow(a[i].y - b[i].y, 2) +
                      pow(a[i].z - b[i].z, 2);
         total_diff += sqrt(diff);
     }
