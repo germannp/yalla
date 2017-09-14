@@ -9,7 +9,7 @@ const char* test_torus()
 {
     const auto n_bolls = 1500;
     Solution<float3, n_bolls, Grid_solver> bolls;
-    random_cuboid0.25, float3{-1.5, -1.5, -0.5}, float3{3, 3, 1}, bolls);
+    random_cuboid(0.25, float3{-1.5, -1.5, -0.5}, float3{3, 3, 1}, bolls);
 
     Meix meix("tests/torus.vtk");
     for (auto i = 0; i < n_bolls; i++) {
