@@ -159,18 +159,18 @@ __global__ void update_protrusions(const int n_cells,
     bool normal_to_f_gradient = false;
     bool normal_to_w = false;
     if(distal) {
-        // more_along_w =
-        //     fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
-        normal_to_f_gradient =
-            fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
+        more_along_w =
+            fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
+        // normal_to_f_gradient =
+        //     fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
         // normal_to_w =
         //     fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
         // high_f = true;
     } else {
-        // more_along_w =
-        //     fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
-        normal_to_f_gradient =
-            fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
+        more_along_w =
+            fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
+        // normal_to_f_gradient =
+        //     fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
         // high_f = true;
     }
     // high_f = false;
