@@ -85,8 +85,8 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
     else
         atomicAdd(&d_mes_nbs[i], 1);
 
-    if (Xi.w<0.f) dF.w=0.f;
-    if (Xi.f<0.f) dF.f=0.f;
+    if (Xi.w<0.f) Xi.w=0.f;
+    if (Xi.f<0.f) Xi.f=0.f;
     return dF;
 }
 
