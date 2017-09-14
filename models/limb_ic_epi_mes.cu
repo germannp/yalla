@@ -247,7 +247,7 @@ int main(int argc, char const* argv[])
     // mesh
     // Let's fill the cube with bolls
     Solution<Cell, n_max, Grid_solver> cube;
-    random_cuboid(r_min, meix.min_point, meix.diagonal_vector, cube);
+    relaxed_cuboid(r_min, meix.min_point, meix.diagonal_vector, cube);
     auto n_bolls_cube = *cube.h_n;
 
     cube.copy_to_host();
