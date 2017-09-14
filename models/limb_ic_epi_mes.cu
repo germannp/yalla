@@ -19,14 +19,14 @@
 #include <string>
 #include <vector>
 
-#include "../../include/dtypes.cuh"
-#include "../../include/inits.cuh"
-#include "../../include/links.cuh"
-#include "../../include/meix.cuh"
-#include "../../include/polarity.cuh"
-#include "../../include/property.cuh"
-#include "../../include/solvers.cuh"
-#include "../../include/vtk.cuh"
+#include "../include/dtypes.cuh"
+#include "../include/inits.cuh"
+#include "../include/links.cuh"
+#include "../include/meix.cuh"
+#include "../include/polarity.cuh"
+#include "../include/property.cuh"
+#include "../include/solvers.cuh"
+#include "../include/vtk.cuh"
 
 const auto r_max = 1.0;
 const auto r_min = 0.8;
