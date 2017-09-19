@@ -92,7 +92,7 @@ int main(int argc, char const* argv[])
 {
     // Prepare initial state
     Solution<Po_cell, n_max, Grid_solver> bolls(n_0);
-    random_sphere(mean_dist, bolls);
+    relaxed_sphere(mean_dist, bolls);
     Property<n_max, Cell_types> type;
     for (auto i = 0; i < n_0; i++) type.h_prop[i] = mesenchyme;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
@@ -107,14 +107,9 @@ int main(int argc, char const* argv[])
     setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(
         n_max, seed, d_state);
 
-    // Relax
-    for (auto time_step = 0; time_step <= 100; time_step++) {
-        thrust::fill(
-            thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
-        bolls.take_step<relu_w_epithelium>(dt);
-    }
-
     // Find epithelium
+    thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
+    bolls.take_step<relu_w_epithelium>(dt);
     bolls.copy_to_host();
     n_mes_nbs.copy_to_host();
     for (auto i = 0; i < n_0; i++) {
