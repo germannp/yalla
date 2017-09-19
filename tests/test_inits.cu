@@ -26,7 +26,7 @@ float mean_difference(
     auto total_diff = 0.f;
     for (int i = 0; i < n; i++) {
         auto diff = pow(a[i].x - b[i].x, 2) + pow(a[i].y - b[i].y, 2) +
-                     pow(a[i].z - b[i].z, 2);
+                    pow(a[i].z - b[i].z, 2);
         total_diff += sqrt(diff);
     }
     return total_diff / n_max;
@@ -78,8 +78,8 @@ const char* test_cuboid_dimensions()
     Solution<float3, n_max, Grid_solver> bolls;
 
     relaxed_cuboid(r_mean, float3{0}, float3{9, 9, 9}, bolls);
-    auto mins = thrust::reduce(bolls.h_X, bolls.h_X + *bolls.h_n, bolls.h_X[0],
-        compwise_min<float3>);
+    auto mins = thrust::reduce(
+        bolls.h_X, bolls.h_X + *bolls.h_n, bolls.h_X[0], compwise_min<float3>);
     MU_ASSERT("Cuboid too small in x", mins.x < 0);
     MU_ASSERT("Cuboid too small in y", mins.y < 0);
     MU_ASSERT("Cuboid too small in z", mins.z < 0);
@@ -88,16 +88,16 @@ const char* test_cuboid_dimensions()
     MU_ASSERT("Cuboid too large in z", mins.z > -r_mean * 2);
 
     relaxed_cuboid(r_mean / 2, float3{0}, float3{4, 4, 4}, bolls);
-    mins = thrust::reduce(bolls.h_X, bolls.h_X + *bolls.h_n, bolls.h_X[0],
-        compwise_min<float3>);
+    mins = thrust::reduce(
+        bolls.h_X, bolls.h_X + *bolls.h_n, bolls.h_X[0], compwise_min<float3>);
     MU_ASSERT("Scaled cuboid too small in x", mins.x < 0);
     MU_ASSERT("Scaled cuboid too small in y", mins.y < 0);
     MU_ASSERT("Scaled cuboid too small in z", mins.z < 0);
     MU_ASSERT("Scaled cuboid too large in x", mins.x > -r_mean);
     MU_ASSERT("Scaled cuboid too large in y", mins.y > -r_mean);
     MU_ASSERT("Scaled cuboid too large in z", mins.z > -r_mean);
-    auto maxs = thrust::reduce(bolls.h_X, bolls.h_X + *bolls.h_n, bolls.h_X[0],
-        compwise_max<float3>);
+    auto maxs = thrust::reduce(
+        bolls.h_X, bolls.h_X + *bolls.h_n, bolls.h_X[0], compwise_max<float3>);
     MU_ASSERT("Scaled cuboid too small in x", maxs.x > 4);
     MU_ASSERT("Scaled cuboid too small in y", maxs.y > 4);
     MU_ASSERT("Scaled cuboid too small in z", maxs.z > 4);
