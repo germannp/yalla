@@ -32,6 +32,24 @@ float mean_difference(
     return total_diff / n_max;
 }
 
+template<typename Pt, int n_max, template<typename, int> class Solver>
+float mean_dist_to_nbs(Solution<Pt, n_max, Solver>& bolls, float cut_off = 1)
+{
+    auto rnd_cell = static_cast<int>(rand() / (RAND_MAX + 1.) * *bolls.h_n);
+    auto tot_dist = 0.f;
+    auto n_nbs = 0;
+    for (auto i = 0; i < *bolls.h_n; i++) {
+        auto dist = sqrt(pow(bolls.h_X[rnd_cell].x - bolls.h_X[i].x, 2) +
+                         pow(bolls.h_X[rnd_cell].y - bolls.h_X[i].y, 2) +
+                         pow(bolls.h_X[rnd_cell].z - bolls.h_X[i].z, 2));
+        if (dist < cut_off and i != rnd_cell) {
+            tot_dist += dist;
+            n_nbs++;
+        }
+    }
+    return tot_dist / n_nbs;
+}
+
 const char* test_relaxation()
 {
     const auto r_mean = 0.8;
@@ -46,6 +64,9 @@ const char* test_relaxation()
     auto pos_after = store(bolls);
     auto diff = mean_difference<n_max>(pos_before, pos_after, *bolls.h_n);
     MU_ASSERT("Sphere not relaxed", diff < 5e-4);
+    auto mean_dist = mean_dist_to_nbs(bolls);
+    MU_ASSERT("Sphere mean dist to neighbours wrong",
+        r_mean - 0.05 < mean_dist and mean_dist < r_mean + 0.05);
 
     relaxed_cuboid(r_mean, float3{0}, float3{9, 9, 9}, bolls);
     pos_before = store(bolls);
@@ -54,6 +75,9 @@ const char* test_relaxation()
     pos_after = store(bolls);
     diff = mean_difference<n_max>(pos_before, pos_after, *bolls.h_n);
     MU_ASSERT("Cuboid not relaxed", diff < 5e-4);
+    mean_dist = mean_dist_to_nbs(bolls);
+    MU_ASSERT("Cuboid mean dist to neighbours wrong",
+        r_mean - 0.05 < mean_dist and mean_dist < r_mean + 0.05);
 
     return NULL;
 }
@@ -86,6 +110,9 @@ const char* test_cuboid_dimensions()
     MU_ASSERT("Cuboid too large in x", mins.x > -r_mean * 2);
     MU_ASSERT("Cuboid too large in y", mins.y > -r_mean * 2);
     MU_ASSERT("Cuboid too large in z", mins.z > -r_mean * 2);
+    auto mean_dist = mean_dist_to_nbs(bolls);
+    MU_ASSERT("2nd cuboid mean dist to neighbours wrong",
+        r_mean - 0.05 < mean_dist and mean_dist < r_mean + 0.05);
 
     relaxed_cuboid(r_mean / 2, float3{0}, float3{4, 4, 4}, bolls);
     mins = thrust::reduce(
@@ -104,6 +131,9 @@ const char* test_cuboid_dimensions()
     MU_ASSERT("Scaled cuboid too large in x", maxs.x < 4 + r_mean);
     MU_ASSERT("Scaled cuboid too large in y", maxs.y < 4 + r_mean);
     MU_ASSERT("Scaled cuboid too large in z", maxs.z < 4 + r_mean);
+    mean_dist = mean_dist_to_nbs(bolls, 0.5);
+    MU_ASSERT("Scaled uboid mean dist to neighbours wrong",
+        r_mean / 2 - 0.05 < mean_dist and mean_dist < r_mean / 2 + 0.05);
 
     return NULL;
 }
