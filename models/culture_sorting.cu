@@ -10,7 +10,7 @@
 #include "../include/vtk.cuh"
 
 
-const auto type_ratio = 0.8f;
+const auto type_ratio = 0.2f;
 const auto n_cells = 1000u;
 const auto prots_per_cell = 5;
 const auto r_protrusion = 2;
@@ -65,7 +65,7 @@ int main(int argc, char const* argv[])
 {
     // Prepare initial state
     Solution<float3, n_cells, Grid_solver> bolls;
-    random_disk(0.5, bolls);
+    random_sphere(1, bolls);
     Links<n_protrusions> protrusions(0.15);
     auto prot_forces = std::bind(link_forces<n_protrusions>, protrusions,
         std::placeholders::_1, std::placeholders::_2);
