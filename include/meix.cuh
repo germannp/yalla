@@ -56,8 +56,6 @@ public:
     float surf_area;
     int n_vertices;
     int n_facets;
-    float3 min_point;
-    float3 diagonal_vector;
     std::vector<float3> vertices;
     std::vector<Triangle> facets;
     int** triangle_to_vertices;
@@ -66,12 +64,12 @@ public:
     Meix(std::string file_name);
     Meix(const Meix& copy);
     Meix& operator=(const Meix& other);
-    void calculate_dimensions();
+    float3 get_minimum();
+    float3 get_maximum();
     void rescale(float factor);
     void grow_normally(float amount, bool boundary);
     void translate(float3 offset);
     void rotate(float theta, float phi, float otherphi);
-    float3 get_centroid();
     template<typename Pt>
     bool test_exclusion(const Pt boll);
     void write_vtk(std::string);
@@ -83,8 +81,6 @@ Meix::Meix()
     surf_area = 0.f;
     n_vertices = 0;
     n_facets = 0;
-    min_point = {0};
-    diagonal_vector = {0};
     triangle_to_vertices = NULL;
 }
 
@@ -171,8 +167,6 @@ Meix::Meix(std::string file_name)
         vertex = triangle_to_vertices[i][2];
         vertex_to_triangles[vertex].push_back(i);
     }
-
-    calculate_dimensions();
 }
 
 Meix::Meix(const Meix& copy)
@@ -219,24 +213,26 @@ Meix& Meix::operator=(const Meix& other)
     return *this;
 }
 
-void Meix::calculate_dimensions()
+float3 Meix::get_minimum()
 {
-    float3 max_point{-10000.f};
-    min_point.x = 10000.f;
-    min_point.y = 10000.f;
-    min_point.z = 10000.f;
-
-    for (int i = 0; i < n_vertices; i++) {
-        if (vertices[i].x < min_point.x) min_point.x = vertices[i].x;
-        if (vertices[i].x > max_point.x) max_point.x = vertices[i].x;
-        if (vertices[i].y < min_point.y) min_point.y = vertices[i].y;
-        if (vertices[i].y > max_point.y) max_point.y = vertices[i].y;
-        if (vertices[i].z < min_point.z) min_point.z = vertices[i].z;
-        if (vertices[i].z > max_point.z) max_point.z = vertices[i].z;
+    float3 minimum{vertices[0].x, vertices[0].y, vertices[0].z};
+    for (auto i = 1; i < n_vertices; i++) {
+        minimum.x = min(minimum.x, vertices[i].x);
+        minimum.y = min(minimum.y, vertices[i].y);
+        minimum.z = min(minimum.z, vertices[i].z);
     }
-    diagonal_vector.x = max_point.x - min_point.x;
-    diagonal_vector.y = max_point.y - min_point.y;
-    diagonal_vector.z = max_point.z - min_point.z;
+    return minimum;
+}
+
+float3 Meix::get_maximum()
+{
+    float3 maximum{vertices[0].x, vertices[0].y, vertices[0].z};
+    for (auto i = 1; i < n_vertices; i++) {
+        maximum.x = max(maximum.x, vertices[i].x);
+        maximum.y = max(maximum.y, vertices[i].y);
+        maximum.z = max(maximum.z, vertices[i].z);
+    }
+    return maximum;
 }
 
 void Meix::rescale(float factor)
@@ -251,8 +247,6 @@ void Meix::rescale(float factor)
         facets[i].V2 = facets[i].V2 * factor;
         facets[i].C = facets[i].C * factor;
     }
-
-    calculate_dimensions();
 }
 
 void Meix::grow_normally(float amount, bool boundary = false)
@@ -283,8 +277,6 @@ void Meix::grow_normally(float amount, bool boundary = false)
         facets[i].calculate_centroid();
         facets[i].calculate_normal();
     }
-
-    calculate_dimensions();
 }
 
 void Meix::translate(float3 offset)
@@ -382,8 +374,6 @@ void Meix::rotate(float theta, float phi, float otherphi)
         vertices[i].y = old.y * cos(otherphi) - old.z * sin(otherphi);
         vertices[i].z = old.y * sin(otherphi) + old.z * cos(otherphi);
     }
-
-    calculate_dimensions();
 }
 
 template<typename Pt_a, typename Pt_b>

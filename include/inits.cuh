@@ -48,12 +48,13 @@ void random_sphere(
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
-void random_cuboid(float dist_to_nb, float3 mins, float3 dims,
+void random_cuboid(float dist_to_nb, float3 minimum, float3 maximum,
     Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0)
 {
     assert(n_0 < *bolls.h_n);
 
-    auto cube_volume = dims.x * dims.y * dims.z;
+    auto dimension = maximum - minimum;
+    auto cube_volume = dimension.x * dimension.y * dimension.z;
     auto boll_volume = 4 / 3 * M_PI * pow(dist_to_nb / 2, 3);
     auto n = cube_volume / boll_volume * 0.64;  // Sphere packing
 
@@ -62,9 +63,9 @@ void random_cuboid(float dist_to_nb, float3 mins, float3 dims,
 
     srand(time(NULL));
     for (auto i = n_0; i < *bolls.h_n; i++) {
-        bolls.h_X[i].x = mins.x + dims.x * (rand() / (RAND_MAX + 1.));
-        bolls.h_X[i].y = mins.y + dims.y * (rand() / (RAND_MAX + 1.));
-        bolls.h_X[i].z = mins.z + dims.z * (rand() / (RAND_MAX + 1.));
+        bolls.h_X[i].x = minimum.x + dimension.x * (rand() / (RAND_MAX + 1.));
+        bolls.h_X[i].y = minimum.y + dimension.y * (rand() / (RAND_MAX + 1.));
+        bolls.h_X[i].z = minimum.z + dimension.z * (rand() / (RAND_MAX + 1.));
     }
     bolls.copy_to_device();
 }
@@ -94,10 +95,14 @@ void relaxed_sphere(
     random_sphere(0.6, bolls, n_0);
 
     int relax_steps;
-    if (*bolls.h_n <= 100) relax_steps = 500;
-    else if (*bolls.h_n <= 1000) relax_steps = 1000;
-    else if (*bolls.h_n <= 6000) relax_steps = 2000;
-    else relax_steps = 3000;
+    if (*bolls.h_n <= 100)
+        relax_steps = 500;
+    else if (*bolls.h_n <= 1000)
+        relax_steps = 1000;
+    else if (*bolls.h_n <= 6000)
+        relax_steps = 2000;
+    else
+        relax_steps = 3000;
     if (*bolls.h_n > 10000)
         std::cout << "Warning: The system is quite large, it may "
                   << "not be completely relaxed." << std::endl;
@@ -116,16 +121,19 @@ void relaxed_sphere(
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
-void relaxed_cuboid(float dist_to_nb, float3 mins, float3 dims,
+void relaxed_cuboid(float dist_to_nb, float3 minimum, float3 maximum,
     Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0)
 {
     auto scale = dist_to_nb / 0.8;
-    random_cuboid(0.8, mins / scale, dims / scale, bolls, n_0);
+    random_cuboid(0.8, minimum / scale, maximum / scale, bolls, n_0);
 
     int relax_steps;
-    if (*bolls.h_n <= 3000) relax_steps = 1000;
-    else if (*bolls.h_n <= 12000) relax_steps = 2000;
-    else relax_steps = 3000;
+    if (*bolls.h_n <= 3000)
+        relax_steps = 1000;
+    else if (*bolls.h_n <= 12000)
+        relax_steps = 2000;
+    else
+        relax_steps = 3000;
     if (*bolls.h_n > 15000)
         std::cout << "Warning: The system is quite large, it may "
                   << "not be completely relaxed." << std::endl;

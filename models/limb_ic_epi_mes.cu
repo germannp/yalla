@@ -228,9 +228,11 @@ int main(int argc, char const* argv[])
     Meix meix(file_name);
 
     // Compute max length in X axis to know how much we need to rescale
-    float resc = target_dx / meix.diagonal_vector.x;
-    std::cout << "xmax= " << meix.min_point.x + meix.diagonal_vector.x << " xmin= " << meix.min_point.x << std::endl;
-    std::cout << "dx= " << meix.diagonal_vector.x << " target_dx= " << target_dx
+    auto min_point = meix.get_minimum();
+    auto diagonal_vector = meix.get_maximum() - min_point;
+    float resc = target_dx / diagonal_vector.x;
+    std::cout << "xmax= " << min_point.x + diagonal_vector.x << " xmin= " << min_point.x << std::endl;
+    std::cout << "dx= " << diagonal_vector.x << " target_dx= " << target_dx
               << " rescaling factor resc= " << resc << std::endl;
 
 
@@ -247,7 +249,7 @@ int main(int argc, char const* argv[])
     // mesh
     // Let's fill the cube with bolls
     Solution<Cell, n_max, Grid_solver> cube;
-    relaxed_cuboid(r_min, meix.min_point, meix.diagonal_vector, cube);
+    relaxed_cuboid(r_min, meix.get_minimum(), meix.get_maximum(), cube);
     auto n_bolls_cube = *cube.h_n;
 
     cube.copy_to_host();
@@ -518,10 +520,12 @@ int main(int argc, char const* argv[])
     // Create a dummy meix that depicts the x=0 plane, depicting the flank
     // boundary
     Meix wall;
-    float3 A{0.f, 2 * meix.min_point.y, 2 * meix.min_point.z};
-    float3 B{0.f, 2 * meix.min_point.y, 2 * (meix.min_point.z + meix.diagonal_vector.z)};
-    float3 C{0.f, 2 * (meix.min_point.y + meix.diagonal_vector.y), 2 * meix.min_point.z};
-    float3 D{0.f, 2 * (meix.min_point.y + meix.diagonal_vector.y), 2 * (meix.min_point.z + meix.diagonal_vector.z)};
+    min_point = meix.get_minimum();
+    diagonal_vector = meix.get_maximum() - min_point;
+    float3 A{0.f, 2 * min_point.y, 2 * min_point.z};
+    float3 B{0.f, 2 * min_point.y, 2 * (min_point.z + diagonal_vector.z)};
+    float3 C{0.f, 2 * (min_point.y + diagonal_vector.y), 2 * min_point.z};
+    float3 D{0.f, 2 * (min_point.y + diagonal_vector.y), 2 * (min_point.z + diagonal_vector.z)};
     Triangle ABC{A, B, C};
     Triangle BCD{B, C, D};
     wall.n_facets = 2;
