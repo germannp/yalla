@@ -122,7 +122,7 @@ Meix::Meix(std::string file_name)
         items.clear();
     }
 
-    // at this point there may be a black line or not, so we have to check
+    // Check for blank line
     getline(input_file, line);
     items = split(line);
     if (items[0] == "POLYGONS" or items[0] == "CELLS") {
@@ -136,7 +136,7 @@ Meix::Meix(std::string file_name)
         items.clear();
     }
 
-    // read facets
+    // Read facets
     count = 0;
 
     triangle_to_vertices = (int**)malloc(n_facets * sizeof(int*));
@@ -157,8 +157,7 @@ Meix::Meix(std::string file_name)
         count++;
     }
 
-    // we want to construct the list of triangles adjacent to each vertex
-    // (vector of vectors)
+    // Construct the vector of triangles adjacent to each vertex
     std::vector<int> empty;
     std::vector<std::vector<int>> dummy(n_vertices, empty);
     vertex_to_triangles = dummy;
@@ -273,7 +272,7 @@ void Meix::rescale_absolute(float scale, bool boundary = false)
 
         vertices[i] = vertices[i] + average_normal;
     }
-    // rescaled the vertices, now we need to rescale the facets
+
     for (int i = 0; i < n_facets; i++) {
         int V0 = triangle_to_vertices[i][0];
         int V1 = triangle_to_vertices[i][1];
@@ -383,6 +382,7 @@ void Meix::rotate(float theta, float phi, float otherphi)
         vertices[i].y = old.y * cos(otherphi) - old.z * sin(otherphi);
         vertices[i].z = old.y * sin(otherphi) + old.z * cos(otherphi);
     }
+
     calculate_dimensions();
 }
 
