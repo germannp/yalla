@@ -17,12 +17,12 @@ int main(int argc, const char* argv[])
 {
     // Prepare cuboid
     Solution<float3, n_cells, Tile_solver> bolls;
-    random_cuboid(0.25, float3{-1.5, -1.5, -0.5}, float3{1.5, 1.5, 0.5}, bolls);
+    Meix teapot("tests/torus.vtk");
+    random_cuboid(0.25, teapot.get_minimum(), teapot.get_maximum(), bolls);
     Vtk_output output("teapot");
     output.write_positions(bolls);
 
     // Cut teapot out
-    Meix teapot("tests/torus.vtk");
     auto new_n =
         thrust::remove_if(thrust::host, bolls.h_X, bolls.h_X + *bolls.h_n,
             [&teapot](float3 x) { return teapot.test_exclusion(x); });
