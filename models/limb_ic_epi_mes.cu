@@ -235,13 +235,13 @@ int main(int argc, char const* argv[])
 
 
     // meix defines the overall shape of the limb bud (mesench. + ectoderm)
-    meix.rescale_relative(resc);
+    meix.rescale(resc);
     meix.rotate(0.0f,0.0f,-0.2f);
 
     // meix_mesench defines the volume occupied by the mesenchyme (smaller than
     // meix)
     Meix meix_mesench = meix;
-    meix_mesench.rescale_absolute(-r_min, wall_flag);  //*1.3//*1.2
+    meix_mesench.grow_normally(-r_min, wall_flag);  //*1.3//*1.2
 
     // we use the maximum lengths of the mesh to draw a cube that includes the
     // mesh
@@ -467,7 +467,7 @@ int main(int argc, char const* argv[])
         AER_file.insert(AER_file.length() - 4, "_AER");
         std::cout<<"AER file "<<AER_file<<std::endl;
         Meix AER(AER_file);
-        AER.rescale_relative(resc);
+        AER.rescale(resc);
 
         for (int i = n_bolls_mes; i < n_bolls_total; i++) {
             float3 p{bolls.h_X[i].x, bolls.h_X[i].y, bolls.h_X[i].z};

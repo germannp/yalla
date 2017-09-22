@@ -67,8 +67,8 @@ public:
     Meix(const Meix& copy);
     Meix& operator=(const Meix& other);
     void calculate_dimensions();
-    void rescale_relative(float scale);
-    void rescale_absolute(float scale, bool boundary);
+    void rescale(float factor);
+    void grow_normally(float amount, bool boundary);
     void translate(float3 offset);
     void rotate(float theta, float phi, float otherphi);
     float3 get_centroid();
@@ -239,23 +239,23 @@ void Meix::calculate_dimensions()
     diagonal_vector.z = max_point.z - min_point.z;
 }
 
-void Meix::rescale_relative(float scale)
+void Meix::rescale(float factor)
 {
     for (int i = 0; i < n_vertices; i++) {
-        vertices[i] = vertices[i] * scale;
+        vertices[i] = vertices[i] * factor;
     }
 
     for (int i = 0; i < n_facets; i++) {
-        facets[i].V0 = facets[i].V0 * scale;
-        facets[i].V1 = facets[i].V1 * scale;
-        facets[i].V2 = facets[i].V2 * scale;
-        facets[i].C = facets[i].C * scale;
+        facets[i].V0 = facets[i].V0 * factor;
+        facets[i].V1 = facets[i].V1 * factor;
+        facets[i].V2 = facets[i].V2 * factor;
+        facets[i].C = facets[i].C * factor;
     }
 
     calculate_dimensions();
 }
 
-void Meix::rescale_absolute(float scale, bool boundary = false)
+void Meix::grow_normally(float amount, bool boundary = false)
 {
     for (int i = 0; i < n_vertices; i++) {
         if (boundary && vertices[i].x == 0.f) continue;
@@ -268,7 +268,7 @@ void Meix::rescale_absolute(float scale, bool boundary = false)
 
         float d = sqrt(pow(average_normal.x, 2) + pow(average_normal.y, 2) +
                        pow(average_normal.z, 2));
-        average_normal = average_normal * (scale / d);
+        average_normal = average_normal * (amount / d);
 
         vertices[i] = vertices[i] + average_normal;
     }
