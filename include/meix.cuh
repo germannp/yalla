@@ -66,10 +66,10 @@ public:
     Meix& operator=(const Meix& other);
     float3 get_minimum();
     float3 get_maximum();
+    void translate(float3 offset);
+    void rotate(float around_z, float around_y, float around_x);
     void rescale(float factor);
     void grow_normally(float amount, bool boundary);
-    void translate(float3 offset);
-    void rotate(float theta, float phi, float otherphi);
     template<typename Pt>
     bool test_exclusion(const Pt boll);
     void write_vtk(std::string);
@@ -235,6 +235,98 @@ float3 Meix::get_maximum()
     return maximum;
 }
 
+void Meix::translate(float3 offset)
+{
+    for (int i = 0; i < n_vertices; i++) {
+        vertices[i] = vertices[i] + offset;
+    }
+
+    for (int i = 0; i < n_facets; i++) {
+        facets[i].V0 = facets[i].V0 + offset;
+        facets[i].V1 = facets[i].V1 + offset;
+        facets[i].V2 = facets[i].V2 + offset;
+        facets[i].C = facets[i].C + offset;
+    }
+}
+
+void Meix::rotate(float around_z, float around_y, float around_x)
+{
+    for (int i = 0; i < n_facets; i++) {
+        float3 old = facets[i].V0;
+        facets[i].V0.x = old.x * cos(around_z) - old.y * sin(around_z);
+        facets[i].V0.y = old.x * sin(around_z) + old.y * cos(around_z);
+
+        old = facets[i].V1;
+        facets[i].V1.x = old.x * cos(around_z) - old.y * sin(around_z);
+        facets[i].V1.y = old.x * sin(around_z) + old.y * cos(around_z);
+
+        old = facets[i].V2;
+        facets[i].V2.x = old.x * cos(around_z) - old.y * sin(around_z);
+        facets[i].V2.y = old.x * sin(around_z) + old.y * cos(around_z);
+
+        old = facets[i].C;
+        facets[i].C.x = old.x * cos(around_z) - old.y * sin(around_z);
+        facets[i].C.y = old.x * sin(around_z) + old.y * cos(around_z);
+
+        facets[i].calculate_normal();
+    }
+    for (int i = 0; i < n_vertices; i++) {
+        float3 old = vertices[i];
+        vertices[i].x = old.x * cos(around_z) - old.y * sin(around_z);
+        vertices[i].y = old.x * sin(around_z) + old.y * cos(around_z);
+    }
+
+    for (int i = 0; i < n_facets; i++) {
+        float3 old = facets[i].V0;
+        facets[i].V0.x = old.x * cos(around_y) - old.z * sin(around_y);
+        facets[i].V0.z = old.x * sin(around_y) + old.z * cos(around_y);
+
+        old = facets[i].V1;
+        facets[i].V1.x = old.x * cos(around_y) - old.z * sin(around_y);
+        facets[i].V1.z = old.x * sin(around_y) + old.z * cos(around_y);
+
+        old = facets[i].V2;
+        facets[i].V2.x = old.x * cos(around_y) - old.z * sin(around_y);
+        facets[i].V2.z = old.x * sin(around_y) + old.z * cos(around_y);
+
+        old = facets[i].C;
+        facets[i].C.x = old.x * cos(around_y) - old.z * sin(around_y);
+        facets[i].C.z = old.x * sin(around_y) + old.z * cos(around_y);
+
+        facets[i].calculate_normal();
+    }
+    for (int i = 0; i < n_vertices; i++) {
+        float3 old = vertices[i];
+        vertices[i].x = old.x * cos(around_y) - old.z * sin(around_y);
+        vertices[i].z = old.x * sin(around_y) + old.z * cos(around_y);
+    }
+
+    for (int i = 0; i < n_facets; i++) {
+        float3 old = facets[i].V0;
+        facets[i].V0.y = old.y * cos(around_x) - old.z * sin(around_x);
+        facets[i].V0.z = old.y * sin(around_x) + old.z * cos(around_x);
+
+        old = facets[i].V1;
+        facets[i].V1.y = old.y * cos(around_x) - old.z * sin(around_x);
+        facets[i].V1.z = old.y * sin(around_x) + old.z * cos(around_x);
+
+        old = facets[i].V2;
+        facets[i].V2.y = old.y * cos(around_x) - old.z * sin(around_x);
+        facets[i].V2.z = old.y * sin(around_x) + old.z * cos(around_x);
+
+        old = facets[i].C;
+        facets[i].C.y = old.y * cos(around_x) - old.z * sin(around_x);
+        facets[i].C.z = old.y * sin(around_x) + old.z * cos(around_x);
+
+        facets[i].calculate_normal();
+    }
+    for (int i = 0; i < n_vertices; i++) {
+        float3 old = vertices[i];
+        vertices[i].y = old.y * cos(around_x) - old.z * sin(around_x);
+        vertices[i].z = old.y * sin(around_x) + old.z * cos(around_x);
+    }
+}
+
 void Meix::rescale(float factor)
 {
     for (int i = 0; i < n_vertices; i++) {
@@ -254,7 +346,7 @@ void Meix::grow_normally(float amount, bool boundary = false)
     for (int i = 0; i < n_vertices; i++) {
         if (boundary && vertices[i].x == 0.f) continue;
 
-        float3 average_normal;
+        float3 average_normal{0};
         for (int j = 0; j < vertex_to_triangles[i].size(); j++) {
             int triangle = vertex_to_triangles[i][j];
             average_normal = average_normal + facets[triangle].n;
@@ -276,103 +368,6 @@ void Meix::grow_normally(float amount, bool boundary = false)
         facets[i].V2 = vertices[V2];
         facets[i].calculate_centroid();
         facets[i].calculate_normal();
-    }
-}
-
-void Meix::translate(float3 offset)
-{
-    for (int i = 0; i < n_vertices; i++) {
-        vertices[i] = vertices[i] + offset;
-    }
-
-    for (int i = 0; i < n_facets; i++) {
-        facets[i].V0 = facets[i].V0 + offset;
-        facets[i].V1 = facets[i].V1 + offset;
-        facets[i].V2 = facets[i].V2 + offset;
-        facets[i].C = facets[i].C + offset;
-    }
-}
-
-void Meix::rotate(float theta, float phi, float otherphi)
-{
-    // rotation around z axis (theta correction)
-    for (int i = 0; i < n_facets; i++) {
-        float3 old = facets[i].V0;
-        facets[i].V0.x = old.x * cos(theta) - old.y * sin(theta);
-        facets[i].V0.y = old.x * sin(theta) + old.y * cos(theta);
-
-        old = facets[i].V1;
-        facets[i].V1.x = old.x * cos(theta) - old.y * sin(theta);
-        facets[i].V1.y = old.x * sin(theta) + old.y * cos(theta);
-
-        old = facets[i].V2;
-        facets[i].V2.x = old.x * cos(theta) - old.y * sin(theta);
-        facets[i].V2.y = old.x * sin(theta) + old.y * cos(theta);
-
-        old = facets[i].C;
-        facets[i].C.x = old.x * cos(theta) - old.y * sin(theta);
-        facets[i].C.y = old.x * sin(theta) + old.y * cos(theta);
-
-        facets[i].calculate_normal();
-    }
-
-    for (int i = 0; i < n_vertices; i++) {
-        float3 old = vertices[i];
-        vertices[i].x = old.x * cos(theta) - old.y * sin(theta);
-        vertices[i].y = old.x * sin(theta) + old.y * cos(theta);
-    }
-
-    // rotation around y axis (phi correction)
-    for (int i = 0; i < n_facets; i++) {
-        float3 old = facets[i].V0;
-        facets[i].V0.x = old.x * cos(phi) - old.z * sin(phi);
-        facets[i].V0.z = old.x * sin(phi) + old.z * cos(phi);
-
-        old = facets[i].V1;
-        facets[i].V1.x = old.x * cos(phi) - old.z * sin(phi);
-        facets[i].V1.z = old.x * sin(phi) + old.z * cos(phi);
-
-        old = facets[i].V2;
-        facets[i].V2.x = old.x * cos(phi) - old.z * sin(phi);
-        facets[i].V2.z = old.x * sin(phi) + old.z * cos(phi);
-
-        old = facets[i].C;
-        facets[i].C.x = old.x * cos(phi) - old.z * sin(phi);
-        facets[i].C.z = old.x * sin(phi) + old.z * cos(phi);
-
-        facets[i].calculate_normal();
-    }
-
-    for (int i = 0; i < n_vertices; i++) {
-        float3 old = vertices[i];
-        vertices[i].x = old.x * cos(phi) - old.z * sin(phi);
-        vertices[i].z = old.x * sin(phi) + old.z * cos(phi);
-    }
-
-    // rotation around x axis (otherphi correction)
-    for (int i = 0; i < n_facets; i++) {
-        float3 old = facets[i].V0;
-        facets[i].V0.y = old.y * cos(otherphi) - old.z * sin(otherphi);
-        facets[i].V0.z = old.y * sin(otherphi) + old.z * cos(otherphi);
-
-        old = facets[i].V1;
-        facets[i].V1.y = old.y * cos(otherphi) - old.z * sin(otherphi);
-        facets[i].V1.z = old.y * sin(otherphi) + old.z * cos(otherphi);
-
-        old = facets[i].V2;
-        facets[i].V2.y = old.y * cos(otherphi) - old.z * sin(otherphi);
-        facets[i].V2.z = old.y * sin(otherphi) + old.z * cos(otherphi);
-
-        old = facets[i].C;
-        facets[i].C.y = old.y * cos(otherphi) - old.z * sin(otherphi);
-        facets[i].C.z = old.y * sin(otherphi) + old.z * cos(otherphi);
-
-        facets[i].calculate_normal();
-    }
-    for (int i = 0; i < n_vertices; i++) {
-        float3 old = vertices[i];
-        vertices[i].y = old.y * cos(otherphi) - old.z * sin(otherphi);
-        vertices[i].z = old.y * sin(otherphi) + old.z * cos(otherphi);
     }
 }
 

@@ -5,7 +5,66 @@
 #include "minunit.cuh"
 
 
-const char* test_torus()
+const char* test_transformations()
+{
+    Meix meix("tests/torus.vtk");
+    auto minimum = meix.get_minimum();
+    auto maximum = meix.get_maximum();
+    MU_ASSERT("Min wrong in x", isclose(minimum.x, -1.5));
+    MU_ASSERT("Min wrong in y", isclose(minimum.y, -1.5));
+    MU_ASSERT("Min wrong in z", isclose(minimum.z, -0.5));
+    MU_ASSERT("Max wrong in x", isclose(maximum.x, 1.5));
+    MU_ASSERT("Max wrong in y", isclose(maximum.y, 1.5));
+    MU_ASSERT("Max wrong in z", isclose(maximum.z, 0.5));
+
+    meix.translate(float3{1, 0, 0});
+    minimum = meix.get_minimum();
+    maximum = meix.get_maximum();
+    MU_ASSERT("Translated min wrong in x", isclose(minimum.x, -1.5 + 1));
+    MU_ASSERT("Translated min wrong in y", isclose(minimum.y, -1.5));
+    MU_ASSERT("Translated min wrong in z", isclose(minimum.z, -0.5));
+    MU_ASSERT("Translated max wrong in x", isclose(maximum.x, 1.5 + 1));
+    MU_ASSERT("Translated max wrong in y", isclose(maximum.y, 1.5));
+    MU_ASSERT("Translated max wrong in z", isclose(maximum.z, 0.5));
+    meix.translate(float3{-1, 0, 0});
+
+    meix.rotate(0, M_PI / 2, 0);
+    minimum = meix.get_minimum();
+    maximum = meix.get_maximum();
+    MU_ASSERT("Rotated min wrong in x", isclose(minimum.x, -0.5));
+    MU_ASSERT("Rotated min wrong in y", isclose(minimum.y, -1.5));
+    MU_ASSERT("Rotated min wrong in z", isclose(minimum.z, -1.5));
+    MU_ASSERT("Rotated max wrong in x", isclose(maximum.x, 0.5));
+    MU_ASSERT("Rotated max wrong in y", isclose(maximum.y, 1.5));
+    MU_ASSERT("Rotated max wrong in z", isclose(maximum.z, 1.5));
+    meix.rotate(0, -M_PI / 2, 0);
+
+    meix.rescale(2);
+    minimum = meix.get_minimum();
+    maximum = meix.get_maximum();
+    MU_ASSERT("Scaled min wrong in x", isclose(minimum.x, -1.5 * 2));
+    MU_ASSERT("Scaled min wrong in y", isclose(minimum.y, -1.5 * 2));
+    MU_ASSERT("Scaled min wrong in z", isclose(minimum.z, -0.5 * 2));
+    MU_ASSERT("Scaled max wrong in x", isclose(maximum.x, 1.5 * 2));
+    MU_ASSERT("Scaled max wrong in y", isclose(maximum.y, 1.5 * 2));
+    MU_ASSERT("Scaled max wrong in z", isclose(maximum.z, 0.5 * 2));
+    meix.rescale(0.5);
+
+    meix.grow_normally(0.1);
+    minimum = meix.get_minimum();
+    maximum = meix.get_maximum();
+    MU_ASSERT("Grown min wrong in x", isclose(minimum.x, -1.5 - 0.1));
+    MU_ASSERT("Grown min wrong in y", isclose(minimum.y, -1.5 - 0.1));
+    MU_ASSERT("Grown min wrong in z", isclose(minimum.z, -0.5 - 0.1));
+    MU_ASSERT("Grown max wrong in x", isclose(maximum.x, 1.5 + 0.1));
+    MU_ASSERT("Grown max wrong in y", isclose(maximum.y, 1.5 + 0.1));
+    MU_ASSERT("Grown max wrong in z", isclose(maximum.z, 0.5 + 0.1));
+
+    return NULL;
+}
+
+
+const char* test_exclusion()
 {
     const auto n_bolls = 1500;
     Solution<float3, n_bolls, Grid_solver> bolls;
@@ -28,7 +87,8 @@ const char* test_torus()
 
 const char* all_tests()
 {
-    MU_RUN_TEST(test_torus);
+    MU_RUN_TEST(test_transformations);
+    MU_RUN_TEST(test_exclusion);
     return NULL;
 }
 
