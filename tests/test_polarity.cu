@@ -11,11 +11,11 @@ const char* test_pcp_force()
 
     auto dF = pcp_force(i, j);
 
-    MU_ASSERT("PCP force wrong in x", MU_ISCLOSE(dF.x, 0));
-    MU_ASSERT("PCP force wrong in y", MU_ISCLOSE(dF.y, 0));
-    MU_ASSERT("PCP force wrong in z", MU_ISCLOSE(dF.z, 0));
-    MU_ASSERT("PCP force wrong in theta", MU_ISCLOSE(dF.theta, 0.126));
-    MU_ASSERT("PCP force wrong in phi", MU_ISCLOSE(dF.phi, 0.215));
+    MU_ASSERT("PCP force wrong in x", isclose(dF.x, 0));
+    MU_ASSERT("PCP force wrong in y", isclose(dF.y, 0));
+    MU_ASSERT("PCP force wrong in z", isclose(dF.z, 0));
+    MU_ASSERT("PCP force wrong in theta", isclose(dF.theta, 0.126));
+    MU_ASSERT("PCP force wrong in phi", isclose(dF.phi, 0.215));
 
     return NULL;
 }
@@ -50,11 +50,11 @@ const char* test_pcp()
         bolls.take_step<pcp_force>(0.01);
         auto arc_i0 = acosf(pol_scalar_product(p_i, bolls.h_X[0]));
         auto arc_0f = acosf(pol_scalar_product(bolls.h_X[0], p_f));
-        MU_ASSERT("PCP off great circle", MU_ISCLOSE(arc_i0 + arc_0f, arc_if));
+        MU_ASSERT("PCP off great circle", isclose(arc_i0 + arc_0f, arc_if));
     }
 
     auto prod = pol_scalar_product(bolls.h_X[0], bolls.h_X[1]);
-    MU_ASSERT("PCP not aligned", MU_ISCLOSE(fabs(prod), 1));
+    MU_ASSERT("PCP not aligned", isclose(fabs(prod), 1));
 
     return NULL;
 }
@@ -69,11 +69,11 @@ const char* test_rigidity_force()
     auto dist = sqrtf(r.x * r.x + r.y * r.y + r.z * r.z);
     auto dF = rigidity_force(i, r, dist);
 
-    MU_ASSERT("Rigidity force wrong in x", MU_ISCLOSE(dF.x, 0.214));
-    MU_ASSERT("Rigidity force wrong in y", MU_ISCLOSE(dF.y, -0.971));
-    MU_ASSERT("Rigidity force wrong in z", MU_ISCLOSE(dF.z, -1.802));
-    MU_ASSERT("Rigidity force wrong in theta", MU_ISCLOSE(dF.theta, -0.339));
-    MU_ASSERT("Rigidity force wrong in phi", MU_ISCLOSE(dF.phi, 0.453));
+    MU_ASSERT("Rigidity force wrong in x", isclose(dF.x, 0.214));
+    MU_ASSERT("Rigidity force wrong in y", isclose(dF.y, -0.971));
+    MU_ASSERT("Rigidity force wrong in z", isclose(dF.z, -1.802));
+    MU_ASSERT("Rigidity force wrong in theta", isclose(dF.theta, -0.339));
+    MU_ASSERT("Rigidity force wrong in phi", isclose(dF.phi, 0.453));
 
     return NULL;
 }
@@ -116,7 +116,7 @@ const char* test_line_of_four()
     bolls.copy_to_host();
     for (auto i = 1; i < 4; i++) {
         auto prod = pol_scalar_product(bolls.h_X[0], bolls.h_X[i]);
-        MU_ASSERT("Epithelial polarity not aligned", MU_ISCLOSE(prod, 1));
+        MU_ASSERT("Epithelial polarity not aligned", isclose(prod, 1));
     }
 
     float3 r_01{bolls.h_X[1].x - bolls.h_X[0].x,
@@ -125,17 +125,17 @@ const char* test_line_of_four()
         bolls.h_X[2].y - bolls.h_X[1].y, bolls.h_X[2].z - bolls.h_X[1].z};
     float3 r_23{bolls.h_X[3].x - bolls.h_X[2].x,
         bolls.h_X[3].y - bolls.h_X[2].y, bolls.h_X[3].z - bolls.h_X[2].z};
-    MU_ASSERT("Cells not on line", MU_ISCLOSE(r_01.x, r_12.x));
-    MU_ASSERT("Cells not on line", MU_ISCLOSE(r_12.x, r_23.x));
-    MU_ASSERT("Cells not on line", MU_ISCLOSE(r_01.y, r_12.y));
-    MU_ASSERT("Cells not on line", MU_ISCLOSE(r_12.y, r_23.y));
-    MU_ASSERT("Cells not on line", MU_ISCLOSE(r_01.z, r_12.z));
-    MU_ASSERT("Cells not on line", MU_ISCLOSE(r_12.z, r_23.z));
+    MU_ASSERT("Cells not on line", isclose(r_01.x, r_12.x));
+    MU_ASSERT("Cells not on line", isclose(r_12.x, r_23.x));
+    MU_ASSERT("Cells not on line", isclose(r_01.y, r_12.y));
+    MU_ASSERT("Cells not on line", isclose(r_12.y, r_23.y));
+    MU_ASSERT("Cells not on line", isclose(r_01.z, r_12.z));
+    MU_ASSERT("Cells not on line", isclose(r_12.z, r_23.z));
 
     auto com_f = center_of_mass(bolls);
-    MU_ASSERT("Momentum in line", MU_ISCLOSE(com_i.x, com_f.x));
-    MU_ASSERT("Momentum in line", MU_ISCLOSE(com_i.y, com_f.y));
-    MU_ASSERT("Momentum in line", MU_ISCLOSE(com_i.z, com_f.z));
+    MU_ASSERT("Momentum in line", isclose(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in line", isclose(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in line", isclose(com_i.z, com_f.z));
 
     return NULL;
 }

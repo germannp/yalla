@@ -6,8 +6,6 @@
 #include <stdio.h>
 
 
-#define MU_ISCLOSE(a, b) fabs(a - b) <= 1e-6 + 1e-2 * fabs(b)
-
 #define MU_ASSERT(message, test)     \
     do {                             \
         if (!(test)) return message; \
@@ -34,6 +32,11 @@
     }
 
 auto tests_run = 0;
+
+
+bool isclose(float a, float b) {
+    return fabs(a - b) <= 1e-6 + 1e-2 * fabs(b);
+}
 
 
 template<typename Pt, int n_max, template<typename, int> class Solver>

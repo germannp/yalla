@@ -40,13 +40,13 @@ const char* square_of_four()
 
     bolls.copy_to_host();
     auto com_f = center_of_mass(bolls);
-    MU_ASSERT("Momentum in square", MU_ISCLOSE(com_i.x, com_f.x));
-    MU_ASSERT("Momentum in square", MU_ISCLOSE(com_i.y, com_f.y));
-    MU_ASSERT("Momentum in square", MU_ISCLOSE(com_i.z, com_f.z));
+    MU_ASSERT("Momentum in square", isclose(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in square", isclose(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in square", isclose(com_i.z, com_f.z));
 
-    MU_ASSERT("Not close in x", MU_ISCLOSE(bolls.h_X[0].x, bolls.h_X[1].x));
-    MU_ASSERT("Not close in y", MU_ISCLOSE(bolls.h_X[1].y, bolls.h_X[2].y));
-    MU_ASSERT("Not close in z", MU_ISCLOSE(bolls.h_X[2].z, bolls.h_X[3].z));
+    MU_ASSERT("Not close in x", isclose(bolls.h_X[0].x, bolls.h_X[1].x));
+    MU_ASSERT("Not close in y", isclose(bolls.h_X[1].y, bolls.h_X[2].y));
+    MU_ASSERT("Not close in z", isclose(bolls.h_X[2].z, bolls.h_X[3].z));
 
     return NULL;
 }

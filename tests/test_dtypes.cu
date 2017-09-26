@@ -80,17 +80,17 @@ const char* test_generalization()
     MU_ASSERT("* float float3, y", (3 * x).y == 6);
     MU_ASSERT("* float float3, z", (3 * x).z == 9);
 
-    MU_ASSERT("/ float3 float, x", MU_ISCLOSE((x / 3).x, 1. / 3));
-    MU_ASSERT("/ float3 float, y", MU_ISCLOSE((x / 3).y, 2. / 3));
-    MU_ASSERT("/ float3 float, z", MU_ISCLOSE((x / 3).z, 1));
+    MU_ASSERT("/ float3 float, x", isclose((x / 3).x, 1. / 3));
+    MU_ASSERT("/ float3 float, y", isclose((x / 3).y, 2. / 3));
+    MU_ASSERT("/ float3 float, z", isclose((x / 3).z, 1));
 
     MU_ASSERT("-= float3 float3, x", (x -= y).x == 1 - 4);
     MU_ASSERT("-= float3 float3, y", (x -= y).y == 2 - 3 - 3);
     MU_ASSERT("-= float3 float3, z", (x -= y).z == 3 - 2 - 2 - 2);
 
-    MU_ASSERT("/= float3 float, x", MU_ISCLOSE((y /= 3).x, 4. / 3));
-    MU_ASSERT("/= float3 float, y", MU_ISCLOSE((y /= 3).y, 3. / 9));
-    MU_ASSERT("/= float3 float, z", MU_ISCLOSE((y /= 3).z, 2. / 27));
+    MU_ASSERT("/= float3 float, x", isclose((y /= 3).x, 4. / 3));
+    MU_ASSERT("/= float3 float, y", isclose((y /= 3).y, 3. / 9));
+    MU_ASSERT("/= float3 float, z", isclose((y /= 3).z, 2. / 27));
 
     return NULL;
 }

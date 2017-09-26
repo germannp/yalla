@@ -26,12 +26,12 @@ const char* test_oscillation()
         oscillation.take_step<oscillator>(2 * M_PI / n_steps);
         oscillation.copy_to_host();
         MU_ASSERT("Oscillator off circle",
-            MU_ISCLOSE(
+            isclose(
                 powf(oscillation.h_X[0].w, 2) + powf(oscillation.h_X[1].w, 2),
                 1));
     }
     oscillation.copy_to_host();
-    MU_ASSERT("Oscillator final cosine", MU_ISCLOSE(oscillation.h_X[0].w, 1));
+    MU_ASSERT("Oscillator final cosine", isclose(oscillation.h_X[0].w, 1));
     // The sine is substantially less precise ;-)
 
     return NULL;
@@ -65,13 +65,13 @@ const char* test_tile_tetrahedron()
         auto r = tile.h_X[0] - tile.h_X[i];
         auto dist = sqrtf(r.x * r.x + r.y * r.y + r.z * r.z);
         MU_ASSERT(
-            "Spring not relaxed in tile tetrahedron", MU_ISCLOSE(dist, L_0));
+            "Spring not relaxed in tile tetrahedron", isclose(dist, L_0));
     }
 
     auto com_f = center_of_mass(tile);
-    MU_ASSERT("Momentum in tile tetrahedron", MU_ISCLOSE(com_i.x, com_f.x));
-    MU_ASSERT("Momentum in tile tetrahedron", MU_ISCLOSE(com_i.y, com_f.y));
-    MU_ASSERT("Momentum in tile tetrahedron", MU_ISCLOSE(com_i.z, com_f.z));
+    MU_ASSERT("Momentum in tile tetrahedron", isclose(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in tile tetrahedron", isclose(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in tile tetrahedron", isclose(com_i.z, com_f.z));
 
     return NULL;
 }
@@ -91,13 +91,13 @@ const char* test_grid_tetrahedron()
             grid.h_X[0].y - grid.h_X[i].y, grid.h_X[0].z - grid.h_X[i].z};
         auto dist = sqrtf(r.x * r.x + r.y * r.y + r.z * r.z);
         MU_ASSERT(
-            "Spring not relaxed in grid tetrahedron", MU_ISCLOSE(dist, L_0));
+            "Spring not relaxed in grid tetrahedron", isclose(dist, L_0));
     }
 
     auto com_f = center_of_mass(grid);
-    MU_ASSERT("Momentum in grid tetrahedron", MU_ISCLOSE(com_i.x, com_f.x));
-    MU_ASSERT("Momentum in grid tetrahedron", MU_ISCLOSE(com_i.y, com_f.y));
-    MU_ASSERT("Momentum in grid tetrahedron", MU_ISCLOSE(com_i.z, com_f.z));
+    MU_ASSERT("Momentum in grid tetrahedron", isclose(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in grid tetrahedron", isclose(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in grid tetrahedron", isclose(com_i.z, com_f.z));
 
     return NULL;
 }
@@ -121,9 +121,9 @@ const char* test_compare_methods()
     tile.copy_to_host();
     grid.copy_to_host();
     for (auto i = 0; i < n_max; i++) {
-        MU_ASSERT("Methods disagree", MU_ISCLOSE(tile.h_X[i].x, grid.h_X[i].x));
-        MU_ASSERT("Methods disagree", MU_ISCLOSE(tile.h_X[i].y, grid.h_X[i].y));
-        MU_ASSERT("Methods disagree", MU_ISCLOSE(tile.h_X[i].z, grid.h_X[i].z));
+        MU_ASSERT("Methods disagree", isclose(tile.h_X[i].x, grid.h_X[i].x));
+        MU_ASSERT("Methods disagree", isclose(tile.h_X[i].y, grid.h_X[i].y));
+        MU_ASSERT("Methods disagree", isclose(tile.h_X[i].z, grid.h_X[i].z));
     }
 
     return NULL;
@@ -159,13 +159,13 @@ const char* test_generic_forces()
 
     tile.copy_to_host();
     auto com_f = center_of_mass(tile);
-    MU_ASSERT("Momentum in tile generic force", MU_ISCLOSE(com_i.x, com_f.x));
-    MU_ASSERT("Momentum in tile generic force", MU_ISCLOSE(com_i.y, com_f.y));
-    MU_ASSERT("Momentum in tile generic force", MU_ISCLOSE(com_i.z, com_f.z));
+    MU_ASSERT("Momentum in tile generic force", isclose(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in tile generic force", isclose(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in tile generic force", isclose(com_i.z, com_f.z));
 
-    MU_ASSERT("Tile generic force failed in x", MU_ISCLOSE(tile.h_X[1].x, 0.5));
-    MU_ASSERT("Tile generic force failed in y", MU_ISCLOSE(tile.h_X[1].y, 0));
-    MU_ASSERT("Tile generic force failed in z", MU_ISCLOSE(tile.h_X[1].z, 0));
+    MU_ASSERT("Tile generic force failed in x", isclose(tile.h_X[1].x, 0.5));
+    MU_ASSERT("Tile generic force failed in y", isclose(tile.h_X[1].y, 0));
+    MU_ASSERT("Tile generic force failed in z", isclose(tile.h_X[1].z, 0));
 
     Solution<float3, 2, Grid_solver> grid;
     grid.h_X[0] = float3{0, 0, 10};
@@ -176,13 +176,13 @@ const char* test_generic_forces()
 
     grid.copy_to_host();
     com_f = center_of_mass(grid);
-    MU_ASSERT("Momentum in grid generic force", MU_ISCLOSE(com_i.x, com_f.x));
-    MU_ASSERT("Momentum in grid generic force", MU_ISCLOSE(com_i.y, com_f.y));
-    MU_ASSERT("Momentum in grid generic force", MU_ISCLOSE(com_i.z, com_f.z));
+    MU_ASSERT("Momentum in grid generic force", isclose(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in grid generic force", isclose(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in grid generic force", isclose(com_i.z, com_f.z));
 
-    MU_ASSERT("Grid generic force failed in x", MU_ISCLOSE(grid.h_X[1].x, 0.5));
-    MU_ASSERT("Grid generic force failed in y", MU_ISCLOSE(grid.h_X[1].y, 0));
-    MU_ASSERT("Grid generic force failed in z", MU_ISCLOSE(grid.h_X[1].z, 0));
+    MU_ASSERT("Grid generic force failed in x", isclose(grid.h_X[1].x, 0.5));
+    MU_ASSERT("Grid generic force failed in y", isclose(grid.h_X[1].y, 0));
+    MU_ASSERT("Grid generic force failed in z", isclose(grid.h_X[1].z, 0));
 
     return NULL;
 }
@@ -198,7 +198,7 @@ const char* test_friction()
         tile.take_step<no_pw_int, friction_on_background>(0.05, push);
     tile.copy_to_host();
     MU_ASSERT("Tile friction on background",
-        MU_ISCLOSE(tile.h_X[1].x - tile.h_X[0].x, 1));
+        isclose(tile.h_X[1].x - tile.h_X[0].x, 1));
 
     tile.h_X[0] = float3{0, 0, 0};
     tile.h_X[1] = float3{.5, 0, 0};
@@ -206,7 +206,7 @@ const char* test_friction()
     for (auto i = 0; i < 10; i++) tile.take_step<no_pw_int>(0.05, push);
     tile.copy_to_host();
     MU_ASSERT("Tile friction w/ neighbour",
-        MU_ISCLOSE(tile.h_X[1].x - tile.h_X[0].x, 0.75));
+        isclose(tile.h_X[1].x - tile.h_X[0].x, 0.75));
 
     Solution<float3, 2, Grid_solver> grid;
     grid.h_X[0] = float3{0, 0, 0};
@@ -216,7 +216,7 @@ const char* test_friction()
         grid.take_step<no_pw_int, friction_on_background>(0.05, push);
     grid.copy_to_host();
     MU_ASSERT("Grid friction on background",
-        MU_ISCLOSE(grid.h_X[1].x - grid.h_X[0].x, 1));
+        isclose(grid.h_X[1].x - grid.h_X[0].x, 1));
 
     grid.h_X[0] = float3{0, 0, 0};
     grid.h_X[1] = float3{.5, 0, 0};
@@ -224,7 +224,7 @@ const char* test_friction()
     for (auto i = 0; i < 10; i++) grid.take_step<no_pw_int>(0.05, push);
     grid.copy_to_host();
     MU_ASSERT("Grid friction w/ neighbour",
-        MU_ISCLOSE(grid.h_X[1].x - grid.h_X[0].x, 0.75));
+        isclose(grid.h_X[1].x - grid.h_X[0].x, 0.75));
 
     return NULL;
 }
@@ -241,9 +241,9 @@ const char* test_fix_point()
     tile.take_step<clipped_spring>(0.1);
     tile.copy_to_host();
 
-    MU_ASSERT("Fixed point moved in x", MU_ISCLOSE(tile.h_X[fix_point].x, 0));
-    MU_ASSERT("Fixed point moved in y", MU_ISCLOSE(tile.h_X[fix_point].y, 0));
-    MU_ASSERT("Fixed point moved in z", MU_ISCLOSE(tile.h_X[fix_point].z, 0));
+    MU_ASSERT("Fixed point moved in x", isclose(tile.h_X[fix_point].x, 0));
+    MU_ASSERT("Fixed point moved in y", isclose(tile.h_X[fix_point].y, 0));
+    MU_ASSERT("Fixed point moved in z", isclose(tile.h_X[fix_point].z, 0));
 
     return NULL;
 }

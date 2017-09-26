@@ -33,16 +33,16 @@ const char* test_io()
 
     for (auto i = 0; i < n_cells; i++) {
         MU_ASSERT("Not close in x",
-            MU_ISCLOSE(bolls_to_write.h_X[i].x, bolls_to_read.h_X[i].x));
+            isclose(bolls_to_write.h_X[i].x, bolls_to_read.h_X[i].x));
         MU_ASSERT("Not close in y",
-            MU_ISCLOSE(bolls_to_write.h_X[i].y, bolls_to_read.h_X[i].y));
+            isclose(bolls_to_write.h_X[i].y, bolls_to_read.h_X[i].y));
         MU_ASSERT("Not close in z",
-            MU_ISCLOSE(bolls_to_write.h_X[i].z, bolls_to_read.h_X[i].z));
+            isclose(bolls_to_write.h_X[i].z, bolls_to_read.h_X[i].z));
         MU_ASSERT("Not close in w",
-            MU_ISCLOSE(bolls_to_write.h_X[i].w, bolls_to_read.h_X[i].w));
+            isclose(bolls_to_write.h_X[i].w, bolls_to_read.h_X[i].w));
         MU_ASSERT("Not close in phi",
-            MU_ISCLOSE(bolls_to_write.h_X[i].phi, bolls_to_read.h_X[i].phi));
-        MU_ASSERT("Not close in theta", MU_ISCLOSE(bolls_to_write.h_X[i].theta,
+            isclose(bolls_to_write.h_X[i].phi, bolls_to_read.h_X[i].phi));
+        MU_ASSERT("Not close in theta", isclose(bolls_to_write.h_X[i].theta,
                                             bolls_to_read.h_X[i].theta));
     }
 
@@ -64,9 +64,9 @@ const char* test_io()
 
     for (auto i = 0; i < n_cells; i++) {
         MU_ASSERT("Int property",
-            MU_ISCLOSE(ints_to_write.h_prop[i], ints_to_read.h_prop[i]));
+            isclose(ints_to_write.h_prop[i], ints_to_read.h_prop[i]));
         MU_ASSERT("Float property",
-            MU_ISCLOSE(floats_to_write.h_prop[i], floats_to_read.h_prop[i]));
+            isclose(floats_to_write.h_prop[i], floats_to_read.h_prop[i]));
     }
 
     return NULL;
