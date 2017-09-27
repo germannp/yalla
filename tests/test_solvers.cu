@@ -321,14 +321,14 @@ const char* test_grid_spacing()
 
 const char* all_tests()
 {
-    // MU_RUN_TEST(test_oscillation);
-    // MU_RUN_TEST(test_tile_tetrahedron);
-    // MU_RUN_TEST(test_grid_tetrahedron);
-    // MU_RUN_TEST(test_compare_methods);
-    // MU_RUN_TEST(test_generic_forces);
-    // MU_RUN_TEST(test_friction);
+    MU_RUN_TEST(test_oscillation);
+    MU_RUN_TEST(test_tile_tetrahedron);
+    MU_RUN_TEST(test_grid_tetrahedron);
+    MU_RUN_TEST(test_compare_methods);
+    MU_RUN_TEST(test_generic_forces);
+    MU_RUN_TEST(test_friction);
     MU_RUN_TEST(test_fix_point);
-    // MU_RUN_TEST(test_grid_spacing);
+    MU_RUN_TEST(test_grid_spacing);
     return NULL;
 }
 
