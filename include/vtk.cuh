@@ -28,9 +28,18 @@ struct Property;
 
 
 class Vtk_output {
+    int n_bolls;
+    int time_step{0};
+    std::string base_name;
+    std::string current_path;
+    bool verbose{true};
+    bool point_data_started;
+    time_t t_0;
+
 public:
     // Files are stored as output/base_name_###.vtk
-    Vtk_output(std::string base_name);
+    Vtk_output(std::string base_name, bool verbose);
+    Vtk_output(std::string base_name) : Vtk_output(base_name, true) {};
     ~Vtk_output(void);
     // Write x, y, and z component of Pt; has to be written first
     template<typename Pt, int n_max, template<typename, int> class Solver>
@@ -48,25 +57,20 @@ public:
     // Write not integrated property, see property.cuh
     template<int n_max, typename Prop>
     void write_property(Property<n_max, Prop>& property);
-
-protected:
-    int n_bolls;
-    int time_step = 0;
-    std::string base_name;
-    std::string current_path;
-    bool point_data_started;
-    time_t t_0;
 };
 
-Vtk_output::Vtk_output(std::string name)
+Vtk_output::Vtk_output(std::string name, bool verb)
 {
     base_name = name;
+    verbose = verb;
     mkdir("output", 755);
     time(&t_0);
 }
 
 Vtk_output::~Vtk_output()
 {
+    if (!verbose) return;
+
     auto t_f = time(NULL);
     auto duration = t_f - t_0;
     std::cout << "Integrating " << base_name << ", ";
@@ -86,12 +90,6 @@ void Vtk_output::write_positions(Solution<Pt, n_max, Solver>& bolls)
     n_bolls = *bolls.h_n;
     assert(n_bolls <= n_max);
 
-    std::cout << "Integrating " << base_name << ", ";
-    std::cout << time_step << " steps done (" << n_bolls << " bolls)        \r";
-    std::cout.flush();
-    point_data_started = false;
-    time_step += 1;
-
     current_path =
         "output/" + base_name + "_" + std::to_string(time_step) + ".vtk";
     std::ofstream file(current_path);
@@ -109,6 +107,14 @@ void Vtk_output::write_positions(Solution<Pt, n_max, Solver>& bolls)
 
     file << "\nVERTICES " << n_bolls << " " << 2 * n_bolls << "\n";
     for (auto i = 0; i < n_bolls; i++) file << "1 " << i << "\n";
+
+    if (!verbose) return;
+
+    std::cout << "Integrating " << base_name << ", ";
+    std::cout << time_step << " steps done (" << n_bolls << " bolls)        \r";
+    std::cout.flush();
+    point_data_started = false;
+    time_step += 1;
 }
 
 template<int n_links>
@@ -184,6 +190,8 @@ void Vtk_output::write_property(Property<n_max, Prop>& property)
 
 
 class Vtk_input {
+    std::string file_name;
+
 public:
     Vtk_input(std::string filename);
     std::streampos find_entry (std::string, std::string);
@@ -200,9 +208,6 @@ public:
     template<int n_max, typename Prop>
     void read_property(Property<n_max, Prop>& property, std::string prop_name);
     int n_bolls;
-
-protected:
-    std::string file_name;
 };
 
 Vtk_input::Vtk_input(std::string filename)

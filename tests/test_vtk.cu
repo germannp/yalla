@@ -22,7 +22,7 @@ const char* test_io()
         bolls_to_write.h_X[i].theta = acos(2. * rand() / (RAND_MAX + 1.) - 1);
     }
 
-    Vtk_output output("test_vtk");
+    Vtk_output output("test_vtk", false);
     output.write_positions(bolls_to_write);
     output.write_polarity(bolls_to_write);
     output.write_field(bolls_to_write, "w", &Po_cell4::w);
@@ -76,7 +76,6 @@ const char* test_io()
 const char* all_tests()
 {
     MU_RUN_TEST(test_io);
-    printf("\n");
     return NULL;
 }
 
