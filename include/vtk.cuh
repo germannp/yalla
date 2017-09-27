@@ -39,7 +39,7 @@ class Vtk_output {
 public:
     // Files are stored as output/base_name_###.vtk
     Vtk_output(std::string base_name, bool verbose);
-    Vtk_output(std::string base_name) : Vtk_output(base_name, true) {};
+    Vtk_output(std::string base_name) : Vtk_output(base_name, true){};
     ~Vtk_output(void);
     // Write x, y, and z component of Pt; has to be written first
     template<typename Pt, int n_max, template<typename, int> class Solver>
@@ -59,10 +59,9 @@ public:
     void write_property(Property<n_max, Prop>& property);
 };
 
-Vtk_output::Vtk_output(std::string name, bool verb)
+Vtk_output::Vtk_output(std::string base_name, bool verbose)
+    : base_name{base_name}, verbose{verbose}
 {
-    base_name = name;
-    verbose = verb;
     mkdir("output", 755);
     time(&t_0);
 }
@@ -193,8 +192,8 @@ class Vtk_input {
     std::string file_name;
 
 public:
-    Vtk_input(std::string filename);
-    std::streampos find_entry (std::string, std::string);
+    Vtk_input(std::string file_name);
+    std::streampos find_entry(std::string, std::string);
     template<typename Pt, int n_max, template<typename, int> class Solver>
     void read_positions(Solution<Pt, n_max, Solver>& bolls);
     // Read polarity of Pt, see polarity.cuh
@@ -210,10 +209,8 @@ public:
     int n_bolls;
 };
 
-Vtk_input::Vtk_input(std::string filename)
+Vtk_input::Vtk_input(std::string file_name) : file_name{file_name}
 {
-    file_name = filename;
-
     std::string line;
     std::ifstream input_file;
     std::vector<std::string> items;
@@ -232,14 +229,14 @@ std::streampos Vtk_input::find_entry(std::string keyword1, std::string keyword2)
     std::ifstream input_file(file_name);
     assert(input_file.is_open());
 
-    input_file.seekg(0); // Start at beginning of file
+    input_file.seekg(0);  // Start at beginning of file
 
     std::string word1 = "";
     std::string word2 = "";
     std::string line;
     std::vector<std::string> items;
 
-    getline(input_file, line); // Skip header to avoid false matches
+    getline(input_file, line);  // Skip header to avoid false matches
     getline(input_file, line);
     getline(input_file, line);
     getline(input_file, line);
@@ -247,7 +244,7 @@ std::streampos Vtk_input::find_entry(std::string keyword1, std::string keyword2)
     while (word1 != keyword1 or word2 != keyword2) {
         getline(input_file, line);
         items = split(line);
-        if(items.size() > 1) {
+        if (items.size() > 1) {
             word1 = items[0];
             word2 = items[1];
         }
@@ -276,7 +273,6 @@ void Vtk_input::read_positions(Solution<Pt, n_max, Solver>& bolls)
         bolls.h_X[i].z = stof(items[2]);
         items.clear();
     }
-
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
@@ -330,7 +326,8 @@ void Vtk_input::read_field(
 }
 
 template<int n_max, typename Prop>
-void Vtk_input::read_property(Property<n_max, Prop>& property, std::string prop_name)
+void Vtk_input::read_property(
+    Property<n_max, Prop>& property, std::string prop_name)
 {
     std::ifstream input_file(file_name);
     assert(input_file.is_open());
