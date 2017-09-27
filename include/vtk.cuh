@@ -32,14 +32,13 @@ class Vtk_output {
     int time_step{0};
     std::string base_name;
     std::string current_path;
-    bool verbose{true};
+    bool verbose;
     bool point_data_started;
     time_t t_0;
 
 public:
     // Files are stored as output/base_name_###.vtk
-    Vtk_output(std::string base_name, bool verbose);
-    Vtk_output(std::string base_name) : Vtk_output(base_name, true){};
+    Vtk_output(std::string base_name, bool verbose = true);
     ~Vtk_output(void);
     // Write x, y, and z component of Pt; has to be written first
     template<typename Pt, int n_max, template<typename, int> class Solver>
