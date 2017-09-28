@@ -19,7 +19,7 @@ int main(int argc, const char* argv[])
     Solution<float3, n_cells, Tile_solver> bolls;
     Meix teapot("tests/torus.vtk");
     random_cuboid(0.25, teapot.get_minimum(), teapot.get_maximum(), bolls);
-    Vtk_output output("teapot");
+    Vtk_output output("teapot", false);
     output.write_positions(bolls);
 
     // Cut teapot out
