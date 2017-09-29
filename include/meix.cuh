@@ -101,13 +101,13 @@ Meix::Meix(std::string file_name)
     items.clear();
 
     // Read vertices
-    int count = 0;
+    auto count = 0;
     while (count < n_vertices) {
         getline(input_file, line);
         items = split(line);
 
         int n_points = items.size() / 3;
-        for (int i = 0; i < n_points; i++) {
+        for (auto i = 0; i < n_points; i++) {
             float3 P;
             P.x = stof(items[i * 3]);
             P.y = stof(items[i * 3 + 1]);
@@ -123,34 +123,29 @@ Meix::Meix(std::string file_name)
     items = split(line);
     if (items[0] == "POLYGONS" or items[0] == "CELLS") {
         n_facets = stoi(items[1]);
-        items.clear();
     } else {
         items.clear();
         getline(input_file, line);
         items = split(line);
         n_facets = stoi(items[1]);
-        items.clear();
     }
+    items.clear();
 
     // Read facets
-    count = 0;
-
     triangle_to_vertices = (int**)malloc(n_facets * sizeof(int*));
-    for (int i = 0; i < n_facets; i++)
+    for (auto i = 0; i < n_facets; i++)
         triangle_to_vertices[i] = (int*)malloc(3 * sizeof(int));
 
-    while (count < n_facets) {
+    for (auto i = 0; i < n_facets; i++) {
         getline(input_file, line);
         items = split(line);
-
-        triangle_to_vertices[count][0] = stoi(items[1]);
-        triangle_to_vertices[count][1] = stoi(items[2]);
-        triangle_to_vertices[count][2] = stoi(items[3]);
+        triangle_to_vertices[i][0] = stoi(items[1]);
+        triangle_to_vertices[i][1] = stoi(items[2]);
+        triangle_to_vertices[i][2] = stoi(items[3]);
         Triangle T(vertices[stoi(items[1])], vertices[stoi(items[2])],
             vertices[stoi(items[3])]);
         facets.push_back(T);
         items.clear();
-        count++;
     }
 
     // Construct the vector of triangles adjacent to each vertex
@@ -159,7 +154,7 @@ Meix::Meix(std::string file_name)
     vertex_to_triangles = dummy;
 
     int vertex;
-    for (int i = 0; i < n_facets; i++) {
+    for (auto i = 0; i < n_facets; i++) {
         vertex = triangle_to_vertices[i][0];
         vertex_to_triangles[vertex].push_back(i);
         vertex = triangle_to_vertices[i][1];
