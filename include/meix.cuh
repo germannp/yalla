@@ -98,7 +98,6 @@ Meix::Meix(std::string file_name)
     for (auto i = 0; i < 5; i++) getline(input_file, line);
     items = split(line);
     n_vertices = stoi(items[1]);
-    items.clear();
 
     // Read vertices
     auto count = 0;
@@ -115,23 +114,18 @@ Meix::Meix(std::string file_name)
             vertices.push_back(P);
             count++;
         }
-        items.clear();
     }
-
-    // Check for blank line
-    getline(input_file, line);
-    items = split(line);
-    if (items[0] == "POLYGONS" or items[0] == "CELLS") {
-        n_facets = stoi(items[1]);
-    } else {
-        items.clear();
-        getline(input_file, line);
-        items = split(line);
-        n_facets = stoi(items[1]);
-    }
-    items.clear();
 
     // Read facets
+    auto polygon_start = false;
+    do {
+        getline(input_file, line);
+        items = split(line);
+        if (items.size() > 0)
+            polygon_start = items[0] == "POLYGONS" or items[0] == "CELLS";
+    } while (!polygon_start);
+    n_facets = stoi(items[1]);
+
     triangle_to_vertices = (int**)malloc(n_facets * sizeof(int*));
     for (auto i = 0; i < n_facets; i++)
         triangle_to_vertices[i] = (int*)malloc(3 * sizeof(int));
@@ -145,7 +139,6 @@ Meix::Meix(std::string file_name)
         Triangle T(vertices[stoi(items[1])], vertices[stoi(items[2])],
             vertices[stoi(items[3])]);
         facets.push_back(T);
-        items.clear();
     }
 
     // Construct the vector of triangles adjacent to each vertex
