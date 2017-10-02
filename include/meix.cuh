@@ -106,7 +106,7 @@ Meix::Meix(std::string file_name)
         getline(input_file, line);
         items = split(line);
 
-        int n_points = items.size() / 3;
+        auto n_points = items.size() / 3;
         for (auto i = 0; i < n_points; i++) {
             float3 P;
             P.x = stof(items[i * 3]);
