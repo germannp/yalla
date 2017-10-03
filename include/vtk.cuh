@@ -106,13 +106,13 @@ void Vtk_output::write_positions(Solution<Pt, n_max, Solver>& bolls)
     file << "\nVERTICES " << n_bolls << " " << 2 * n_bolls << "\n";
     for (auto i = 0; i < n_bolls; i++) file << "1 " << i << "\n";
 
+    point_data_started = false;
+    time_step += 1;
     if (!verbose) return;
 
     std::cout << "Integrating " << base_name << ", ";
     std::cout << time_step << " steps done (" << n_bolls << " bolls)        \r";
     std::cout.flush();
-    point_data_started = false;
-    time_step += 1;
 }
 
 template<int n_links>
