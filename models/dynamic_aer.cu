@@ -37,6 +37,8 @@ __device__ Cell_types* d_type;
 __device__ int* d_mes_nbs;
 __device__ int* d_epi_nbs;
 __device__ float* d_prolif_rate;
+__device__ float* d_out_prolif_rate;
+// __device__ int* d_fix_point;
 
 Property<n_max, int> n_mes_nbs("n_mes_nbs");  // defining these here so function
 Property<n_max, int> n_epi_nbs("n_epi_nbs");  // "neighbour_init" can see them
@@ -85,8 +87,15 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
     else
         atomicAdd(&d_mes_nbs[i], 1);
 
-    if (Xi.w<0.f) Xi.w=0.f;
-    if (Xi.f<0.f) Xi.f=0.f;
+    if (Xi.w < 0.f) Xi.w = 0.f;
+    if (Xi.f < 0.f) Xi.f = 0.f;
+    // wall
+    // if (Xi.x < 0.f){
+    //     dF.x = 0.f;
+    //     dF.y = 0.f;
+    //     dF.z = 0.f;
+    // }
+
     return dF;
 }
 
@@ -94,6 +103,8 @@ __device__ float wall_friction(Cell Xi, Cell r, float dist, int i, int j)
 {
     if (i == j) return 0;
     // if (Xi.x < 1.0f) return 0;
+    // wall
+    // if (Xi.x < 0.0f) return 0;
     return 1;
 }
 
@@ -159,23 +170,25 @@ __global__ void update_protrusions(const int n_cells,
     bool normal_to_f_gradient = false;
     bool normal_to_w = false;
     if(distal) {
-        more_along_w =
-            fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
+        // more_along_w =
+        //     fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
         // normal_to_f_gradient =
         //     fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
-        // normal_to_w =
-        //     fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
+        normal_to_w =
+            fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
         // high_f = true;
     } else {
-        more_along_w =
-            fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
+        // more_along_w =
+        //     fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
         // normal_to_f_gradient =
         //     fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
+        normal_to_w =
+            fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
         // high_f = true;
     }
     // high_f = false;
     // high_f = true;
-    if (not_initialized or more_along_w or high_f or normal_to_f_gradient) {
+    if (not_initialized or more_along_w or high_f or normal_to_f_gradient or normal_to_w) {
         link->a = a;
         link->b = b;
     }
@@ -191,11 +204,14 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
 
     // float rate = d_prolif_rate[i] * d_X[i].f;
     // float rate = d_prolif_rate[i] - d_prolif_rate[i]*(1.f - 0.25f)*(1.f-d_X[i].f);
-    float rate = d_prolif_rate[i];
+    // float rate = d_prolif_rate[i];
 
 
     switch (d_type[i]) {
         case mesenchyme: {
+            float rate = d_prolif_rate[i] * d_X[i].f;
+            // float rate = d_prolif_rate[i] - d_prolif_rate[i]*(1.f - 0.25f)*(1.f-d_X[i].f);
+            d_out_prolif_rate[i] = rate;
             auto r = curand_uniform(&d_state[i]);
             if (r > rate) return;
             break;
@@ -208,7 +224,9 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
         //     if (r > 2.5f * rate) return;  // 2.5
         // }
         default: {
+            float rate = d_prolif_rate[i];
             // if (d_epi_nbs[i] > d_mes_nbs[i]) return;
+            d_out_prolif_rate[i] = rate;
             if (d_epi_nbs[i] > 7) return;
             if (d_mes_nbs[i] <= 0) return;
             auto r = curand_uniform(&d_state[i]);
@@ -235,8 +253,7 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
     d_X[n].phi = d_X[i].phi;
     d_type[n] = d_type[i];
     d_prolif_rate[n] = d_prolif_rate[i];
-    // d_mes_nbs[n] = 0;
-    // d_epi_nbs[n] = 0;
+    d_out_prolif_rate[n] = 0.0f;
 }
 
 __global__ void dynamic_aer(float3 centroid, float width, Cell* d_X,
@@ -322,6 +339,19 @@ int main(int argc, char const* argv[])
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
 
+    // Property<1, int> fix_point;
+    // cudaMemcpyToSymbol(d_fix_point, &fix_point.d_prop, sizeof(d_fix_point));
+
+    // float minimum = limb.h_X[0].x;
+    // int id;
+    // for (auto i = 1; i < n0; i++) {
+    //     if(minimum > limb.h_X[i].x) {
+    //         minimum = limb.h_X[i].x;
+    //         id = i;
+    //     }
+    // }
+    // limb.set_fixed(id);
+
     Links<static_cast<int>(n_max * prots_per_cell)> protrusions(
         protrusion_strength, n0 * prots_per_cell);
     auto intercalation = std::bind(
@@ -334,8 +364,11 @@ int main(int argc, char const* argv[])
     Property<n_max, float> prolif_rate("prolif_rate");
     cudaMemcpyToSymbol(
         d_prolif_rate, &prolif_rate.d_prop, sizeof(d_prolif_rate));
+    Property<n_max, float> out_prolif_rate("real_prolif_rate");
+    cudaMemcpyToSymbol(
+        d_out_prolif_rate, &out_prolif_rate.d_prop, sizeof(d_out_prolif_rate));
 
-    float min_proliferation_rate = 0.5f * max_proliferation_rate;
+    // float min_proliferation_rate = 0.5f * max_proliferation_rate;
     // if (prolif_dist == 0) {
         for (int i = 0; i < n0; i++) {
             prolif_rate.h_prop[i] = max_proliferation_rate;
@@ -388,6 +421,7 @@ int main(int argc, char const* argv[])
             n_epi_nbs.copy_to_host();
             n_mes_nbs.copy_to_host();
             prolif_rate.copy_to_host();
+            out_prolif_rate.copy_to_host();
         }
 
         //restricts aer cells to a geometric rule
@@ -412,9 +446,10 @@ int main(int argc, char const* argv[])
             limb_output.write_field(limb, "Wint");
             limb_output.write_field(limb, "FGF", &Cell::f);
             limb_output.write_property(type);
-            limb_output.write_property(n_epi_nbs);
-            limb_output.write_property(n_mes_nbs);
+            // limb_output.write_property(n_epi_nbs);
+            // limb_output.write_property(n_mes_nbs);
             limb_output.write_property(prolif_rate);
+            limb_output.write_property(out_prolif_rate);
         }
     }
 
