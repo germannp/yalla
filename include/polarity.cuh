@@ -1,4 +1,4 @@
-// Forces for rigid single-boll-layer and PCP
+// Forces for PCP and rigid single-boll-layer
 #pragma once
 
 
