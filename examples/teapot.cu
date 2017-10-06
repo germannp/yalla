@@ -10,15 +10,15 @@
 #include "../include/vtk.cuh"
 
 
-const auto n_cells = 1500u;
+const auto n_cells = 70000u;
 
 
 int main(int argc, const char* argv[])
 {
     // Prepare cuboid
     Solution<float3, n_cells, Tile_solver> bolls;
-    Meix teapot("tests/torus.vtk");
-    random_cuboid(0.25, teapot.get_minimum(), teapot.get_maximum(), bolls);
+    Meix teapot("examples/teapot.vtk");
+    random_cuboid(0.125, teapot.get_minimum(), teapot.get_maximum(), bolls);
     Vtk_output output("teapot", false);
     output.write_positions(bolls);
 
