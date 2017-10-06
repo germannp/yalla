@@ -1,4 +1,4 @@
-// Handle meshes for image-based models
+// Handle closed surface meshes for image-based models
 #pragma once
 
 #include <assert.h>
@@ -125,6 +125,7 @@ Meix::Meix(std::string file_name)
             polygon_start = items[0] == "POLYGONS" or items[0] == "CELLS";
     } while (!polygon_start);
     n_facets = stoi(items[1]);
+    assert(n_facets % 2 == 0);  // Otherwise mesh cannot be closed
 
     triangle_to_vertices = (int**)malloc(n_facets * sizeof(int*));
     for (auto i = 0; i < n_facets; i++)
