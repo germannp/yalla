@@ -167,6 +167,7 @@ __global__ void update_protrusions(const int n_cells,
     // auto high_f = (d_X[a].f + d_X[b].f) > 0.2f;
     auto distal = (d_X[a].f + d_X[b].f) > 0.025f;//0.025f;//0.20f; //0.025
     bool more_along_w = false;
+    bool more_along_f_gradient = false;
     bool normal_to_f_gradient = false;
     bool normal_to_w = false;
     if(distal) {
@@ -174,21 +175,25 @@ __global__ void update_protrusions(const int n_cells,
         //     fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
         // normal_to_f_gradient =
         //     fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
-        normal_to_w =
-            fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
+        more_along_f_gradient =
+            fabs(new_r.f / new_dist) > fabs(old_r.f / old_dist) * (1.f - noise);
+        // normal_to_w =
+        //     fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
         // high_f = true;
     } else {
         // more_along_w =
         //     fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
         // normal_to_f_gradient =
         //     fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
-        normal_to_w =
-            fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
+        more_along_f_gradient =
+            fabs(new_r.f / new_dist) > fabs(old_r.f / old_dist) * (1.f - noise);
+        // normal_to_w =
+        //     fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
         // high_f = true;
     }
     // high_f = false;
     // high_f = true;
-    if (not_initialized or more_along_w or high_f or normal_to_f_gradient or normal_to_w) {
+    if (not_initialized or more_along_w or high_f or normal_to_f_gradient or normal_to_w or more_along_f_gradient) {
         link->a = a;
         link->b = b;
     }
@@ -209,7 +214,8 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
 
     switch (d_type[i]) {
         case mesenchyme: {
-            float rate = d_prolif_rate[i] * d_X[i].f;
+            // float rate = d_prolif_rate[i] * d_X[i].f;
+            float rate = d_prolif_rate[i];
             // float rate = d_prolif_rate[i] - d_prolif_rate[i]*(1.f - 0.25f)*(1.f-d_X[i].f);
             d_out_prolif_rate[i] = rate;
             auto r = curand_uniform(&d_state[i]);
