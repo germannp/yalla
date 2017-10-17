@@ -40,10 +40,10 @@ int main(int argc, const char* argv[])
         auto dist = sqrtf(bolls.h_X[i].x * bolls.h_X[i].x +
                           bolls.h_X[i].y * bolls.h_X[i].y +
                           bolls.h_X[i].z * bolls.h_X[i].z);
-        bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x) +
-                           rand() / (RAND_MAX + 1.) * 0.5;
         bolls.h_X[i].theta =
             acosf(bolls.h_X[i].z / dist) + rand() / (RAND_MAX + 1.) * 0.5;
+        bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x) +
+                           rand() / (RAND_MAX + 1.) * 0.5;
     }
     bolls.copy_to_device();
 
