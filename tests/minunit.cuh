@@ -19,7 +19,7 @@
     } while (0)
 
 #define MU_RUN_SUITE(suite)                   \
-    int main(int argc, const char** argv)     \
+    int main(int argc, const char* argv[])    \
     {                                         \
         auto* result = suite();               \
         if (result != 0) {                    \
