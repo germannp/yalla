@@ -16,7 +16,8 @@ const auto prots_per_cell = 5;
 const auto r_protrusion = 2;
 const auto n_time_steps = 300u;
 const auto dt = 0.1;
-const auto n_protrusions = static_cast<int>(n_cells * type_ratio * prots_per_cell);
+const auto n_protrusions =
+    static_cast<int>(n_cells * type_ratio * prots_per_cell);
 
 
 __device__ float3 relu_force(float3 Xi, float3 r, float dist, int i, int j)
@@ -61,7 +62,7 @@ __global__ void update_protrusions(
 }
 
 
-int main(int argc, char const* argv[])
+int main(int argc, const char* argv[])
 {
     // Prepare initial state
     Solution<float3, n_cells, Grid_solver> bolls;

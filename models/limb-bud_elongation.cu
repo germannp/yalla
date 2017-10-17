@@ -157,7 +157,7 @@ __global__ void proliferate(
 }
 
 
-int main(int argc, char const* argv[])
+int main(int argc, const char* argv[])
 {
     // Prepare initial state
     Solution<Lb_cell, n_max, Grid_solver> bolls(n_0);
