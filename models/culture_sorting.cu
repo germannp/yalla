@@ -13,7 +13,8 @@
 const auto type_ratio = 0.2f;
 const auto n_cells = 1000u;
 const auto prots_per_cell = 5;
-const auto r_protrusion = 2;
+const auto r_protrusion = 1.25;
+const auto prot_strength = 0.3;
 const auto n_time_steps = 300u;
 const auto dt = 0.1;
 const auto n_protrusions =
@@ -43,7 +44,7 @@ __global__ void update_protrusions(
     auto b = d_link[i].b;
     auto r = d_X[a] - d_X[b];
     auto dist = norm3df(r.x, r.y, r.z);
-    if ((dist > r_protrusion) or (dist < 1)) {
+    if ((dist > r_protrusion) or (dist < 0.75)) {
         d_link[i].a = a;
         d_link[i].b = a;
     }
@@ -67,7 +68,7 @@ int main(int argc, const char* argv[])
     // Prepare initial state
     Solution<float3, n_cells, Grid_solver> bolls;
     random_sphere(1, bolls);
-    Links<n_protrusions> protrusions(0.15);
+    Links<n_protrusions> protrusions(prot_strength);
     auto prot_forces = std::bind(link_forces<n_protrusions>, protrusions,
         std::placeholders::_1, std::placeholders::_2);
     Property<n_cells> type;
