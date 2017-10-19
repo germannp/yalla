@@ -26,7 +26,7 @@
 const auto r_max = 1.0;
 const auto r_min = 0.8;
 const auto dt = 0.1f;
-const auto n_max = 200000;
+const auto n_max = 500000;
 const auto prots_per_cell = 1;
 const auto protrusion_strength = 0.2f;
 const auto r_protrusion = 2.0f;
@@ -463,6 +463,26 @@ int main(int argc, char const* argv[])
     }
     centroid *= 1.f / float(n0);
     std::cout<<"centroid post "<<centroid.x<<" "<<centroid.y<<" "<<centroid.z<<std::endl;
+
+    //write down the limb epithelium for later shape comparison
+
+    Solution<Cell, n_max, Grid_solver> epi_Tf;
+    int j = 0;
+    for (int i = 0; i < *limb.h_n; i++) {
+        if (type.h_prop[i] >= epithelium) {
+            epi_Tf.h_X[j].x = limb.h_X[i].x;
+            epi_Tf.h_X[j].y = limb.h_X[i].y;
+            epi_Tf.h_X[j].z = limb.h_X[i].z;
+            epi_Tf.h_X[j].phi = limb.h_X[i].phi;
+            epi_Tf.h_X[j].theta = limb.h_X[i].theta;
+            j++;
+        }
+    }
+    *epi_Tf.h_n = j;
+    Vtk_output epi_Tf_output(output_tag + ".shape");
+    epi_Tf_output.write_positions(epi_Tf);
+    epi_Tf_output.write_polarity(epi_Tf);
+    std::cout<<"hola"<<std::endl;
 
     return 0;
 }

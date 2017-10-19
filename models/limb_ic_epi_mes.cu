@@ -11,6 +11,7 @@
 // argv[6]=links flag (activate if you want to use links in later simulations)
 // argv[7]=wall flag (activate in limb buds, when you want a wall boundary cond.).
 // argv[8]=AER flag (activate in limb buds)
+// argv[9]=Optimum mesh file name
 
 #include <curand_kernel.h>
 #include <time.h>
@@ -32,6 +33,7 @@ const auto r_max = 1.0;
 const auto r_min = 0.8;
 const auto dt = 0.1;
 const auto n_max = 150000;
+const auto skip_step = 1;
 const auto prots_per_cell = 1;
 const auto protrusion_strength = 0.2f;
 const auto r_protrusion = 2.0f;
@@ -170,18 +172,35 @@ void fill_solver_w_meix_no_flank(
     }
     meix.n_facets = meix.facets.size();
 
-    *bolls.h_n = meix.n_facets;
+    i = 0;
+    while (i < meix.vertices.size()) {
+        if (meix.vertices[i].x > -0.01f && meix.vertices[i].x < 0.01f)
+            meix.vertices.erase(meix.vertices.begin() + i);
+        else
+            i++;
+    }
+    meix.n_vertices = meix.vertices.size();
+
+
+    *bolls.h_n = meix.n_facets + meix.n_vertices;
     assert(n_0 < *bolls.h_n);
 
-    for (int j = 0; j < meix.n_facets; j++) {
-        auto T = meix.facets[j];
+    for (int i = 0; i < meix.n_facets; i++) {
+        auto T = meix.facets[i];
         float r = sqrt(pow(T.n.x, 2) + pow(T.n.y, 2) + pow(T.n.z, 2));
-        bolls.h_X[j].x = T.C.x;
-        bolls.h_X[j].y = T.C.y;
-        bolls.h_X[j].z = T.C.z;
-        bolls.h_X[j].phi = atan2(T.n.y, T.n.x);
-        bolls.h_X[j].theta = acos(T.n.z / r);
+        bolls.h_X[i].x = T.C.x;
+        bolls.h_X[i].y = T.C.y;
+        bolls.h_X[i].z = T.C.z;
+        bolls.h_X[i].phi = atan2(T.n.y, T.n.x);
+        bolls.h_X[i].theta = acos(T.n.z / r);
     }
+    for (int i = 0; i < meix.n_vertices; i++) {
+        auto P = meix.vertices[i];
+        bolls.h_X[meix.n_facets + i].x = P.x;
+        bolls.h_X[meix.n_facets + i].y = P.y;
+        bolls.h_X[meix.n_facets + i].z = P.z;
+    }
+
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver,
@@ -224,6 +243,7 @@ int main(int argc, char const* argv[])
     bool AER_flag = false;
     if(std::stoi(argv[8]) == 1)
         AER_flag = true;
+    std::string optimum_file_name = argv[9];
 
     Meix meix(file_name);
 
@@ -298,29 +318,6 @@ int main(int argc, char const* argv[])
     setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(
         n_max, seed, d_state);
 
-    // Relaxation of the cube
-    int skip_step = 1;  // relax_time/10;
-    // std::cout<<"relax_time "<<relax_time<<" write interval "<<
-    // skip_step<<std::endl;
-
-    // Vtk_output cubic_output1(output_tag+".cubic_relaxation1");
-    //
-    // for (auto time_step = 0; time_step <= cube_relax_time; time_step++) {
-    //     if(time_step%skip_step==0 || time_step==cube_relax_time){
-    //         cube.copy_to_host();
-    //     }
-    //
-    //     cube.take_step<relaxation_force, relaxation_friction>(dt);
-    //
-    //     // write the output
-    //     if(time_step%skip_step==0 || time_step==cube_relax_time) {
-    //         cubic_output1.write_positions(cube);
-    //     }
-    // }
-
-    // std::cout<<"Cube 1 integrated"<<std::endl;
-
-
     if(links_flag) {
 
         // Vtk_output cubic_output(output_tag+".cubic_relaxation");
@@ -365,13 +362,6 @@ int main(int argc, char const* argv[])
         cube_points.push_back(p);
     }
 
-    // Setup the list of inclusion test results
-    // int* mesench_result = new int[n_bolls_cube];
-    // Set direction of ray
-    // auto dir = float3{0.0f, 1.0f, 0.0f};
-
-    // meix_mesench.test_inclusion(cube_points, mesench_result, dir);
-
     // Make a new list with the ones that are inside
     std::vector<float3> mes_cells;
     int n_bolls_mes = 0;
@@ -387,13 +377,6 @@ int main(int argc, char const* argv[])
 
     // Epithelium (we have to sort out which ones are inside the big mesh and
     // out of the small one)
-    // Setup the list of inclusion test results
-    // int* epi_result_big = new int[n_bolls_cube];
-    // int* epi_result_small = new int[n_bolls_cube];
-
-    // meix.test_inclusion(cube_relax_points, epi_result_big, dir);
-    // meix_mesench.test_inclusion(cube_relax_points, epi_result_small, dir);
-
     // Make a new list with the ones that are inside
     std::vector<float3> epi_cells;
     int n_bolls_epi = 0;
@@ -488,7 +471,6 @@ int main(int argc, char const* argv[])
 
     Vtk_output output(output_tag);
 
-    skip_step = 1;  // relax_time/10;
     for (auto time_step = 0; time_step <= epi_relax_time; time_step++) {
         // if (time_step % skip_step == 0 || time_step == epi_relax_time) {
         //     bolls.copy_to_host();
@@ -550,6 +532,16 @@ int main(int argc, char const* argv[])
     Vtk_output output_epi_T0(output_tag + ".epi_T0");
     output_epi_T0.write_positions(epi_T0);
     output_epi_T0.write_polarity(epi_T0);
+
+    //load the mesh for the optimal shape and process it with the same parameters
+    Meix optimum_meix(optimum_file_name);
+    optimum_meix.rescale(resc);
+    optimum_meix.rotate(0.0f,0.0f,-0.2f);
+    Solution<Cell, n_max, Grid_solver> optimum_meix_TF(optimum_meix.n_facets);
+    fill_solver_w_meix_no_flank(optimum_meix, optimum_meix_TF);
+    Vtk_output output_opt_meix_TF(output_tag + ".meix_TF");
+    output_opt_meix_TF.write_positions(optimum_meix_TF);
+    output_opt_meix_TF.write_polarity(optimum_meix_TF);
 
     std::cout << "DOOOOOOOOOOOOOOONE***************" << std::endl;
 
