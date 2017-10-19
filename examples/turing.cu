@@ -58,7 +58,7 @@ __device__ Epi_cell epithelium_w_turing(
 }
 
 
-int main(int argc, char const* argv[])
+int main(int argc, const char* argv[])
 {
     // Prepare initial state
     Solution<Epi_cell, n_cells, Grid_solver> bolls;

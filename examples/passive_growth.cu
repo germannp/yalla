@@ -88,7 +88,7 @@ __global__ void proliferate(
 }
 
 
-int main(int argc, char const* argv[])
+int main(int argc, const char* argv[])
 {
     // Prepare initial state
     Solution<Po_cell, n_max, Grid_solver> bolls(n_0);
@@ -104,8 +104,7 @@ int main(int argc, char const* argv[])
     curandState* d_state;
     cudaMalloc(&d_state, n_max * sizeof(curandState));
     auto seed = time(NULL);
-    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(
-        n_max, seed, d_state);
+    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(n_max, seed, d_state);
 
     // Find epithelium
     thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);

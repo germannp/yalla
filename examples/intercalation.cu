@@ -57,7 +57,7 @@ __global__ void update_protrusions(
 }
 
 
-int main(int argc, char const* argv[])
+int main(int argc, const char* argv[])
 {
     // Prepare initial state
     Solution<float3, n_cells, Grid_solver> bolls;

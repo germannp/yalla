@@ -31,7 +31,7 @@ __device__ Po_cell rigid_relu_force(
 }
 
 
-int main(int argc, char const* argv[])
+int main(int argc, const char* argv[])
 {
     // Prepare initial state
     Solution<Po_cell, n_cells, Grid_solver> bolls;
@@ -40,10 +40,10 @@ int main(int argc, char const* argv[])
         auto dist = sqrtf(bolls.h_X[i].x * bolls.h_X[i].x +
                           bolls.h_X[i].y * bolls.h_X[i].y +
                           bolls.h_X[i].z * bolls.h_X[i].z);
-        bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x) +
-                           rand() / (RAND_MAX + 1.) * 0.5;
         bolls.h_X[i].theta =
             acosf(bolls.h_X[i].z / dist) + rand() / (RAND_MAX + 1.) * 0.5;
+        bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x) +
+                           rand() / (RAND_MAX + 1.) * 0.5;
     }
     bolls.copy_to_device();
 

@@ -19,7 +19,7 @@
     } while (0)
 
 #define MU_RUN_SUITE(suite)                   \
-    int main(int argc, char** argv)           \
+    int main(int argc, const char* argv[])    \
     {                                         \
         auto* result = suite();               \
         if (result != 0) {                    \
@@ -34,9 +34,7 @@
 auto tests_run = 0;
 
 
-bool isclose(float a, float b) {
-    return fabs(a - b) <= 1e-6 + 1e-2 * fabs(b);
-}
+bool isclose(float a, float b) { return fabs(a - b) <= 1e-6 + 1e-2 * fabs(b); }
 
 
 template<typename Pt, int n_max, template<typename, int> class Solver>

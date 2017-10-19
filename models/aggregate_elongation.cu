@@ -100,7 +100,7 @@ __global__ void update_protrusions(const Grid<n_cells>* __restrict__ d_grid,
 }
 
 
-int main(int argc, char const* argv[])
+int main(int argc, const char* argv[])
 {
     // Prepare initial state
     Solution<Po_cell, n_cells, Grid_solver> bolls;

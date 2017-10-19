@@ -30,7 +30,7 @@ __device__ float4 clipped_cubic_w_gradient(
 }
 
 
-int main(int argc, char const* argv[])
+int main(int argc, const char* argv[])
 {
     // Prepare initial state
     Solution<float4, n_cells, Tile_solver> bolls;
