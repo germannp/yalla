@@ -26,10 +26,11 @@
 const auto r_max = 1.0;
 const auto r_min = 0.8;
 const auto dt = 0.1f;
-const auto n_max = 150000;
+const auto n_max = 200000;
 const auto prots_per_cell = 1;
 const auto protrusion_strength = 0.2f;
 const auto r_protrusion = 2.0f;
+const auto distal_threshold = 0.0025f;
 
 enum Cell_types { mesenchyme, epithelium, aer };
 
@@ -111,7 +112,8 @@ __device__ float wall_friction(Cell Xi, Cell r, float dist, int i, int j)
 __device__ void link_force(const Cell* __restrict__ d_X, const int a,
     const int b, const float strength, Cell* d_dX)
 {
-    if(d_X[a].f + d_X[b].f> 0.2f) return;
+    if(d_X[a].f + d_X[b].f > 0.2f) return;
+    // if(d_X[a].w + d_X[b].w > 0.8f) return;
 
     auto r = d_X[a] - d_X[b];
     auto dist = norm3df(r.x, r.y, r.z);
@@ -163,37 +165,20 @@ __global__ void update_protrusions(const int n_cells,
     auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
     auto noise = curand_uniform(&d_state[i]);
 
-    auto high_f = false;
-    // auto high_f = (d_X[a].f + d_X[b].f) > 0.2f;
-    auto distal = (d_X[a].f + d_X[b].f) > 0.025f;//0.025f;//0.20f; //0.025
-    bool more_along_w = false;
-    bool more_along_f_gradient = false;
-    bool normal_to_f_gradient = false;
-    bool normal_to_w = false;
-    if(distal) {
-        // more_along_w =
-        //     fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
-        // normal_to_f_gradient =
-        //     fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
-        more_along_f_gradient =
-            fabs(new_r.f / new_dist) > fabs(old_r.f / old_dist) * (1.f - noise);
-        // normal_to_w =
-        //     fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
-        // high_f = true;
-    } else {
-        // more_along_w =
-        //     fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
-        // normal_to_f_gradient =
-        //     fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
-        more_along_f_gradient =
-            fabs(new_r.f / new_dist) > fabs(old_r.f / old_dist) * (1.f - noise);
-        // normal_to_w =
-        //     fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
-        // high_f = true;
-    }
-    // high_f = false;
-    // high_f = true;
-    if (not_initialized or more_along_w or high_f or normal_to_f_gradient or normal_to_w or more_along_f_gradient) {
+    auto random = false;
+    // auto random = (d_X[a].f + d_X[b].f) > 0.8f;
+    auto distal = (d_X[a].f + d_X[b].f) > 2*distal_threshold;//0.025f;//0.20f; //0.025
+
+    auto more_along_w =
+        fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
+    auto normal_to_w =
+        fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
+    auto more_along_f =
+        fabs(new_r.f / new_dist) > fabs(old_r.f / old_dist) * (1.f - noise);
+    auto normal_to_f =
+        fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
+
+    if (not_initialized or (distal and more_along_w) or !distal) {
         link->a = a;
         link->b = b;
     }
@@ -215,9 +200,13 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
     switch (d_type[i]) {
         case mesenchyme: {
             // float rate = d_prolif_rate[i] * d_X[i].f;
-            float rate = d_prolif_rate[i];
+            float rate;
+            if(d_X[i].f > distal_threshold)
+                rate = d_prolif_rate[i];
+            else
+                rate = 0.2f * d_prolif_rate[i];
             // float rate = d_prolif_rate[i] - d_prolif_rate[i]*(1.f - 0.25f)*(1.f-d_X[i].f);
-            d_out_prolif_rate[i] = rate;
+            // d_out_prolif_rate[i] = rate;
             auto r = curand_uniform(&d_state[i]);
             if (r > rate) return;
             break;
@@ -232,7 +221,7 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
         default: {
             float rate = d_prolif_rate[i];
             // if (d_epi_nbs[i] > d_mes_nbs[i]) return;
-            d_out_prolif_rate[i] = rate;
+            // d_out_prolif_rate[i] = rate;
             if (d_epi_nbs[i] > 7) return;
             if (d_mes_nbs[i] <= 0) return;
             auto r = curand_uniform(&d_state[i]);
@@ -269,8 +258,8 @@ __global__ void dynamic_aer(float3 centroid, float width, Cell* d_X,
     if(i > *d_n_cells) return;
 
     if(d_type[i] == epithelium or d_type[i] == aer) {
-        if(d_X[i].x > centroid.x and d_X[i].z < centroid.z + 0.8f
-            and d_X[i].z > centroid.z - 0.8f) {
+        if(d_X[i].x > centroid.x and d_X[i].z < centroid.z + 2.4f
+            and d_X[i].z > centroid.z - 2.4f) {
             d_type[i] = aer;
             d_X[i].f = 1.f;
         } else {
@@ -278,6 +267,10 @@ __global__ void dynamic_aer(float3 centroid, float width, Cell* d_X,
             d_X[i].f = 0.f;
         }
     }
+    if(d_X[i].f>distal_threshold)
+        d_out_prolif_rate[i] = 1.0;
+    else
+        d_out_prolif_rate[i] = 0.0;
 }
 
 // Double step solver means we have to initialise n_neibhbours before every
@@ -420,7 +413,7 @@ int main(int argc, char const* argv[])
     Vtk_output limb_output(output_tag);
 
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        if (time_step % skip_step == 0 || time_step == n_time_steps) {
+        if (time_step == 0 || time_step == n_time_steps) {
             limb.copy_to_host();
             protrusions.copy_to_host();
             type.copy_to_host();
@@ -445,11 +438,11 @@ int main(int argc, char const* argv[])
         limb.take_step<wall_force, wall_friction>(dt, intercalation);
 
         // write the output
-        if (time_step % skip_step == 0 || time_step == n_time_steps) {
+        if (time_step == 0 || time_step == n_time_steps) {
             limb_output.write_positions(limb);
             limb_output.write_links(protrusions);
             limb_output.write_polarity(limb);
-            limb_output.write_field(limb, "Wint");
+            limb_output.write_field(limb, "WNT");
             limb_output.write_field(limb, "FGF", &Cell::f);
             limb_output.write_property(type);
             // limb_output.write_property(n_epi_nbs);
