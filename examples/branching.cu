@@ -12,15 +12,16 @@
 #include "../include/vtk.cuh"
 
 const auto n_0 = 500;
-const auto n_max = 65000;
+const auto n_max = 200000;
 const auto r_max = 1.0f;
-const auto n_time_steps = 100;
+const auto n_time_steps = 400;
 const auto skip_steps = 10;
 const auto dt = 0.2f;
 
 // Turing parameters
-const auto lambda = 0.01;
-const auto D_u = 0.005;
+const auto lambda = 0.0075;
+
+const auto D_u = 0.001;
 const auto D_v = 0.2;
 const auto f_v = 1.0;
 const auto f_u = 80.0;
@@ -32,7 +33,7 @@ const auto s_u = 0.05;
 const auto epi_proliferation_rate = 0.2;
 const auto mes_proliferation_rate = 0.1;
 // Threshold conc. of v that allows mesench. cells to divide
-const auto prolif_threshold = 160.0f;
+const auto prolif_threshold = 1150.0f;
 
 enum Cell_types { mesenchyme, epithelium };
 
