@@ -2,6 +2,7 @@
 #pragma once
 
 #include <assert.h>
+#include <random>
 #include <time.h>
 #include <iostream>
 
@@ -15,7 +16,8 @@ void random_disk(
     float dist_to_nb, Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0)
 {
     assert(n_0 < *bolls.h_n);
-    srand(time(NULL));
+    std::random_device rd;
+    srand(rd());
     // Radius based on hexagonal lattice
     auto r_max = pow((*bolls.h_n - n_0) / 0.9069, 1. / 2) * dist_to_nb / 2;
     for (auto i = n_0; i < *bolls.h_n; i++) {
@@ -33,7 +35,8 @@ void random_sphere(
     float dist_to_nb, Solution<Pt, n_max, Solver>& bolls, unsigned int n_0 = 0)
 {
     assert(n_0 < *bolls.h_n);
-    srand(time(NULL));
+    std::random_device rd;
+    srand(rd());
     // Radius based on random sphere packing
     auto r_max = pow((*bolls.h_n - n_0) / 0.64, 1. / 3) * dist_to_nb / 2;
     for (auto i = n_0; i < *bolls.h_n; i++) {
@@ -61,7 +64,8 @@ void random_cuboid(float dist_to_nb, float3 minimum, float3 maximum,
     assert(n_0 + n < n_max);
     *bolls.h_n = n_0 + n;
 
-    srand(time(NULL));
+    std::random_device rd;
+    srand(rd());
     for (auto i = n_0; i < *bolls.h_n; i++) {
         bolls.h_X[i].x = minimum.x + dimension.x * (rand() / (RAND_MAX + 1.));
         bolls.h_X[i].y = minimum.y + dimension.y * (rand() / (RAND_MAX + 1.));
