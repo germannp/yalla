@@ -501,19 +501,19 @@ int main(int argc, char const* argv[])
 
     // Create a dummy meix that depicts the x=0 plane, depicting the flank
     // boundary
-    Meix wall;
-    min_point = meix.get_minimum();
-    diagonal_vector = meix.get_maximum() - min_point;
-    float3 A{0.f, 2 * min_point.y, 2 * min_point.z};
-    float3 B{0.f, 2 * min_point.y, 2 * (min_point.z + diagonal_vector.z)};
-    float3 C{0.f, 2 * (min_point.y + diagonal_vector.y), 2 * min_point.z};
-    float3 D{0.f, 2 * (min_point.y + diagonal_vector.y), 2 * (min_point.z + diagonal_vector.z)};
-    Triangle ABC{A, B, C};
-    Triangle BCD{B, C, D};
-    wall.n_facets = 2;
-    wall.facets.push_back(ABC);
-    wall.facets.push_back(BCD);
-    wall.write_vtk(output_tag + ".wall");
+    // Meix wall;
+    // min_point = meix.get_minimum();
+    // diagonal_vector = meix.get_maximum() - min_point;
+    // float3 A{0.f, 2 * min_point.y, 2 * min_point.z};
+    // float3 B{0.f, 2 * min_point.y, 2 * (min_point.z + diagonal_vector.z)};
+    // float3 C{0.f, 2 * (min_point.y + diagonal_vector.y), 2 * min_point.z};
+    // float3 D{0.f, 2 * (min_point.y + diagonal_vector.y), 2 * (min_point.z + diagonal_vector.z)};
+    // Triangle ABC{A, B, C};
+    // Triangle BCD{B, C, D};
+    // wall.n_facets = 2;
+    // wall.facets.push_back(ABC);
+    // wall.facets.push_back(BCD);
+    // wall.write_vtk(output_tag + ".wall");
 
     // for shape comparison purposes we write down the initial mesh as the
     // facets
@@ -537,6 +537,7 @@ int main(int argc, char const* argv[])
     Meix optimum_meix(optimum_file_name);
     optimum_meix.rescale(resc);
     optimum_meix.rotate(0.0f,0.0f,-0.2f);
+    optimum_meix.write_vtk(output_tag + ".optmeix");
     Solution<Cell, n_max, Grid_solver> optimum_meix_TF(optimum_meix.n_facets);
     fill_solver_w_meix_no_flank(optimum_meix, optimum_meix_TF);
     Vtk_output output_opt_meix_TF(output_tag + ".meix_TF");
