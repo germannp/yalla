@@ -2,9 +2,9 @@
 #pragma once
 
 #include <assert.h>
-#include <random>
 #include <time.h>
 #include <iostream>
+#include <random>
 
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
@@ -163,14 +163,13 @@ void regular_hexagon(
 
     auto beta = M_PI / 3.f;
     auto starting_angle = M_PI / 12.f;
-    auto n_cells = *bolls.h_n;
 
     // Boll in center
-    bolls.h_X[0].x = 0.f;
-    bolls.h_X[0].y = 0.f;
-    bolls.h_X[0].z = 0.f;
-    auto cell_counter = 1;
-    if (cell_counter >= n_cells) {
+    bolls.h_X[n_0].x = 0.f;
+    bolls.h_X[n_0].y = 0.f;
+    bolls.h_X[n_0].z = 0.f;
+    auto cell_counter = n_0 + 1;
+    if (cell_counter == *bolls.h_n) {
         bolls.copy_to_device();
         return;
     }
@@ -185,7 +184,7 @@ void regular_hexagon(
             bolls.h_X[cell_counter].y = p.y;
             bolls.h_X[cell_counter].z = p.z;
             cell_counter++;
-            if (cell_counter >= n_cells) {
+            if (cell_counter == *bolls.h_n) {
                 bolls.copy_to_device();
                 return;
             }
@@ -204,7 +203,7 @@ void regular_hexagon(
                 bolls.h_X[cell_counter].y = p.y + u.y;
                 bolls.h_X[cell_counter].z = p.z + u.z;
                 cell_counter++;
-                if (cell_counter >= n_cells) {
+                if (cell_counter == *bolls.h_n) {
                     bolls.copy_to_device();
                     return;
                 }
