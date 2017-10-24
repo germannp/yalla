@@ -515,8 +515,8 @@ __global__ void calculate_minimum_distance_meix_to_bolls(const int n_bolls,
         if (i < n_bolls)
             d_min_dist[i] = min_dist;
     } else { // meix to bolls
-        __shared__ float3 shX[TILE_SIZE];
-        Pt Xi{0};
+        __shared__ Pt shX[TILE_SIZE];
+        float3 Xi{0};
         if (i < n_meix) Xi = d_X_meix[i];
         float min_dist = 10000.f;
         for (auto tile_start = 0; tile_start < n_bolls;
@@ -585,7 +585,7 @@ __global__ void calculate_minimum_distance_bolls_to_bolls(const int n_bolls1,
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    __shared__ float3 shX[TILE_SIZE];
+    __shared__ Pt shX[TILE_SIZE];
     Pt Xi{0};
     if (i < n_bolls1) Xi = d_X_bolls1[i];
     float min_dist = 10000.f;
