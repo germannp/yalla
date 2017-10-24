@@ -164,10 +164,11 @@ void regular_hexagon(
     auto beta = M_PI / 3.f;
 
     // Boll in center
-    bolls.h_X[n_0].x = 0.f;
-    bolls.h_X[n_0].y = 0.f;
-    bolls.h_X[n_0].z = 0.f;
-    auto cell_counter = n_0 + 1;
+    auto cell_counter = n_0;
+    bolls.h_X[cell_counter].x = 0.f;
+    bolls.h_X[cell_counter].y = 0.f;
+    bolls.h_X[cell_counter].z = 0.f;
+    cell_counter++;
     if (cell_counter == *bolls.h_n) {
         bolls.copy_to_device();
         return;
