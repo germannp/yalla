@@ -377,12 +377,6 @@ void Meix::grow_normally(float amount, bool boundary = false)
     }
 }
 
-template<typename Pt_a, typename Pt_b>
-float scalar_product(Pt_a a, Pt_b b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
 // Theory and algorithm: http://geomalgorithms.com/a06-_intersect-2.html
 bool intersect(Ray R, Triangle T)
 {

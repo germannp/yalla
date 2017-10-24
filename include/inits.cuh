@@ -2,9 +2,9 @@
 #pragma once
 
 #include <assert.h>
-#include <random>
 #include <time.h>
 #include <iostream>
+#include <random>
 
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
@@ -162,15 +162,14 @@ void regular_hexagon(
     assert(n_0 < *bolls.h_n);
 
     auto beta = M_PI / 3.f;
-    auto starting_angle = M_PI / 12.f;
-    auto n_cells = *bolls.h_n;
 
     // Boll in center
-    bolls.h_X[0].x = 0.f;
-    bolls.h_X[0].y = 0.f;
-    bolls.h_X[0].z = 0.f;
-    auto cell_counter = 1;
-    if (cell_counter >= n_cells) {
+    auto cell_counter = n_0;
+    bolls.h_X[cell_counter].x = 0.f;
+    bolls.h_X[cell_counter].y = 0.f;
+    bolls.h_X[cell_counter].z = 0.f;
+    cell_counter++;
+    if (cell_counter == *bolls.h_n) {
         bolls.copy_to_device();
         return;
     }
@@ -178,21 +177,21 @@ void regular_hexagon(
     while (true) {
         for (auto j = 0; j < 6; j++) {
             // Main axis boll
-            auto angle = starting_angle + beta * j;
+            auto angle = beta * j;
             float3 p{-dist_to_nb * i * sinf(angle),
                 dist_to_nb * i * cosf(angle), 0.f};
             bolls.h_X[cell_counter].x = p.x;
             bolls.h_X[cell_counter].y = p.y;
             bolls.h_X[cell_counter].z = p.z;
             cell_counter++;
-            if (cell_counter >= n_cells) {
+            if (cell_counter == *bolls.h_n) {
                 bolls.copy_to_device();
                 return;
             }
             // Intermediate bolls
             auto n_int = i - 1;
             if (n_int < 1) continue;
-            auto next_angle = starting_angle + beta * (j + 1);
+            auto next_angle = beta * (j + 1);
             float3 q{-dist_to_nb * i * sinf(next_angle),
                 dist_to_nb * i * cosf(next_angle), 0.f};
             auto v = q - p;
@@ -204,7 +203,7 @@ void regular_hexagon(
                 bolls.h_X[cell_counter].y = p.y + u.y;
                 bolls.h_X[cell_counter].z = p.z + u.z;
                 cell_counter++;
-                if (cell_counter >= n_cells) {
+                if (cell_counter == *bolls.h_n) {
                     bolls.copy_to_device();
                     return;
                 }

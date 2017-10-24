@@ -16,3 +16,10 @@ std::vector<std::string> split(const std::string& s)
     }
     return words;
 }
+
+
+template<typename Pt_a, typename Pt_b>
+__device__ __host__ float scalar_product(Pt_a a, Pt_b b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
