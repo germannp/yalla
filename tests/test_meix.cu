@@ -85,10 +85,33 @@ const char* test_exclusion()
 }
 
 
+const char* test_shape_comparison()
+{
+    Meix meix("tests/torus.vtk");
+    Solution<float3, 987, Grid_solver> bolls;
+    for (auto i = 0; i < 987; i++) {
+        bolls.h_X[i].x = meix.vertices[i].x;
+        bolls.h_X[i].y = meix.vertices[i].y;
+        bolls.h_X[i].z = meix.vertices[i].z;
+    }
+    bolls.copy_to_device();
+
+    MU_ASSERT("Shape comparison wrong",
+        isclose(meix.shape_comparison_distance_meix_to_bolls(bolls), 0.0));
+
+    meix.grow_normally(0.1);
+    MU_ASSERT("Grown shape comparison wrong",
+        isclose(meix.shape_comparison_distance_meix_to_bolls(bolls), 0.1));
+
+    return NULL;
+}
+
+
 const char* all_tests()
 {
     MU_RUN_TEST(test_transformations);
     MU_RUN_TEST(test_exclusion);
+    MU_RUN_TEST(test_shape_comparison);
     return NULL;
 }
 

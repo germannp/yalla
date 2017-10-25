@@ -60,9 +60,7 @@ public:
     std::vector<float3> vertices;
     std::vector<Triangle> facets;
     int* d_n_vertices;
-    int* d_n_facets;
     float3* d_vertices;
-    float3* d_facets;
     int** triangle_to_vertices;
     std::vector<std::vector<int>> vertex_to_triangles;
     Meix();
@@ -80,11 +78,12 @@ public:
     void write_vtk(std::string);
     void copy_to_device();
     template<typename Pt, int n_max, template<typename, int> class Solver>
-    float shape_comparison_distance_meix_to_bolls(Solution<Pt, n_max,
-        Solver>& bolls);
+    float shape_comparison_distance_meix_to_bolls(
+        Solution<Pt, n_max, Solver>& bolls);
     template<typename Pt, int n_max, template<typename, int> class Solver>
-    float shape_comparison_distance_bolls_to_bolls(Solution<Pt, n_max,
-        Solver>& bolls1, Solution<Pt, n_max, Solver>& bolls2);
+    float shape_comparison_distance_bolls_to_bolls(
+        Solution<Pt, n_max, Solver>& bolls1,
+        Solution<Pt, n_max, Solver>& bolls2);
     ~Meix();
 };
 
@@ -111,8 +110,7 @@ Meix::Meix(std::string file_name)
     do {
         getline(input_file, line);
         items = split(line);
-        if (items.size() > 0)
-            points_start = items[0] == "POINTS";
+        if (items.size() > 0) points_start = items[0] == "POINTS";
     } while (!points_start);
     n_vertices = stoi(items[1]);
 
@@ -455,21 +453,10 @@ void Meix::copy_to_device()
     cudaMalloc(&d_vertices, n_vertices * sizeof(float3));
 
     float3* h_vert = (float3*)malloc(n_vertices * sizeof(float3));
-    for(int i = 0; i < n_vertices; i++)
-        h_vert[i] = vertices[i];
+    for (int i = 0; i < n_vertices; i++) h_vert[i] = vertices[i];
 
     cudaMemcpy(d_n_vertices, &n_vertices, sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(d_vertices, h_vert, n_vertices * sizeof(float3),
-        cudaMemcpyHostToDevice);
-
-    cudaMalloc(&d_n_facets, sizeof(int));
-    cudaMalloc(&d_facets, n_facets * sizeof(float3));
-    float3* h_tri = (float3*)malloc(n_facets * sizeof(float3));
-    for(int i = 0; i < n_facets; i++)
-        h_tri[i] = facets[i].C;
-
-    cudaMemcpy(d_n_facets, &n_facets, sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_facets, h_tri, n_facets * sizeof(float3),
         cudaMemcpyHostToDevice);
 }
 
@@ -483,13 +470,13 @@ __global__ void calculate_minimum_distance_meix_to_bolls(const int n_bolls,
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if(bolls_to_meix){
+    if (bolls_to_meix) {
         __shared__ float3 shX[TILE_SIZE];
         Pt Xi{0};
         if (i < n_bolls) Xi = d_X_bolls[i];
         float min_dist = 10000.f;
         for (auto tile_start = 0; tile_start < n_meix;
-            tile_start += TILE_SIZE) {
+             tile_start += TILE_SIZE) {
             auto j = tile_start + threadIdx.x;
             if (j < n_meix) {
                 shX[threadIdx.x] = d_X_meix[j];
@@ -499,22 +486,20 @@ __global__ void calculate_minimum_distance_meix_to_bolls(const int n_bolls,
             for (auto k = 0; k < TILE_SIZE; k++) {
                 auto j = tile_start + k;
                 if ((i < n_bolls) and (j < n_meix)) {
-                    float3 r{Xi.x - shX[k].x, Xi.y - shX[k].y, Xi.z- shX[k].z};
+                    float3 r{Xi.x - shX[k].x, Xi.y - shX[k].y, Xi.z - shX[k].z};
                     auto dist = norm3df(r.x, r.y, r.z);
-                    if(dist < min_dist)
-                        min_dist = dist;
+                    if (dist < min_dist) min_dist = dist;
                 }
             }
         }
-        if (i < n_bolls)
-            d_min_dist[i] = min_dist;
-    } else { // meix to bolls
+        if (i < n_bolls) d_min_dist[i] = min_dist;
+    } else {  // meix to bolls
         __shared__ float3 shX[TILE_SIZE];
         Pt Xi{0};
         if (i < n_meix) Xi = d_X_meix[i];
         float min_dist = 10000.f;
         for (auto tile_start = 0; tile_start < n_bolls;
-                tile_start += TILE_SIZE) {
+             tile_start += TILE_SIZE) {
             auto j = tile_start + threadIdx.x;
             if (j < n_bolls) {
                 shX[threadIdx.x] = d_X_bolls[j];
@@ -524,22 +509,19 @@ __global__ void calculate_minimum_distance_meix_to_bolls(const int n_bolls,
             for (auto k = 0; k < TILE_SIZE; k++) {
                 auto j = tile_start + k;
                 if ((i < n_meix) and (j < n_bolls)) {
-                    float3 r{Xi.x - shX[k].x, Xi.y - shX[k].y, Xi.z- shX[k].z};
+                    float3 r{Xi.x - shX[k].x, Xi.y - shX[k].y, Xi.z - shX[k].z};
                     auto dist = norm3df(r.x, r.y, r.z);
-                    if(dist < min_dist)
-                        min_dist = dist;
+                    if (dist < min_dist) min_dist = dist;
                 }
             }
         }
-        if (i < n_meix)
-            d_min_dist[i] = min_dist;
+        if (i < n_meix) d_min_dist[i] = min_dist;
     }
-
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
-float Meix::shape_comparison_distance_meix_to_bolls(Solution<Pt, n_max,
-    Solver>& bolls)
+float Meix::shape_comparison_distance_meix_to_bolls(
+    Solution<Pt, n_max, Solver>& bolls)
 {
     auto n_bolls = bolls.get_d_n();
 
@@ -547,35 +529,33 @@ float Meix::shape_comparison_distance_meix_to_bolls(Solution<Pt, n_max,
     cudaMalloc(&d_meix_dist, n_vertices * sizeof(float));
     float* h_meix_dist = (float*)malloc(n_vertices * sizeof(float));
 
-    calculate_minimum_distance_meix_to_bolls<<<(n_vertices + TILE_SIZE - 1) /
-        TILE_SIZE, TILE_SIZE>>>(n_bolls, n_vertices,
-        bolls.d_X, d_vertices, d_meix_dist, false);
+    calculate_minimum_distance_meix_to_bolls<<<
+        (n_vertices + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
+        n_bolls, n_vertices, bolls.d_X, d_vertices, d_meix_dist, false);
     cudaMemcpy(h_meix_dist, d_meix_dist, n_vertices * sizeof(float),
         cudaMemcpyDeviceToHost);
 
     auto distance = 0.0f;
-    for(int i = 0; i < n_vertices; i++)
-        distance += h_meix_dist[i];
+    for (int i = 0; i < n_vertices; i++) distance += h_meix_dist[i];
 
     float* d_bolls_dist;
     cudaMalloc(&d_bolls_dist, *bolls.h_n * sizeof(float));
     float* h_bolls_dist = (float*)malloc(n_bolls * sizeof(float));
-    calculate_minimum_distance_meix_to_bolls<<<(n_bolls + TILE_SIZE - 1) /
-        TILE_SIZE, TILE_SIZE>>>(n_bolls, n_vertices,
-        bolls.d_X, d_vertices, d_bolls_dist, true);
+    calculate_minimum_distance_meix_to_bolls<<<
+        (n_bolls + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
+        n_bolls, n_vertices, bolls.d_X, d_vertices, d_bolls_dist, true);
     cudaMemcpy(h_bolls_dist, d_bolls_dist, n_bolls * sizeof(float),
         cudaMemcpyDeviceToHost);
 
-    for(int i = 0; i < n_bolls; i++)
-        distance += h_bolls_dist[i];
+    for (int i = 0; i < n_bolls; i++) distance += h_bolls_dist[i];
 
     return distance / (n_vertices + n_bolls);
 }
 
 template<typename Pt>
 __global__ void calculate_minimum_distance_bolls_to_bolls(const int n_bolls1,
-        const int n_bolls2, const Pt* __restrict__ d_X_bolls1, Pt* d_X_bolls2,
-        float* d_min_dist)
+    const int n_bolls2, const Pt* __restrict__ d_X_bolls1, Pt* d_X_bolls2,
+    float* d_min_dist)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -593,20 +573,18 @@ __global__ void calculate_minimum_distance_bolls_to_bolls(const int n_bolls1,
         for (auto k = 0; k < TILE_SIZE; k++) {
             auto j = tile_start + k;
             if ((i < n_bolls1) and (j < n_bolls2)) {
-                float3 r{Xi.x - shX[k].x, Xi.y - shX[k].y, Xi.z- shX[k].z};
+                float3 r{Xi.x - shX[k].x, Xi.y - shX[k].y, Xi.z - shX[k].z};
                 auto dist = norm3df(r.x, r.y, r.z);
-                if(dist < min_dist)
-                    min_dist = dist;
+                if (dist < min_dist) min_dist = dist;
             }
         }
     }
-    if (i < n_bolls1)
-        d_min_dist[i] = min_dist;
+    if (i < n_bolls1) d_min_dist[i] = min_dist;
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
-float Meix::shape_comparison_distance_bolls_to_bolls(Solution<Pt, n_max,
-    Solver>& bolls1, Solution<Pt, n_max, Solver>& bolls2)
+float Meix::shape_comparison_distance_bolls_to_bolls(
+    Solution<Pt, n_max, Solver>& bolls1, Solution<Pt, n_max, Solver>& bolls2)
 {
     auto n_bolls1 = bolls1.get_d_n();
     auto n_bolls2 = bolls2.get_d_n();
@@ -615,27 +593,25 @@ float Meix::shape_comparison_distance_bolls_to_bolls(Solution<Pt, n_max,
     cudaMalloc(&d_12_dist, n_bolls1 * sizeof(float));
     float* h_12_dist = (float*)malloc(n_bolls1 * sizeof(float));
 
-    calculate_minimum_distance_bolls_to_bolls<<<(n_bolls1 + TILE_SIZE - 1) /
-        TILE_SIZE, TILE_SIZE>>>(n_bolls1, n_bolls2,
-        bolls1.d_X, bolls2.d_X, d_12_dist);
-    cudaMemcpy(h_12_dist, d_12_dist, n_bolls1 * sizeof(float),
-        cudaMemcpyDeviceToHost);
+    calculate_minimum_distance_bolls_to_bolls<<<
+        (n_bolls1 + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
+        n_bolls1, n_bolls2, bolls1.d_X, bolls2.d_X, d_12_dist);
+    cudaMemcpy(
+        h_12_dist, d_12_dist, n_bolls1 * sizeof(float), cudaMemcpyDeviceToHost);
 
     auto distance = 0.0f;
-    for(int i = 0; i < n_bolls1; i++)
-        distance += h_12_dist[i];
+    for (int i = 0; i < n_bolls1; i++) distance += h_12_dist[i];
 
     float* d_21_dist;
     cudaMalloc(&d_21_dist, n_bolls2 * sizeof(float));
     float* h_21_dist = (float*)malloc(n_bolls2 * sizeof(float));
-    calculate_minimum_distance_bolls_to_bolls<<<(n_bolls2 + TILE_SIZE - 1) /
-        TILE_SIZE, TILE_SIZE>>>(n_bolls2, n_bolls1,
-        bolls2.d_X, bolls1.d_X, d_21_dist);
-    cudaMemcpy(h_21_dist, d_21_dist, n_bolls2 * sizeof(float),
-        cudaMemcpyDeviceToHost);
+    calculate_minimum_distance_bolls_to_bolls<<<
+        (n_bolls2 + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
+        n_bolls2, n_bolls1, bolls2.d_X, bolls1.d_X, d_21_dist);
+    cudaMemcpy(
+        h_21_dist, d_21_dist, n_bolls2 * sizeof(float), cudaMemcpyDeviceToHost);
 
-    for(int i = 0; i < n_bolls2; i++)
-        distance += h_21_dist[i];
+    for (int i = 0; i < n_bolls2; i++) distance += h_21_dist[i];
 
     return distance / (n_bolls1 + n_bolls2);
 }
