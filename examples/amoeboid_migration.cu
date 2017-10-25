@@ -8,8 +8,8 @@
 
 const auto r_max = 1;
 const auto n_cells = 91;
-const auto n_time_steps = 300;
-const auto dt = 0.005;
+const auto n_time_steps = 150;
+const auto dt = 0.05;
 
 
 __device__ Po_cell relu_w_migration(
