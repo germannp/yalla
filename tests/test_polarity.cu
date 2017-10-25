@@ -1,3 +1,5 @@
+#include <random>
+
 #include "../include/dtypes.cuh"
 #include "../include/polarity.cuh"
 #include "../include/solvers.cuh"
@@ -125,17 +127,56 @@ const char* test_line_of_four()
         bolls.h_X[2].y - bolls.h_X[1].y, bolls.h_X[2].z - bolls.h_X[1].z};
     float3 r_23{bolls.h_X[3].x - bolls.h_X[2].x,
         bolls.h_X[3].y - bolls.h_X[2].y, bolls.h_X[3].z - bolls.h_X[2].z};
-    MU_ASSERT("Cells not on line", isclose(r_01.x, r_12.x));
-    MU_ASSERT("Cells not on line", isclose(r_12.x, r_23.x));
-    MU_ASSERT("Cells not on line", isclose(r_01.y, r_12.y));
-    MU_ASSERT("Cells not on line", isclose(r_12.y, r_23.y));
-    MU_ASSERT("Cells not on line", isclose(r_01.z, r_12.z));
-    MU_ASSERT("Cells not on line", isclose(r_12.z, r_23.z));
+    MU_ASSERT("Cells not on line in x", isclose(r_01.x, r_12.x));
+    MU_ASSERT("Cells not on line in x", isclose(r_12.x, r_23.x));
+    MU_ASSERT("Cells not on line in y", isclose(r_01.y, r_12.y));
+    MU_ASSERT("Cells not on line in y", isclose(r_12.y, r_23.y));
+    MU_ASSERT("Cells not on line in z", isclose(r_01.z, r_12.z));
+    MU_ASSERT("Cells not on line in z", isclose(r_12.z, r_23.z));
 
     auto com_f = center_of_mass(bolls);
-    MU_ASSERT("Momentum in line", isclose(com_i.x, com_f.x));
-    MU_ASSERT("Momentum in line", isclose(com_i.y, com_f.y));
-    MU_ASSERT("Momentum in line", isclose(com_i.z, com_f.z));
+    MU_ASSERT("Momentum in line in x", isclose(com_i.x, com_f.x));
+    MU_ASSERT("Momentum in line in y", isclose(com_i.y, com_f.y));
+    MU_ASSERT("Momentum in line in z", isclose(com_i.z, com_f.z));
+
+    return NULL;
+}
+
+
+const char* test_orthonormal()
+{
+    float3 r{static_cast<float>(rand() / (RAND_MAX + 1.)),
+        static_cast<float>(rand() / (RAND_MAX + 1.)),
+        static_cast<float>(rand() / (RAND_MAX + 1.))};
+    float3 p{static_cast<float>(rand() / (RAND_MAX + 1.)),
+        static_cast<float>(rand() / (RAND_MAX + 1.)),
+        static_cast<float>(rand() / (RAND_MAX + 1.))};
+    p /= sqrt(scalar_product(p, p));
+
+    auto n = orthonormal(r, p);
+    MU_ASSERT("Not orthogonal", isclose(scalar_product(p, n), 0));
+    MU_ASSERT("Not normal", isclose(scalar_product(n, n), 1));
+
+    return NULL;
+}
+
+
+const char* test_migration_force()
+{
+    Po_cell Xi{0}, Xj{0};
+    Xi.theta = M_PI / 2;
+    Xj.x = 1;
+    Xj.y = 1e-3;
+
+    auto Fi = migration_force(Xi, Xi - Xj, 1);
+    MU_ASSERT("Migration force wrong in x", isclose(Fi.x, 0.6));
+    MU_ASSERT("Migration force wrong in y", isclose(Fi.y, -0.8));
+    MU_ASSERT("Migration force wrong in z", abs(Fi.z) < 5e-5);
+
+    auto Fj = migration_force(Xj, Xj - Xi, 1);
+    MU_ASSERT("Migration forces not inverse in x", isclose(Fi.x, -Fj.x));
+    MU_ASSERT("Migration forces not inverse in y", isclose(Fi.y, -Fj.y));
+    MU_ASSERT("Migration forces not inverse in z", isclose(Fi.z, -Fj.z));
 
     return NULL;
 }
@@ -147,6 +188,8 @@ const char* all_tests()
     MU_RUN_TEST(test_pcp);
     MU_RUN_TEST(test_rigidity_force);
     MU_RUN_TEST(test_line_of_four);
+    MU_RUN_TEST(test_orthonormal);
+    MU_RUN_TEST(test_migration_force);
     return NULL;
 }
 
