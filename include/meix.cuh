@@ -463,60 +463,34 @@ void Meix::copy_to_device()
 // Compute pairwise interactions and frictions one thread per point, to
 // TILE_SIZE points at a time, after http://http.developer.nvidia.com/
 // GPUGems3/gpugems3_ch31.html.
-template<typename Pt>
-__global__ void calculate_minimum_distance_meix_to_bolls(const int n_bolls,
-    const int n_meix, const Pt* __restrict__ d_X_bolls, float3* d_X_meix,
-    float* d_min_dist, bool bolls_to_meix)
+template<typename Pt1, typename Pt2>
+__global__ void calculate_minimum_distance(const int n1,
+    const int n2, const Pt1* __restrict__ d_X1, Pt2* d_X2,
+    float* d_min_dist)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (bolls_to_meix) {
-        __shared__ float3 shX[TILE_SIZE];
-        Pt Xi{0};
-        if (i < n_bolls) Xi = d_X_bolls[i];
-        float min_dist = 10000.f;
-        for (auto tile_start = 0; tile_start < n_meix;
-             tile_start += TILE_SIZE) {
-            auto j = tile_start + threadIdx.x;
-            if (j < n_meix) {
-                shX[threadIdx.x] = d_X_meix[j];
-            }
-            __syncthreads();
+    __shared__ Pt2 shX[TILE_SIZE];
+    Pt1 Xi{0};
+    if (i < n1) Xi = d_X1[i];
+    float min_dist = 10000.f;
+    for (auto tile_start = 0; tile_start < n2; tile_start += TILE_SIZE) {
+        auto j = tile_start + threadIdx.x;
+        if (j < n2) {
+            shX[threadIdx.x] = d_X2[j];
+        }
+        __syncthreads();
 
-            for (auto k = 0; k < TILE_SIZE; k++) {
-                auto j = tile_start + k;
-                if ((i < n_bolls) and (j < n_meix)) {
-                    float3 r{Xi.x - shX[k].x, Xi.y - shX[k].y, Xi.z - shX[k].z};
-                    auto dist = norm3df(r.x, r.y, r.z);
-                    if (dist < min_dist) min_dist = dist;
-                }
+        for (auto k = 0; k < TILE_SIZE; k++) {
+            auto j = tile_start + k;
+            if ((i < n1) and (j < n2)) {
+                float3 r{Xi.x - shX[k].x, Xi.y - shX[k].y, Xi.z - shX[k].z};
+                auto dist = norm3df(r.x, r.y, r.z);
+                if (dist < min_dist) min_dist = dist;
             }
         }
-        if (i < n_bolls) d_min_dist[i] = min_dist;
-    } else {  // meix to bolls
-        __shared__ Pt shX[TILE_SIZE];
-        float3 Xi{0};
-        if (i < n_meix) Xi = d_X_meix[i];
-        float min_dist = 10000.f;
-        for (auto tile_start = 0; tile_start < n_bolls;
-             tile_start += TILE_SIZE) {
-            auto j = tile_start + threadIdx.x;
-            if (j < n_bolls) {
-                shX[threadIdx.x] = d_X_bolls[j];
-            }
-            __syncthreads();
-
-            for (auto k = 0; k < TILE_SIZE; k++) {
-                auto j = tile_start + k;
-                if ((i < n_meix) and (j < n_bolls)) {
-                    float3 r{Xi.x - shX[k].x, Xi.y - shX[k].y, Xi.z - shX[k].z};
-                    auto dist = norm3df(r.x, r.y, r.z);
-                    if (dist < min_dist) min_dist = dist;
-                }
-            }
-        }
-        if (i < n_meix) d_min_dist[i] = min_dist;
     }
+    if (i < n1) d_min_dist[i] = min_dist;
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
@@ -529,9 +503,9 @@ float Meix::shape_comparison_distance_meix_to_bolls(
     cudaMalloc(&d_meix_dist, n_vertices * sizeof(float));
     float* h_meix_dist = (float*)malloc(n_vertices * sizeof(float));
 
-    calculate_minimum_distance_meix_to_bolls<<<
+    calculate_minimum_distance<<<
         (n_vertices + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
-        n_bolls, n_vertices, bolls.d_X, d_vertices, d_meix_dist, false);
+        n_bolls, n_vertices, bolls.d_X, d_vertices, d_meix_dist);
     cudaMemcpy(h_meix_dist, d_meix_dist, n_vertices * sizeof(float),
         cudaMemcpyDeviceToHost);
 
@@ -541,45 +515,14 @@ float Meix::shape_comparison_distance_meix_to_bolls(
     float* d_bolls_dist;
     cudaMalloc(&d_bolls_dist, *bolls.h_n * sizeof(float));
     float* h_bolls_dist = (float*)malloc(n_bolls * sizeof(float));
-    calculate_minimum_distance_meix_to_bolls<<<
-        (n_bolls + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
-        n_bolls, n_vertices, bolls.d_X, d_vertices, d_bolls_dist, true);
+    calculate_minimum_distance<<<(n_bolls + TILE_SIZE - 1) / TILE_SIZE,
+        TILE_SIZE>>>(n_bolls, n_vertices, bolls.d_X, d_vertices, d_bolls_dist);
     cudaMemcpy(h_bolls_dist, d_bolls_dist, n_bolls * sizeof(float),
         cudaMemcpyDeviceToHost);
 
     for (int i = 0; i < n_bolls; i++) distance += h_bolls_dist[i];
 
     return distance / (n_vertices + n_bolls);
-}
-
-template<typename Pt>
-__global__ void calculate_minimum_distance_bolls_to_bolls(const int n_bolls1,
-    const int n_bolls2, const Pt* __restrict__ d_X_bolls1, Pt* d_X_bolls2,
-    float* d_min_dist)
-{
-    auto i = blockIdx.x * blockDim.x + threadIdx.x;
-
-    __shared__ Pt shX[TILE_SIZE];
-    Pt Xi{0};
-    if (i < n_bolls1) Xi = d_X_bolls1[i];
-    float min_dist = 10000.f;
-    for (auto tile_start = 0; tile_start < n_bolls2; tile_start += TILE_SIZE) {
-        auto j = tile_start + threadIdx.x;
-        if (j < n_bolls2) {
-            shX[threadIdx.x] = d_X_bolls2[j];
-        }
-        __syncthreads();
-
-        for (auto k = 0; k < TILE_SIZE; k++) {
-            auto j = tile_start + k;
-            if ((i < n_bolls1) and (j < n_bolls2)) {
-                float3 r{Xi.x - shX[k].x, Xi.y - shX[k].y, Xi.z - shX[k].z};
-                auto dist = norm3df(r.x, r.y, r.z);
-                if (dist < min_dist) min_dist = dist;
-            }
-        }
-    }
-    if (i < n_bolls1) d_min_dist[i] = min_dist;
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
@@ -593,9 +536,8 @@ float Meix::shape_comparison_distance_bolls_to_bolls(
     cudaMalloc(&d_12_dist, n_bolls1 * sizeof(float));
     float* h_12_dist = (float*)malloc(n_bolls1 * sizeof(float));
 
-    calculate_minimum_distance_bolls_to_bolls<<<
-        (n_bolls1 + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
-        n_bolls1, n_bolls2, bolls1.d_X, bolls2.d_X, d_12_dist);
+    calculate_minimum_distance<<<(n_bolls1 + TILE_SIZE - 1) / TILE_SIZE,
+        TILE_SIZE>>>(n_bolls1, n_bolls2, bolls1.d_X, bolls2.d_X, d_12_dist);
     cudaMemcpy(
         h_12_dist, d_12_dist, n_bolls1 * sizeof(float), cudaMemcpyDeviceToHost);
 
@@ -605,9 +547,8 @@ float Meix::shape_comparison_distance_bolls_to_bolls(
     float* d_21_dist;
     cudaMalloc(&d_21_dist, n_bolls2 * sizeof(float));
     float* h_21_dist = (float*)malloc(n_bolls2 * sizeof(float));
-    calculate_minimum_distance_bolls_to_bolls<<<
-        (n_bolls2 + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
-        n_bolls2, n_bolls1, bolls2.d_X, bolls1.d_X, d_21_dist);
+    calculate_minimum_distance<<<(n_bolls2 + TILE_SIZE - 1) / TILE_SIZE,
+        TILE_SIZE>>>(n_bolls2, n_bolls1, bolls2.d_X, bolls1.d_X, d_21_dist);
     cudaMemcpy(
         h_21_dist, d_21_dist, n_bolls2 * sizeof(float), cudaMemcpyDeviceToHost);
 

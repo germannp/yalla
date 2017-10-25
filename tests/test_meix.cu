@@ -88,6 +88,7 @@ const char* test_exclusion()
 const char* test_shape_comparison()
 {
     Meix meix("tests/torus.vtk");
+    meix.copy_to_device();
     Solution<float3, 987, Grid_solver> bolls;
     for (auto i = 0; i < 987; i++) {
         bolls.h_X[i].x = meix.vertices[i].x;
@@ -100,6 +101,7 @@ const char* test_shape_comparison()
         isclose(meix.shape_comparison_distance_meix_to_bolls(bolls), 0.0));
 
     meix.grow_normally(0.1);
+    meix.copy_to_device();
     MU_ASSERT("Grown shape comparison wrong",
         isclose(meix.shape_comparison_distance_meix_to_bolls(bolls), 0.1));
 
