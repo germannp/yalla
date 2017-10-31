@@ -52,7 +52,7 @@ __global__ void update_protrusions(
     } else if ((j > n_cells / 2) and (k > n_cells / 2)) {
         if (rnd > 0.25) return;
     } else {
-        if (rnd > 0.75) return;
+        if (rnd > 0.125) return;
     }
 
     auto new_j = min(
