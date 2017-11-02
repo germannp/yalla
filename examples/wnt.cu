@@ -42,9 +42,9 @@ int main(int argc, const char* argv[])
         if (i == 11) {
             bolls.h_X[i].w = 50;
         } else {
-            auto r = bolls.h_X[i] - bolls.h_X[11];
-            bolls.h_X[i].theta = 0.01;
-            bolls.h_X[i].phi = atan2(-r.y, -r.x);
+            auto r = bolls.h_X[i] - bolls.h_X[11];  // Tilt polarities towards
+            bolls.h_X[i].theta = 0.01;              // source to end w/ all
+            bolls.h_X[i].phi = atan2(-r.y, -r.x);   // pointing the same way.
         }
     }
     bolls.copy_to_device();
