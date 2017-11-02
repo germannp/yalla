@@ -8,7 +8,6 @@
 
 const auto r_max = 1;
 const auto r_min = 0.6;
-const auto D = 0.5f;
 const auto n_cells = 200;
 const auto n_time_steps = 300;
 const auto dt = 0.025;
@@ -25,7 +24,6 @@ __device__ Po_cell pcp(Po_cell Xi, Po_cell r, float dist, int i, int j)
     dF.x = r.x * F / dist;
     dF.y = r.y * F / dist;
     dF.z = r.z * F / dist;
-    dF.w = i == 0 ? 0 : -r.w * D;
 
     // U_PCP = - Σ(n_i . n_j)^2/2
     dF += pcp_force(Xi, Xi - r);
@@ -38,7 +36,6 @@ int main(int argc, const char* argv[])
     // Prepare initial state
     Solution<Po_cell, n_cells, Grid_solver> bolls;
     for (auto i = 0; i < n_cells; i++) {
-        bolls.h_X[i].w = (i == 0) * 10;
         bolls.h_X[i].theta = acos(2. * rand() / (RAND_MAX + 1.) - 1.);
         bolls.h_X[i].phi = 2. * M_PI * rand() / (RAND_MAX + 1.);
     }
