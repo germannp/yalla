@@ -1,10 +1,4 @@
 // Simulate mesenchymal intercalation orchestrated by epithelial signals
-#include <curand_kernel.h>
-#include <iostream>
-#include <sstream>
-#include <string>
-#include <vector>
-
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
 #include "../include/links.cuh"
