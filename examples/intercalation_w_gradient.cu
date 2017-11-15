@@ -22,8 +22,8 @@ const auto n_max = 150000;
 const auto prots_per_cell = 1;
 const auto protrusion_strength = 0.2f;
 const auto r_protrusion = 2.0f;
-float mean_proliferation_rate = 0.015f;
-int n_time_steps = 500;
+const auto mean_proliferation_rate = 0.015f;
+const auto n_time_steps = 500;
 enum Cell_types { mesenchyme, epithelium };
 
 MAKE_PT(Cell, w, f, theta, phi);
