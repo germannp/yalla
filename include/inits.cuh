@@ -58,7 +58,7 @@ void random_cuboid(float dist_to_nb, float3 minimum, float3 maximum,
 
     auto dimension = maximum - minimum;
     auto cube_volume = dimension.x * dimension.y * dimension.z;
-    auto boll_volume = 4 / 3 * M_PI * pow(dist_to_nb / 2, 3);
+    auto boll_volume = 4. / 3 * M_PI * pow(dist_to_nb / 2, 3);
     auto n = cube_volume / boll_volume * 0.64;  // Sphere packing
 
     assert(n_0 + n < n_max);
