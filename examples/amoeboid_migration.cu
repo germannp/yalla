@@ -7,7 +7,7 @@
 
 
 const auto r_max = 1;
-const auto n_cells = 91;
+const auto n_cells = 464;
 const auto n_time_steps = 150;
 const auto dt = 0.05;
 
@@ -34,13 +34,9 @@ int main(int argc, const char* argv[])
 {
     // Prepare initial state
     Solution<Po_cell, n_cells, Tile_solver> bolls;
-    regular_hexagon(0.75, bolls);
-    auto last = n_cells - 1;
-    auto dist = sqrtf(bolls.h_X[last].x * bolls.h_X[last].x +
-                      bolls.h_X[last].y * bolls.h_X[last].y +
-                      bolls.h_X[last].z * bolls.h_X[last].z);
-    bolls.h_X[last].theta = acosf(-bolls.h_X[last].z / dist);
-    bolls.h_X[last].phi = atan2(-bolls.h_X[last].y, -bolls.h_X[last].x);
+    relaxed_cuboid(0.75, float3{-1.5, -1.5, 0}, float3{1.5, 1.5, 10}, bolls);
+    bolls.h_X[*bolls.h_n].phi = 0.01;
+    *bolls.h_n += 1;
     bolls.copy_to_device();
 
     // Integrate cell positions
