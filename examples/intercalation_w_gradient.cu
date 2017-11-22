@@ -101,8 +101,11 @@ __global__ void proliferate(float mean_rate, float mean_distance, Cell* d_X,
     if (d_type[i] == mesenchyme) {
         d_X[n].w = d_X[i].w / 2;
         d_X[i].w = d_X[i].w / 2;
+        d_X[n].f = d_X[i].f / 2;
+        d_X[i].f = d_X[i].f / 2;
     } else {
         d_X[n].w = d_X[i].w;
+        d_X[n].f = d_X[i].f;
     }
     d_X[n].theta = d_X[i].theta;
     d_X[n].phi = d_X[i].phi;
