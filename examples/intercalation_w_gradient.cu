@@ -152,10 +152,10 @@ __global__ void update_protrusions(const int n_cells,
     auto superficial = d_X[a].w + d_X[b].w > 0.3f;  // sort cells close to the w
     auto parallel_to_w_gradient = false;            // source
     auto normal_to_f_gradient = false;
-    if (superficial) {  // cells close to the w source respond to the f gradient
+    if (superficial) {  // cells close to w source align normal to f gradient
         normal_to_f_gradient =
             fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
-    } else {  // cells close to the f source respond to the w gradient
+    } else {  // cells far from w source align along w gradient
         parallel_to_w_gradient =
             fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
     }
