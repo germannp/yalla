@@ -51,9 +51,10 @@ int main(int argc, const char* argv[])
     Vtk_output output("epithelium");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bolls.copy_to_host();
-        bolls.take_step<rigid_relu_force>(dt);
+        bolls.take_step<rigid_relu_force, friction_on_background>(dt);
         output.write_positions(bolls);
         output.write_polarity(bolls);
+        output.write_field(bolls, "z", &Po_cell::z);  // For visualization
     }
 
     return 0;
