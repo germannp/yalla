@@ -379,8 +379,7 @@ void Meix::grow_normally(float amount, bool boundary = false)
 bool intersect(Ray R, Triangle T)
 {
     // Find intersection point PI
-    auto r =
-        scalar_product(T.n, T.V0 - R.P0) / scalar_product(T.n, R.P1 - R.P0);
+    auto r = dot_product(T.n, T.V0 - R.P0) / dot_product(T.n, R.P1 - R.P0);
     if (r < 0) return false;  // Ray going away
 
     auto PI = R.P0 + ((R.P1 - R.P0) * r);
@@ -389,11 +388,11 @@ bool intersect(Ray R, Triangle T)
     auto u = T.V1 - T.V0;
     auto v = T.V2 - T.V0;
     auto w = PI - T.V0;
-    auto uu = scalar_product(u, u);
-    auto uv = scalar_product(u, v);
-    auto vv = scalar_product(v, v);
-    auto wu = scalar_product(w, u);
-    auto wv = scalar_product(w, v);
+    auto uu = dot_product(u, u);
+    auto uv = dot_product(u, v);
+    auto vv = dot_product(v, v);
+    auto wu = dot_product(w, u);
+    auto wv = dot_product(w, v);
     auto denom = uv * uv - uu * vv;
 
     auto s = (uv * wv - vv * wu) / denom;
@@ -464,9 +463,8 @@ void Meix::copy_to_device()
 // TILE_SIZE points at a time, after http://http.developer.nvidia.com/
 // GPUGems3/gpugems3_ch31.html.
 template<typename Pt1, typename Pt2>
-__global__ void calculate_minimum_distance(const int n1,
-    const int n2, const Pt1* __restrict__ d_X1, Pt2* d_X2,
-    float* d_min_dist)
+__global__ void calculate_minimum_distance(const int n1, const int n2,
+    const Pt1* __restrict__ d_X1, Pt2* d_X2, float* d_min_dist)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -503,9 +501,8 @@ float Meix::shape_comparison_distance_meix_to_bolls(
     cudaMalloc(&d_meix_dist, n_vertices * sizeof(float));
     float* h_meix_dist = (float*)malloc(n_vertices * sizeof(float));
 
-    calculate_minimum_distance<<<
-        (n_vertices + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
-        n_bolls, n_vertices, bolls.d_X, d_vertices, d_meix_dist);
+    calculate_minimum_distance<<<(n_vertices + TILE_SIZE - 1) / TILE_SIZE,
+        TILE_SIZE>>>(n_bolls, n_vertices, bolls.d_X, d_vertices, d_meix_dist);
     cudaMemcpy(h_meix_dist, d_meix_dist, n_vertices * sizeof(float),
         cudaMemcpyDeviceToHost);
 

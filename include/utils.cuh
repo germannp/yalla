@@ -19,7 +19,7 @@ std::vector<std::string> split(const std::string& s)
 
 
 template<typename Pt_a, typename Pt_b>
-__device__ __host__ float scalar_product(Pt_a a, Pt_b b)
+__device__ __host__ float dot_product(Pt_a a, Pt_b b)
 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }

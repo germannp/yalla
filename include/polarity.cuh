@@ -9,7 +9,7 @@ struct Polarity {
 };
 
 template<typename Pol_a, typename Pol_b>
-__device__ __host__ float pol_scalar_product(Pol_a a, Pol_b b)
+__device__ __host__ float pol_dot_product(Pol_a a, Pol_b b)
 {
     return sinf(a.theta) * sinf(b.theta) * cosf(a.phi - b.phi) +
            cosf(a.theta) * cosf(b.theta);
@@ -23,7 +23,7 @@ template<typename Pt, typename Pol>
 __device__ __host__ Pt pcp_force(Pt Xi, Pol pj)
 {
     Pt dF{0};
-    auto prod = pol_scalar_product(Xi, pj);
+    auto prod = pol_dot_product(Xi, pj);
     dF.theta = prod * (cosf(Xi.theta) * sinf(pj.theta) * cosf(Xi.phi - pj.phi) -
                           sinf(Xi.theta) * cosf(pj.theta));
     auto sin_Xi_theta = sinf(Xi.theta);
@@ -75,8 +75,8 @@ template<typename Pt>
 __device__ __host__ float3 orthonormal(Pt r, float3 p)
 {
     float3 r3{r.x, r.y, r.z};
-    auto normal = r3 - scalar_product(r3, p) * p;
-    return normal / sqrt(scalar_product(normal, normal));
+    auto normal = r3 - dot_product(r3, p) * p;
+    return normal / sqrt(dot_product(normal, normal));
 }
 
 template<typename Pt>
@@ -87,7 +87,7 @@ __device__ __host__ Pt migration_force(Pt Xi, Pt r, float dist)
     // Pulling around j
     Polarity r_hat{acosf(r.z / dist), atan2(r.y, r.x)};
     if ((Xi.phi != 0) or (Xi.theta != 0)) {
-        if (pol_scalar_product(Xi, r_hat) <= -0.15) {
+        if (pol_dot_product(Xi, r_hat) <= -0.15) {
             float3 pi{sinf(Xi.theta) * cosf(Xi.phi),
                 sinf(Xi.theta) * sinf(Xi.phi), cosf(Xi.theta)};
             auto pi_T = orthonormal(r, pi);
@@ -100,7 +100,7 @@ __device__ __host__ Pt migration_force(Pt Xi, Pt r, float dist)
     // Getting pushed aside by j
     Polarity Xj{Xi.theta - r.theta, Xi.phi - r.phi};
     if ((Xj.phi > 1e-10) or (Xj.theta > 1e-10)) {
-        if (pol_scalar_product(Xj, r_hat) >= 0.15) {
+        if (pol_dot_product(Xj, r_hat) >= 0.15) {
             float3 pj{sinf(Xj.theta) * cosf(Xj.phi),
                 sinf(Xj.theta) * sinf(Xj.phi), cosf(Xj.theta)};
             auto pj_T = orthonormal(-r, pj);

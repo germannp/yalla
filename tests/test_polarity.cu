@@ -39,7 +39,7 @@ const char* test_pcp()
     // Turn in theta and phi, close to z-axis to test transformation
     Polarity p_i{M_PI / 2 + M_PI / 4 + 0.01, 0.5};
     Polarity p_f{M_PI / 2 + M_PI / 4 + 0.01, M_PI};
-    auto arc_if = acosf(pol_scalar_product(p_i, p_f));
+    auto arc_if = acosf(pol_dot_product(p_i, p_f));
 
     bolls.h_X[0].theta = p_i.theta;
     bolls.h_X[0].phi = p_i.phi;
@@ -50,12 +50,12 @@ const char* test_pcp()
     for (auto i = 0; i < 5000; i++) {
         bolls.copy_to_host();
         bolls.take_step<pcp_force>(0.01);
-        auto arc_i0 = acosf(pol_scalar_product(p_i, bolls.h_X[0]));
-        auto arc_0f = acosf(pol_scalar_product(bolls.h_X[0], p_f));
+        auto arc_i0 = acosf(pol_dot_product(p_i, bolls.h_X[0]));
+        auto arc_0f = acosf(pol_dot_product(bolls.h_X[0], p_f));
         MU_ASSERT("PCP off great circle", isclose(arc_i0 + arc_0f, arc_if));
     }
 
-    auto prod = pol_scalar_product(bolls.h_X[0], bolls.h_X[1]);
+    auto prod = pol_dot_product(bolls.h_X[0], bolls.h_X[1]);
     MU_ASSERT("PCP not aligned", isclose(fabs(prod), 1));
 
     return NULL;
@@ -117,7 +117,7 @@ const char* test_line_of_four()
 
     bolls.copy_to_host();
     for (auto i = 1; i < 4; i++) {
-        auto prod = pol_scalar_product(bolls.h_X[0], bolls.h_X[i]);
+        auto prod = pol_dot_product(bolls.h_X[0], bolls.h_X[i]);
         MU_ASSERT("Epithelial polarity not aligned", isclose(prod, 1));
     }
 
@@ -151,11 +151,11 @@ const char* test_orthonormal()
     float3 p{static_cast<float>(rand() / (RAND_MAX + 1.)),
         static_cast<float>(rand() / (RAND_MAX + 1.)),
         static_cast<float>(rand() / (RAND_MAX + 1.))};
-    p /= sqrt(scalar_product(p, p));
+    p /= sqrt(dot_product(p, p));
 
     auto n = orthonormal(r, p);
-    MU_ASSERT("Not orthogonal", isclose(scalar_product(p, n), 0));
-    MU_ASSERT("Not normal", isclose(scalar_product(n, n), 1));
+    MU_ASSERT("Not orthogonal", isclose(dot_product(p, n), 0));
+    MU_ASSERT("Not normal", isclose(dot_product(n, n), 1));
 
     return NULL;
 }

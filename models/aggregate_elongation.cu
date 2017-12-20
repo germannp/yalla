@@ -90,8 +90,8 @@ __global__ void update_protrusions(const Grid<n_cells>* __restrict__ d_grid,
     if (dist > r_protrusion) return;
 
     Polarity r_hat{acosf(-r.z / dist), atan2(-r.y, -r.x)};
-    auto from_front_a = pol_scalar_product(d_X[a], r_hat) > 0.7 / 2;
-    auto to_back_b = pol_scalar_product(d_X[b], r_hat) > 0.7 / 2;
+    auto from_front_a = pol_dot_product(d_X[a], r_hat) > 0.7 / 2;
+    auto to_back_b = pol_dot_product(d_X[b], r_hat) > 0.7 / 2;
 
     if ((from_front_a and to_back_b)) {
         d_link[a * prots_per_cell + i % prots_per_cell].a = a;
