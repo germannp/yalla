@@ -32,7 +32,7 @@
 const auto r_max = 1.0;
 const auto r_min = 0.8;
 const auto dt = 0.1;
-const auto n_max = 150000;
+const auto n_max = 250000;
 const auto skip_step = 1;
 const auto prots_per_cell = 1;
 const auto protrusion_strength = 0.2f;
@@ -258,7 +258,9 @@ int main(int argc, char const* argv[])
 
     // meix defines the overall shape of the limb bud (mesench. + ectoderm)
     meix.rescale(resc);
-    meix.rotate(0.0f,0.0f,-0.2f);
+    // meix.rotate(0.0f,0.0f,-0.2f); // formula for old "limb only" meshes
+    // around    z    y     x
+    meix.rotate(0.5f,0.0f, M_PI - 0.2f); // formula for old "limb only" meshes
 
     // meix_mesench defines the volume occupied by the mesenchyme (smaller than
     // meix)
