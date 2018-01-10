@@ -23,7 +23,7 @@
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
 #include "../include/links.cuh"
-#include "../include/meix.cuh"
+#include "../include/mesh.cuh"
 #include "../include/polarity.cuh"
 #include "../include/property.cuh"
 #include "../include/solvers.cuh"
@@ -159,34 +159,34 @@ __device__ float freeze_friction(Cell Xi, Cell r, float dist, int i, int j)
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
-void fill_solver_w_meix_no_flank(
-    Meix meix, Solution<Pt, n_max, Solver>& cells, unsigned int n_0 = 0)
+void fill_solver_w_mesh_no_flank(
+    Mesh mesh, Solution<Pt, n_max, Solver>& cells, unsigned int n_0 = 0)
 {
     // eliminate the flank boundary
     int i = 0;
-    while (i < meix.facets.size()) {
-        if (meix.facets[i].n.x > -1.01f && meix.facets[i].n.x < -0.99f)
-            meix.facets.erase(meix.facets.begin() + i);
+    while (i < mesh.facets.size()) {
+        if (mesh.facets[i].n.x > -1.01f && mesh.facets[i].n.x < -0.99f)
+            mesh.facets.erase(mesh.facets.begin() + i);
         else
             i++;
     }
-    meix.n_facets = meix.facets.size();
+    mesh.n_facets = mesh.facets.size();
 
     i = 0;
-    while (i < meix.vertices.size()) {
-        if (meix.vertices[i].x > -0.01f && meix.vertices[i].x < 0.01f)
-            meix.vertices.erase(meix.vertices.begin() + i);
+    while (i < mesh.vertices.size()) {
+        if (mesh.vertices[i].x > -0.01f && mesh.vertices[i].x < 0.01f)
+            mesh.vertices.erase(mesh.vertices.begin() + i);
         else
             i++;
     }
-    meix.n_vertices = meix.vertices.size();
+    mesh.n_vertices = mesh.vertices.size();
 
 
-    *cells.h_n = meix.n_facets + meix.n_vertices;
+    *cells.h_n = mesh.n_facets + mesh.n_vertices;
     assert(n_0 < *cells.h_n);
 
-    for (int i = 0; i < meix.n_facets; i++) {
-        auto T = meix.facets[i];
+    for (int i = 0; i < mesh.n_facets; i++) {
+        auto T = mesh.facets[i];
         float r = sqrt(pow(T.n.x, 2) + pow(T.n.y, 2) + pow(T.n.z, 2));
         cells.h_X[i].x = T.C.x;
         cells.h_X[i].y = T.C.y;
@@ -194,11 +194,11 @@ void fill_solver_w_meix_no_flank(
         cells.h_X[i].phi = atan2(T.n.y, T.n.x);
         cells.h_X[i].theta = acos(T.n.z / r);
     }
-    for (int i = 0; i < meix.n_vertices; i++) {
-        auto P = meix.vertices[i];
-        cells.h_X[meix.n_facets + i].x = P.x;
-        cells.h_X[meix.n_facets + i].y = P.y;
-        cells.h_X[meix.n_facets + i].z = P.z;
+    for (int i = 0; i < mesh.n_vertices; i++) {
+        auto P = mesh.vertices[i];
+        cells.h_X[mesh.n_facets + i].x = P.x;
+        cells.h_X[mesh.n_facets + i].y = P.y;
+        cells.h_X[mesh.n_facets + i].z = P.z;
     }
 
 }
@@ -245,33 +245,33 @@ int main(int argc, char const* argv[])
         AER_flag = true;
     std::string optimum_file_name = argv[9];
 
-    Meix meix(file_name);
+    Mesh mesh(file_name);
 
     // Compute max length in X axis to know how much we need to rescale
-    auto min_point = meix.get_minimum();
-    auto diagonal_vector = meix.get_maximum() - min_point;
+    auto min_point = mesh.get_minimum();
+    auto diagonal_vector = mesh.get_maximum() - min_point;
     float resc = target_dx / diagonal_vector.x;
     std::cout << "xmax= " << min_point.x + diagonal_vector.x << " xmin= " << min_point.x << std::endl;
     std::cout << "dx= " << diagonal_vector.x << " target_dx= " << target_dx
               << " rescaling factor resc= " << resc << std::endl;
 
 
-    // meix defines the overall shape of the limb bud (mesench. + ectoderm)
-    meix.rescale(resc);
-    // meix.rotate(0.0f,0.0f,-0.2f); // formula for old "limb only" meshes
+    // mesh defines the overall shape of the limb bud (mesench. + ectoderm)
+    mesh.rescale(resc);
+    // mesh.rotate(0.0f,0.0f,-0.2f); // formula for old "limb only" meshes
     // around    z    y     x
-    meix.rotate(0.5f,0.0f, M_PI - 0.2f); // formula for old "limb only" meshes
+    mesh.rotate(0.5f,0.0f, M_PI - 0.2f); // formula for old "limb only" meshes
 
-    // meix_mesench defines the volume occupied by the mesenchyme (smaller than
-    // meix)
-    Meix meix_mesench = meix;
-    meix_mesench.grow_normally(-r_min, wall_flag);  //*1.3//*1.2
+    // mesh_mesench defines the volume occupied by the mesenchyme (smaller than
+    // mesh)
+    Mesh mesh_mesench = mesh;
+    mesh_mesench.grow_normally(-r_min, wall_flag);  //*1.3//*1.2
 
     // we use the maximum lengths of the mesh to draw a cube that includes the
     // mesh
     // Let's fill the cube with cells
     Solution<Cell, n_max, Grid_solver> cube;
-    relaxed_cuboid(r_min, meix.get_minimum(), meix.get_maximum(), cube);
+    relaxed_cuboid(r_min, mesh.get_minimum(), mesh.get_maximum(), cube);
     auto n_cells_cube = *cube.h_n;
 
     cube.copy_to_host();
@@ -354,7 +354,7 @@ int main(int argc, char const* argv[])
 
     // Fit the cube into a mesh and sort which cells are inside the mesh
     // For the mesenchyme we use the smaller mesh and the compressed cube
-    // For the epithelium we use the larger meix and the relaxed cube
+    // For the epithelium we use the larger mesh and the relaxed cube
 
     // Mesenchyme
     // Setup the list of points
@@ -368,7 +368,7 @@ int main(int argc, char const* argv[])
     std::vector<float3> mes_cells;
     int n_cells_mes = 0;
     for (int i = 0; i < n_cells_cube; i++) {
-        if (!meix_mesench.test_exclusion(cube_points[i])) {
+        if (!mesh_mesench.test_exclusion(cube_points[i])) {
             mes_cells.push_back(cube_points[i]);
             n_cells_mes++;
         }
@@ -383,8 +383,8 @@ int main(int argc, char const* argv[])
     std::vector<float3> epi_cells;
     int n_cells_epi = 0;
     for (int i = 0; i < n_cells_cube; i++) {
-        if (!meix.test_exclusion(cube_relax_points[i])
-            and meix_mesench.test_exclusion(cube_relax_points[i])) {
+        if (!mesh.test_exclusion(cube_relax_points[i])
+            and mesh_mesench.test_exclusion(cube_relax_points[i])) {
             epi_cells.push_back(cube_relax_points[i]);
             n_cells_epi++;
         }
@@ -418,10 +418,10 @@ int main(int argc, char const* argv[])
         auto p = epi_cells[count];
         int f = -1;
         float dmin = 1000000.f;
-        // we use the closest facet on meix to determine the polarity of the
+        // we use the closest facet on mesh to determine the polarity of the
         // epithelial cell
-        for (int j = 0; j < meix.n_facets; j++) {
-            auto r = p - meix.facets[j].C;
+        for (int j = 0; j < mesh.n_facets; j++) {
+            auto r = p - mesh.facets[j].C;
             float d = sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
             if (d < dmin) {
                 dmin = d;
@@ -429,7 +429,7 @@ int main(int argc, char const* argv[])
             }
         }
         count++;
-        if (meix.facets[f].C.x < 0.1f && wall_flag) {  // the cells contacting the flank
+        if (mesh.facets[f].C.x < 0.1f && wall_flag) {  // the cells contacting the flank
                                                        // boundary can't be epithelial 0.001
             type.h_prop[i] = mesenchyme;
             cells.h_X[i].phi = 0.f;
@@ -437,8 +437,8 @@ int main(int argc, char const* argv[])
             freeze.h_prop[i] = 1;
             continue;
         }
-        cells.h_X[i].phi = atan2(meix.facets[f].n.y, meix.facets[f].n.x);
-        cells.h_X[i].theta = acos(meix.facets[f].n.z);
+        cells.h_X[i].phi = atan2(mesh.facets[f].n.y, mesh.facets[f].n.x);
+        cells.h_X[i].theta = acos(mesh.facets[f].n.z);
     }
     std::cout << "count " << count << " epi_cells " << n_cells_epi << std::endl;
 
@@ -453,7 +453,7 @@ int main(int argc, char const* argv[])
         std::string AER_file=file_name;
         AER_file.insert(AER_file.length() - 4, "_AER");
         std::cout<<"AER file "<<AER_file<<std::endl;
-        Meix AER(AER_file);
+        Mesh AER(AER_file);
         AER.rescale(resc);
 
         for (int i = n_cells_mes; i < n_cells_total; i++) {
@@ -494,18 +494,18 @@ int main(int argc, char const* argv[])
     output.write_polarity(cells);
     output.write_property(type);
 
-    // write down the meix in the vtk file to compare it with the posterior
+    // write down the mesh in the vtk file to compare it with the posterior
     // seeding
-    meix.write_vtk(output_tag);
+    mesh.write_vtk(output_tag);
     // write down the mesenchymal mesh in the vtk file to compare it with the
     // posterior filling
-    meix_mesench.write_vtk(output_tag + ".mesench");
+    mesh_mesench.write_vtk(output_tag + ".mesench");
 
-    // Create a dummy meix that depicts the x=0 plane, depicting the flank
+    // Create a dummy mesh that depicts the x=0 plane, depicting the flank
     // boundary
-    // Meix wall;
-    // min_point = meix.get_minimum();
-    // diagonal_vector = meix.get_maximum() - min_point;
+    // Mesh wall;
+    // min_point = mesh.get_minimum();
+    // diagonal_vector = mesh.get_maximum() - min_point;
     // float3 A{0.f, 2 * min_point.y, 2 * min_point.z};
     // float3 B{0.f, 2 * min_point.y, 2 * (min_point.z + diagonal_vector.z)};
     // float3 C{0.f, 2 * (min_point.y + diagonal_vector.y), 2 * min_point.z};
@@ -521,12 +521,12 @@ int main(int argc, char const* argv[])
     // facets
     // centres and the cells epithelium in separate vtk files.
 
-    std::cout << "writing meix_T0" << std::endl;
-    Solution<Cell, n_max, Grid_solver> meix_T0(meix.n_facets);
-    fill_solver_w_meix_no_flank(meix, meix_T0);
-    Vtk_output output_meix_T0(output_tag + ".meix_T0");
-    output_meix_T0.write_positions(meix_T0);
-    output_meix_T0.write_polarity(meix_T0);
+    std::cout << "writing mesh_T0" << std::endl;
+    Solution<Cell, n_max, Grid_solver> mesh_T0(mesh.n_facets);
+    fill_solver_w_mesh_no_flank(mesh, mesh_T0);
+    Vtk_output output_mesh_T0(output_tag + ".mesh_T0");
+    output_mesh_T0.write_positions(mesh_T0);
+    output_mesh_T0.write_polarity(mesh_T0);
 
     std::cout << "writing epi_T0" << std::endl;
     Solution<Cell, n_max, Grid_solver> epi_T0(n_cells_total);
@@ -536,15 +536,15 @@ int main(int argc, char const* argv[])
     output_epi_T0.write_polarity(epi_T0);
 
     //load the mesh for the optimal shape and process it with the same parameters
-    Meix optimum_meix(optimum_file_name);
-    optimum_meix.rescale(resc);
-    optimum_meix.rotate(0.0f,0.0f,-0.2f);
-    optimum_meix.write_vtk(output_tag + ".optmeix");
-    Solution<Cell, n_max, Grid_solver> optimum_meix_TF(optimum_meix.n_facets);
-    fill_solver_w_meix_no_flank(optimum_meix, optimum_meix_TF);
-    Vtk_output output_opt_meix_TF(output_tag + ".meix_TF");
-    output_opt_meix_TF.write_positions(optimum_meix_TF);
-    output_opt_meix_TF.write_polarity(optimum_meix_TF);
+    Mesh optimum_mesh(optimum_file_name);
+    optimum_mesh.rescale(resc);
+    optimum_mesh.rotate(0.0f,0.0f,-0.2f);
+    optimum_mesh.write_vtk(output_tag + ".optmesh");
+    Solution<Cell, n_max, Grid_solver> optimum_mesh_TF(optimum_mesh.n_facets);
+    fill_solver_w_mesh_no_flank(optimum_mesh, optimum_mesh_TF);
+    Vtk_output output_opt_mesh_TF(output_tag + ".mesh_TF");
+    output_opt_mesh_TF.write_positions(optimum_mesh_TF);
+    output_opt_mesh_TF.write_polarity(optimum_mesh_TF);
 
     std::cout << "DOOOOOOOOOOOOOOONE***************" << std::endl;
 

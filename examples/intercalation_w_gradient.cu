@@ -2,7 +2,7 @@
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
 #include "../include/links.cuh"
-#include "../include/meix.cuh"
+#include "../include/mesh.cuh"
 #include "../include/polarity.cuh"
 #include "../include/property.cuh"
 #include "../include/solvers.cuh"

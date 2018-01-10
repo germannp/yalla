@@ -52,7 +52,7 @@ struct Triangle {
 };
 
 
-class Meix {
+class Mesh {
 public:
     float surf_area;
     int n_vertices;
@@ -63,10 +63,10 @@ public:
     float3* d_vertices;
     int** triangle_to_vertices;
     std::vector<std::vector<int>> vertex_to_triangles;
-    Meix();
-    Meix(std::string file_name);
-    Meix(const Meix& copy);
-    Meix& operator=(const Meix& other);
+    Mesh();
+    Mesh(std::string file_name);
+    Mesh(const Mesh& copy);
+    Mesh& operator=(const Mesh& other);
     float3 get_minimum();
     float3 get_maximum();
     void translate(float3 offset);
@@ -78,16 +78,16 @@ public:
     void write_vtk(std::string);
     void copy_to_device();
     template<typename Pt, int n_max, template<typename, int> class Solver>
-    float shape_comparison_distance_meix_to_points(
+    float shape_comparison_distance_mesh_to_points(
         Solution<Pt, n_max, Solver>& points);
     template<typename Pt, int n_max, template<typename, int> class Solver>
     float shape_comparison_distance_points_to_points(
         Solution<Pt, n_max, Solver>& points1,
         Solution<Pt, n_max, Solver>& points2);
-    ~Meix();
+    ~Mesh();
 };
 
-Meix::Meix()
+Mesh::Mesh()
 {
     surf_area = 0.f;
     n_vertices = 0;
@@ -95,7 +95,7 @@ Meix::Meix()
     triangle_to_vertices = NULL;
 }
 
-Meix::Meix(std::string file_name)
+Mesh::Mesh(std::string file_name)
 {
     surf_area = 0.f;  // initialise
 
@@ -173,7 +173,7 @@ Meix::Meix(std::string file_name)
     }
 }
 
-Meix::Meix(const Meix& copy)
+Mesh::Mesh(const Mesh& copy)
 {
     surf_area = 0.f;
     n_vertices = copy.n_vertices;
@@ -195,7 +195,7 @@ Meix::Meix(const Meix& copy)
         vertex_to_triangles[i] = copy.vertex_to_triangles[i];
 }
 
-Meix& Meix::operator=(const Meix& other)
+Mesh& Mesh::operator=(const Mesh& other)
 {
     surf_area = 0.f;
     n_vertices = other.n_vertices;
@@ -217,7 +217,7 @@ Meix& Meix::operator=(const Meix& other)
     return *this;
 }
 
-float3 Meix::get_minimum()
+float3 Mesh::get_minimum()
 {
     float3 minimum{vertices[0].x, vertices[0].y, vertices[0].z};
     for (auto i = 1; i < n_vertices; i++) {
@@ -228,7 +228,7 @@ float3 Meix::get_minimum()
     return minimum;
 }
 
-float3 Meix::get_maximum()
+float3 Mesh::get_maximum()
 {
     float3 maximum{vertices[0].x, vertices[0].y, vertices[0].z};
     for (auto i = 1; i < n_vertices; i++) {
@@ -239,7 +239,7 @@ float3 Meix::get_maximum()
     return maximum;
 }
 
-void Meix::translate(float3 offset)
+void Mesh::translate(float3 offset)
 {
     for (int i = 0; i < n_vertices; i++) {
         vertices[i] = vertices[i] + offset;
@@ -253,7 +253,7 @@ void Meix::translate(float3 offset)
     }
 }
 
-void Meix::rotate(float around_z, float around_y, float around_x)
+void Mesh::rotate(float around_z, float around_y, float around_x)
 {
     for (int i = 0; i < n_facets; i++) {
         float3 old = facets[i].V0;
@@ -331,7 +331,7 @@ void Meix::rotate(float around_z, float around_y, float around_x)
     }
 }
 
-void Meix::rescale(float factor)
+void Mesh::rescale(float factor)
 {
     for (int i = 0; i < n_vertices; i++) {
         vertices[i] = vertices[i] * factor;
@@ -345,7 +345,7 @@ void Meix::rescale(float factor)
     }
 }
 
-void Meix::grow_normally(float amount, bool boundary = false)
+void Mesh::grow_normally(float amount, bool boundary = false)
 {
     for (int i = 0; i < n_vertices; i++) {
         if (boundary && vertices[i].x == 0.f) continue;
@@ -405,7 +405,7 @@ bool intersect(Ray R, Triangle T)
 }
 
 template<typename Pt>
-bool Meix::test_exclusion(const Pt point)
+bool Mesh::test_exclusion(const Pt point)
 {
     auto p_0 = float3{point.x, point.y, point.z};
     auto p_1 = p_0 + float3{0.22788, 0.38849, 0.81499};
@@ -417,36 +417,36 @@ bool Meix::test_exclusion(const Pt point)
     return (n_intersections % 2 == 0);
 }
 
-void Meix::write_vtk(std::string output_tag)
+void Mesh::write_vtk(std::string output_tag)
 {
-    std::string filename = "output/" + output_tag + ".meix.vtk";
-    std::ofstream meix_file(filename);
-    assert(meix_file.is_open());
+    std::string filename = "output/" + output_tag + ".mesh.vtk";
+    std::ofstream mesh_file(filename);
+    assert(mesh_file.is_open());
 
-    meix_file << "# vtk DataFile Version 3.0\n";
-    meix_file << output_tag + ".meix"
+    mesh_file << "# vtk DataFile Version 3.0\n";
+    mesh_file << output_tag + ".mesh"
               << "\n";
-    meix_file << "ASCII\n";
-    meix_file << "DATASET POLYDATA\n";
+    mesh_file << "ASCII\n";
+    mesh_file << "DATASET POLYDATA\n";
 
-    meix_file << "\nPOINTS " << 3 * n_facets << " float\n";
+    mesh_file << "\nPOINTS " << 3 * n_facets << " float\n";
     for (auto i = 0; i < n_facets; i++) {
-        meix_file << facets[i].V0.x << " " << facets[i].V0.y << " "
+        mesh_file << facets[i].V0.x << " " << facets[i].V0.y << " "
                   << facets[i].V0.z << "\n";
-        meix_file << facets[i].V1.x << " " << facets[i].V1.y << " "
+        mesh_file << facets[i].V1.x << " " << facets[i].V1.y << " "
                   << facets[i].V1.z << "\n";
-        meix_file << facets[i].V2.x << " " << facets[i].V2.y << " "
+        mesh_file << facets[i].V2.x << " " << facets[i].V2.y << " "
                   << facets[i].V2.z << "\n";
     }
 
-    meix_file << "\nPOLYGONS " << n_facets << " " << 4 * n_facets << "\n";
+    mesh_file << "\nPOLYGONS " << n_facets << " " << 4 * n_facets << "\n";
     for (auto i = 0; i < 3 * n_facets; i += 3) {
-        meix_file << "3 " << i << " " << i + 1 << " " << i + 2 << "\n";
+        mesh_file << "3 " << i << " " << i + 1 << " " << i + 2 << "\n";
     }
-    meix_file.close();
+    mesh_file.close();
 }
 
-void Meix::copy_to_device()
+void Mesh::copy_to_device()
 {
     cudaMalloc(&d_n_vertices, sizeof(int));
     cudaMalloc(&d_vertices, n_vertices * sizeof(float3));
@@ -492,22 +492,22 @@ __global__ void calculate_minimum_distance(const int n1, const int n2,
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
-float Meix::shape_comparison_distance_meix_to_points(
+float Mesh::shape_comparison_distance_mesh_to_points(
     Solution<Pt, n_max, Solver>& points)
 {
     auto n_points = points.get_d_n();
 
-    float* d_meix_dist;
-    cudaMalloc(&d_meix_dist, n_vertices * sizeof(float));
-    float* h_meix_dist = (float*)malloc(n_vertices * sizeof(float));
+    float* d_mesh_dist;
+    cudaMalloc(&d_mesh_dist, n_vertices * sizeof(float));
+    float* h_mesh_dist = (float*)malloc(n_vertices * sizeof(float));
 
     calculate_minimum_distance<<<(n_vertices + TILE_SIZE - 1) / TILE_SIZE,
-        TILE_SIZE>>>(n_points, n_vertices, points.d_X, d_vertices, d_meix_dist);
-    cudaMemcpy(h_meix_dist, d_meix_dist, n_vertices * sizeof(float),
+        TILE_SIZE>>>(n_points, n_vertices, points.d_X, d_vertices, d_mesh_dist);
+    cudaMemcpy(h_mesh_dist, d_mesh_dist, n_vertices * sizeof(float),
         cudaMemcpyDeviceToHost);
 
     auto distance = 0.0f;
-    for (int i = 0; i < n_vertices; i++) distance += h_meix_dist[i];
+    for (int i = 0; i < n_vertices; i++) distance += h_mesh_dist[i];
 
     float* d_points_dist;
     cudaMalloc(&d_points_dist, *points.h_n * sizeof(float));
@@ -523,7 +523,7 @@ float Meix::shape_comparison_distance_meix_to_points(
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
-float Meix::shape_comparison_distance_points_to_points(
+float Mesh::shape_comparison_distance_points_to_points(
     Solution<Pt, n_max, Solver>& points1, Solution<Pt, n_max, Solver>& points2)
 {
     auto n_points1 = points1.get_d_n();
@@ -554,7 +554,7 @@ float Meix::shape_comparison_distance_points_to_points(
     return distance / (n_points1 + n_points2);
 }
 
-Meix::~Meix()
+Mesh::~Mesh()
 {
     vertices.clear();
     facets.clear();

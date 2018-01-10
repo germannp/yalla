@@ -5,7 +5,7 @@
 
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
-#include "../include/meix.cuh"
+#include "../include/mesh.cuh"
 #include "../include/solvers.cuh"
 #include "../include/vtk.cuh"
 
@@ -17,7 +17,7 @@ int main(int argc, const char* argv[])
 {
     // Prepare cuboid
     Solution<float3, n_points, Tile_solver> points;
-    Meix teapot("examples/teapot.vtk");
+    Mesh teapot("examples/teapot.vtk");
     random_cuboid(0.125, teapot.get_minimum(), teapot.get_maximum(), points);
     Vtk_output output("teapot", false);
     output.write_positions(points);
