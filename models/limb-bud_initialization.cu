@@ -82,6 +82,16 @@ __global__ void update_protrusions(const int n_cells,
     if (i >= n_cells * prots_per_cell) return;
 
     auto j = static_cast<int>((i + 0.5) / prots_per_cell);
+    auto a = d_grid->d_point_id[j];
+    auto link = &d_link[a * prots_per_cell + i % prots_per_cell];
+    auto initialized = link->a != 0 or link->b != 0;
+    auto r = d_X[link->a] - d_X[link->b];
+    auto dist = norm3df(r.x, r.y, r.z);
+    if (initialized and ((dist < r_max) or (dist > r_protrusion))) {
+        link->a = a;
+        link->b = a;
+    }
+
     auto rnd_cube =
         d_grid->d_cube_id[j] +
         d_nhood[min(static_cast<int>(curand_uniform(&d_state[i]) * 27), 26)];
@@ -92,7 +102,6 @@ __global__ void update_protrusions(const int n_cells,
     auto rnd_cell =
         min(static_cast<int>(curand_uniform(&d_state[i]) * cells_in_cube),
             cells_in_cube - 1);
-    auto a = d_grid->d_point_id[j];
     auto b = d_grid->d_point_id[d_grid->d_cube_start[rnd_cube] + rnd_cell];
     D_ASSERT(a >= 0);
     D_ASSERT(a < n_cells);
@@ -104,17 +113,12 @@ __global__ void update_protrusions(const int n_cells,
 
     auto new_r = d_X[a] - d_X[b];
     auto new_dist = norm3df(new_r.x, new_r.y, new_r.z);
-    if (new_dist > r_protrusion) return;
+    if ((new_dist < r_max) or (new_dist > r_protrusion)) return;
 
-    auto link = &d_link[a * prots_per_cell + i % prots_per_cell];
-    auto not_initialized = link->a == link->b;
-    auto old_r = d_X[link->a] - d_X[link->b];
-    auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
-    auto more_along_w =
-        fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) + 0.01;
-    auto high_f = (d_X[a].f + d_X[b].f) > 0.01;
-    // auto high_f = false;
-    if (not_initialized or more_along_w or high_f) {
+    auto more_along_w = fabs(new_r.w / new_dist) > fabs(r.w / dist) + 0.01 * 0;
+    // auto high_f = (d_X[a].f + d_X[b].f) > 0.01;
+    auto high_f = false;
+    if (not initialized or more_along_w or high_f) {
         link->a = a;
         link->b = b;
     }
