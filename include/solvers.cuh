@@ -146,7 +146,8 @@ template<typename Pt, int n_max, template<typename, int> class Computer>
 class Heun_solver : public Computer<Pt, n_max> {
 public:
     void set_fixed() { fix_com = true; }
-    void set_fixed(int point_id) {
+    void set_fixed(int point_id) 
+    {
         fix_com = false;
         fix_point = point_id;
     }
