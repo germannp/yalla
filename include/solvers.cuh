@@ -89,8 +89,8 @@ public:
 
 // 2nd order solver for the equation v = F + <v(t - dt)> for x, y, and z, where
 // <v> is the mean velocity of the neighbours weighted by the friction
-// coefficients. The center of mass is kept fixed. Solves dw/dt = F_w for other
-// variables in Pt.
+// coefficients. One point or the center of mass needs is kept fix. Solves 
+// dw/dt = F_w for other variables in Pt.
 template<typename Pt>
 __global__ void euler_step(const int n, const float dt,
     const Pt* __restrict__ d_X0, const Pt fix_dX, Pt* d_dX, Pt* d_X)
