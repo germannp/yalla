@@ -74,16 +74,16 @@ public:
     void rescale(float factor);
     void grow_normally(float amount, bool boundary);
     template<typename Pt>
-    bool test_exclusion(const Pt boll);
+    bool test_exclusion(const Pt point);
     void write_vtk(std::string);
     void copy_to_device();
     template<typename Pt, int n_max, template<typename, int> class Solver>
-    float shape_comparison_distance_meix_to_bolls(
-        Solution<Pt, n_max, Solver>& bolls);
+    float shape_comparison_distance_meix_to_points(
+        Solution<Pt, n_max, Solver>& points);
     template<typename Pt, int n_max, template<typename, int> class Solver>
-    float shape_comparison_distance_bolls_to_bolls(
-        Solution<Pt, n_max, Solver>& bolls1,
-        Solution<Pt, n_max, Solver>& bolls2);
+    float shape_comparison_distance_points_to_points(
+        Solution<Pt, n_max, Solver>& points1,
+        Solution<Pt, n_max, Solver>& points2);
     ~Meix();
 };
 
@@ -405,9 +405,9 @@ bool intersect(Ray R, Triangle T)
 }
 
 template<typename Pt>
-bool Meix::test_exclusion(const Pt boll)
+bool Meix::test_exclusion(const Pt point)
 {
-    auto p_0 = float3{boll.x, boll.y, boll.z};
+    auto p_0 = float3{point.x, point.y, point.z};
     auto p_1 = p_0 + float3{0.22788, 0.38849, 0.81499};
     Ray R(p_0, p_1);
     int n_intersections = 0;
@@ -492,66 +492,66 @@ __global__ void calculate_minimum_distance(const int n1, const int n2,
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
-float Meix::shape_comparison_distance_meix_to_bolls(
-    Solution<Pt, n_max, Solver>& bolls)
+float Meix::shape_comparison_distance_meix_to_points(
+    Solution<Pt, n_max, Solver>& points)
 {
-    auto n_bolls = bolls.get_d_n();
+    auto n_points = points.get_d_n();
 
     float* d_meix_dist;
     cudaMalloc(&d_meix_dist, n_vertices * sizeof(float));
     float* h_meix_dist = (float*)malloc(n_vertices * sizeof(float));
 
     calculate_minimum_distance<<<(n_vertices + TILE_SIZE - 1) / TILE_SIZE,
-        TILE_SIZE>>>(n_bolls, n_vertices, bolls.d_X, d_vertices, d_meix_dist);
+        TILE_SIZE>>>(n_points, n_vertices, points.d_X, d_vertices, d_meix_dist);
     cudaMemcpy(h_meix_dist, d_meix_dist, n_vertices * sizeof(float),
         cudaMemcpyDeviceToHost);
 
     auto distance = 0.0f;
     for (int i = 0; i < n_vertices; i++) distance += h_meix_dist[i];
 
-    float* d_bolls_dist;
-    cudaMalloc(&d_bolls_dist, *bolls.h_n * sizeof(float));
-    float* h_bolls_dist = (float*)malloc(n_bolls * sizeof(float));
-    calculate_minimum_distance<<<(n_bolls + TILE_SIZE - 1) / TILE_SIZE,
-        TILE_SIZE>>>(n_bolls, n_vertices, bolls.d_X, d_vertices, d_bolls_dist);
-    cudaMemcpy(h_bolls_dist, d_bolls_dist, n_bolls * sizeof(float),
+    float* d_points_dist;
+    cudaMalloc(&d_points_dist, *points.h_n * sizeof(float));
+    float* h_points_dist = (float*)malloc(n_points * sizeof(float));
+    calculate_minimum_distance<<<(n_points + TILE_SIZE - 1) / TILE_SIZE,
+        TILE_SIZE>>>(n_points, n_vertices, points.d_X, d_vertices, d_points_dist);
+    cudaMemcpy(h_points_dist, d_points_dist, n_points * sizeof(float),
         cudaMemcpyDeviceToHost);
 
-    for (int i = 0; i < n_bolls; i++) distance += h_bolls_dist[i];
+    for (int i = 0; i < n_points; i++) distance += h_points_dist[i];
 
-    return distance / (n_vertices + n_bolls);
+    return distance / (n_vertices + n_points);
 }
 
 template<typename Pt, int n_max, template<typename, int> class Solver>
-float Meix::shape_comparison_distance_bolls_to_bolls(
-    Solution<Pt, n_max, Solver>& bolls1, Solution<Pt, n_max, Solver>& bolls2)
+float Meix::shape_comparison_distance_points_to_points(
+    Solution<Pt, n_max, Solver>& points1, Solution<Pt, n_max, Solver>& points2)
 {
-    auto n_bolls1 = bolls1.get_d_n();
-    auto n_bolls2 = bolls2.get_d_n();
+    auto n_points1 = points1.get_d_n();
+    auto n_points2 = points2.get_d_n();
 
     float* d_12_dist;
-    cudaMalloc(&d_12_dist, n_bolls1 * sizeof(float));
-    float* h_12_dist = (float*)malloc(n_bolls1 * sizeof(float));
+    cudaMalloc(&d_12_dist, n_points1 * sizeof(float));
+    float* h_12_dist = (float*)malloc(n_points1 * sizeof(float));
 
-    calculate_minimum_distance<<<(n_bolls1 + TILE_SIZE - 1) / TILE_SIZE,
-        TILE_SIZE>>>(n_bolls1, n_bolls2, bolls1.d_X, bolls2.d_X, d_12_dist);
+    calculate_minimum_distance<<<(n_points1 + TILE_SIZE - 1) / TILE_SIZE,
+        TILE_SIZE>>>(n_points1, n_points2, points1.d_X, points2.d_X, d_12_dist);
     cudaMemcpy(
-        h_12_dist, d_12_dist, n_bolls1 * sizeof(float), cudaMemcpyDeviceToHost);
+        h_12_dist, d_12_dist, n_points1 * sizeof(float), cudaMemcpyDeviceToHost);
 
     auto distance = 0.0f;
-    for (int i = 0; i < n_bolls1; i++) distance += h_12_dist[i];
+    for (int i = 0; i < n_points1; i++) distance += h_12_dist[i];
 
     float* d_21_dist;
-    cudaMalloc(&d_21_dist, n_bolls2 * sizeof(float));
-    float* h_21_dist = (float*)malloc(n_bolls2 * sizeof(float));
-    calculate_minimum_distance<<<(n_bolls2 + TILE_SIZE - 1) / TILE_SIZE,
-        TILE_SIZE>>>(n_bolls2, n_bolls1, bolls2.d_X, bolls1.d_X, d_21_dist);
+    cudaMalloc(&d_21_dist, n_points2 * sizeof(float));
+    float* h_21_dist = (float*)malloc(n_points2 * sizeof(float));
+    calculate_minimum_distance<<<(n_points2 + TILE_SIZE - 1) / TILE_SIZE,
+        TILE_SIZE>>>(n_points2, n_points1, points2.d_X, points1.d_X, d_21_dist);
     cudaMemcpy(
-        h_21_dist, d_21_dist, n_bolls2 * sizeof(float), cudaMemcpyDeviceToHost);
+        h_21_dist, d_21_dist, n_points2 * sizeof(float), cudaMemcpyDeviceToHost);
 
-    for (int i = 0; i < n_bolls2; i++) distance += h_21_dist[i];
+    for (int i = 0; i < n_points2; i++) distance += h_21_dist[i];
 
-    return distance / (n_bolls1 + n_bolls2);
+    return distance / (n_points1 + n_points2);
 }
 
 Meix::~Meix()

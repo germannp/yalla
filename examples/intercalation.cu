@@ -60,8 +60,8 @@ __global__ void update_protrusions(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<float3, n_cells, Grid_solver> bolls;
-    random_sphere(r_min, bolls);
+    Solution<float3, n_cells, Grid_solver> cells;
+    random_sphere(r_min, cells);
     Links<n_cells * prots_per_cell> protrusions;
     auto intercalation = std::bind(link_forces<n_cells * prots_per_cell>,
         protrusions, std::placeholders::_1, std::placeholders::_2);
@@ -69,12 +69,12 @@ int main(int argc, const char* argv[])
     // Integrate cell positions
     Vtk_output output("intercalation");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
+        cells.copy_to_host();
         protrusions.copy_to_host();
         update_protrusions<<<(n_cells * prots_per_cell + 32 - 1) / 32, 32>>>(
-            bolls.d_X, protrusions.d_state, protrusions.d_link);
-        bolls.take_step<clipped_cubic>(dt, intercalation);
-        output.write_positions(bolls);
+            cells.d_X, protrusions.d_state, protrusions.d_link);
+        cells.take_step<clipped_cubic>(dt, intercalation);
+        output.write_positions(cells);
         output.write_links(protrusions);
     }
 

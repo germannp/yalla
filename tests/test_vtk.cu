@@ -10,40 +10,40 @@ const char* test_io()
 {
     // Test writing & reading Solution
     const auto n_cells = 100;
-    Solution<Po_cell4, n_cells, Tile_solver> bolls_to_write;
-    Solution<Po_cell4, n_cells, Tile_solver> bolls_to_read;
+    Solution<Po_cell4, n_cells, Tile_solver> points_to_write;
+    Solution<Po_cell4, n_cells, Tile_solver> points_to_read;
 
     for (auto i = 0; i < n_cells; i++) {
-        bolls_to_write.h_X[i].x = rand() / (RAND_MAX + 1.);
-        bolls_to_write.h_X[i].y = rand() / (RAND_MAX + 1.);
-        bolls_to_write.h_X[i].z = rand() / (RAND_MAX + 1.);
-        bolls_to_write.h_X[i].w = rand() / (RAND_MAX + 1.);
-        bolls_to_write.h_X[i].phi = rand() / (RAND_MAX + 1.) * 2 * M_PI - M_PI;
-        bolls_to_write.h_X[i].theta = acos(2. * rand() / (RAND_MAX + 1.) - 1);
+        points_to_write.h_X[i].x = rand() / (RAND_MAX + 1.);
+        points_to_write.h_X[i].y = rand() / (RAND_MAX + 1.);
+        points_to_write.h_X[i].z = rand() / (RAND_MAX + 1.);
+        points_to_write.h_X[i].w = rand() / (RAND_MAX + 1.);
+        points_to_write.h_X[i].phi = rand() / (RAND_MAX + 1.) * 2 * M_PI - M_PI;
+        points_to_write.h_X[i].theta = acos(2. * rand() / (RAND_MAX + 1.) - 1);
     }
 
     Vtk_output output("test_vtk", false);
-    output.write_positions(bolls_to_write);
-    output.write_polarity(bolls_to_write);
-    output.write_field(bolls_to_write, "w", &Po_cell4::w);
+    output.write_positions(points_to_write);
+    output.write_polarity(points_to_write);
+    output.write_field(points_to_write, "w", &Po_cell4::w);
     Vtk_input input("output/test_vtk_1.vtk");
-    input.read_field(bolls_to_read, "w", &Po_cell4::w);
-    input.read_polarity(bolls_to_read);
-    input.read_positions(bolls_to_read);
+    input.read_field(points_to_read, "w", &Po_cell4::w);
+    input.read_polarity(points_to_read);
+    input.read_positions(points_to_read);
 
     for (auto i = 0; i < n_cells; i++) {
         MU_ASSERT("Not close in x",
-            isclose(bolls_to_write.h_X[i].x, bolls_to_read.h_X[i].x));
+            isclose(points_to_write.h_X[i].x, points_to_read.h_X[i].x));
         MU_ASSERT("Not close in y",
-            isclose(bolls_to_write.h_X[i].y, bolls_to_read.h_X[i].y));
+            isclose(points_to_write.h_X[i].y, points_to_read.h_X[i].y));
         MU_ASSERT("Not close in z",
-            isclose(bolls_to_write.h_X[i].z, bolls_to_read.h_X[i].z));
+            isclose(points_to_write.h_X[i].z, points_to_read.h_X[i].z));
         MU_ASSERT("Not close in w",
-            isclose(bolls_to_write.h_X[i].w, bolls_to_read.h_X[i].w));
+            isclose(points_to_write.h_X[i].w, points_to_read.h_X[i].w));
         MU_ASSERT("Not close in phi",
-            isclose(bolls_to_write.h_X[i].phi, bolls_to_read.h_X[i].phi));
-        MU_ASSERT("Not close in theta", isclose(bolls_to_write.h_X[i].theta,
-                                            bolls_to_read.h_X[i].theta));
+            isclose(points_to_write.h_X[i].phi, points_to_read.h_X[i].phi));
+        MU_ASSERT("Not close in theta", isclose(points_to_write.h_X[i].theta,
+                                            points_to_read.h_X[i].theta));
     }
 
     // Test writing & reading Property

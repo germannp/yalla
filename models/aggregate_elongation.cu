@@ -103,17 +103,17 @@ __global__ void update_protrusions(const Grid<n_cells>* __restrict__ d_grid,
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Grid_solver> bolls;
-    random_disk(0.733333, bolls);
+    Solution<Po_cell, n_cells, Grid_solver> cells;
+    random_disk(0.733333, cells);
     for (auto i = 0; i < n_cells; i++) {
-        bolls.h_X[i].x = bolls.h_X[i].z;
-        bolls.h_X[i].z = rand() / (RAND_MAX + 1.) / 2;
-        bolls.h_X[i].theta = M_PI / 2 + (rand() / (RAND_MAX + 1.) - 0.5) / 2;
-        // bolls.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
-        auto phi = atan2(-bolls.h_X[i].y, -bolls.h_X[i].x);
-        bolls.h_X[i].phi = phi + M_PI / 2;
+        cells.h_X[i].x = cells.h_X[i].z;
+        cells.h_X[i].z = rand() / (RAND_MAX + 1.) / 2;
+        cells.h_X[i].theta = M_PI / 2 + (rand() / (RAND_MAX + 1.) - 0.5) / 2;
+        // cells.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
+        auto phi = atan2(-cells.h_X[i].y, -cells.h_X[i].x);
+        cells.h_X[i].phi = phi + M_PI / 2;
     }
-    bolls.copy_to_device();
+    cells.copy_to_device();
     Links<static_cast<int>(n_cells * prots_per_cell)> protrusions;
     auto intercalation =
         std::bind(link_forces<static_cast<int>(n_cells * prots_per_cell),
@@ -124,17 +124,17 @@ int main(int argc, const char* argv[])
     Vtk_output output("aggregate");
     Grid<n_cells> grid;
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
+        cells.copy_to_host();
         protrusions.copy_to_host();
 
-        grid.build(bolls, r_protrusion);
+        grid.build(cells, r_protrusion);
         update_protrusions<<<(protrusions.get_d_n() + 32 - 1) / 32, 32>>>(
-            grid.d_grid, bolls.d_X, protrusions.d_state, protrusions.d_link);
-        bolls.take_step<lb_force>(dt, intercalation);
+            grid.d_grid, cells.d_X, protrusions.d_state, protrusions.d_link);
+        cells.take_step<lb_force>(dt, intercalation);
 
-        output.write_positions(bolls);
+        output.write_positions(cells);
         output.write_links(protrusions);
-        output.write_polarity(bolls);
+        output.write_polarity(cells);
     }
 
     return 0;

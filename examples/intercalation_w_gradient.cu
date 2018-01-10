@@ -174,11 +174,11 @@ int main(int argc, char const* argv[])
 {
     // Load the initial conditions
     Vtk_input input("examples/sphere_ic.vtk");
-    int n_0 = input.n_bolls;
-    Solution<Cell, n_max, Grid_solver> bolls(n_0);
+    int n_0 = input.n_points;
+    Solution<Cell, n_max, Grid_solver> cells(n_0);
 
-    input.read_positions(bolls);
-    input.read_polarity(bolls);
+    input.read_positions(cells);
+    input.read_polarity(cells);
 
     Property<n_max, int> intype;
     input.read_property(intype, "cell_type");  // read as int, then
@@ -186,20 +186,20 @@ int main(int argc, char const* argv[])
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
 
     for (int i = 0; i < n_0; i++) {
-        bolls.h_X[i].w = 0.0f;
+        cells.h_X[i].w = 0.0f;
         if (intype.h_prop[i] == 0) {
             type.h_prop[i] = mesenchyme;
         } else if (intype.h_prop[i] == 1) {
             type.h_prop[i] = epithelium;
-            if (bolls.h_X[i].z > 0.0f) {
-                bolls.h_X[i].w = 1.0f;
-                if (bolls.h_X[i].x > 0.0f and abs(bolls.h_X[i].y) < 2.5f and
-                    bolls.h_X[i].z < 3.0f)
-                    bolls.h_X[i].f = 1.0f;
+            if (cells.h_X[i].z > 0.0f) {
+                cells.h_X[i].w = 1.0f;
+                if (cells.h_X[i].x > 0.0f and abs(cells.h_X[i].y) < 2.5f and
+                    cells.h_X[i].z < 3.0f)
+                    cells.h_X[i].f = 1.0f;
             }
         }
     }
-    bolls.copy_to_device();
+    cells.copy_to_device();
     type.copy_to_device();
 
     Property<n_max, int> n_mes_nbs("n_mes_nbs");
@@ -216,32 +216,32 @@ int main(int argc, char const* argv[])
 
     Vtk_output output("intercalation_w_gradient");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
+        cells.copy_to_host();
         protrusions.copy_to_host();
         type.copy_to_host();
 
         thrust::fill(thrust::device, n_mes_nbs.d_prop,
-            n_mes_nbs.d_prop + bolls.get_d_n(), 0);
+            n_mes_nbs.d_prop + cells.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop,
-            n_epi_nbs.d_prop + bolls.get_d_n(), 0);
+            n_epi_nbs.d_prop + cells.get_d_n(), 0);
 
-        protrusions.set_d_n(bolls.get_d_n() * prots_per_cell);
-        grid.build(bolls, r_protrusion);
+        protrusions.set_d_n(cells.get_d_n() * prots_per_cell);
+        grid.build(cells, r_protrusion);
         update_protrusions<<<(protrusions.get_d_n() + 32 - 1) / 32, 32>>>(
-            bolls.get_d_n(), grid.d_grid, bolls.d_X, protrusions.d_state,
+            cells.get_d_n(), grid.d_grid, cells.d_X, protrusions.d_state,
             protrusions.d_link);
 
-        bolls.take_step<force>(dt, intercalation);
+        cells.take_step<force>(dt, intercalation);
 
-        proliferate<<<(bolls.get_d_n() + 128 - 1) / 128, 128>>>(
-            mean_proliferation_rate, r_min, bolls.d_X, bolls.d_n,
+        proliferate<<<(cells.get_d_n() + 128 - 1) / 128, 128>>>(
+            mean_proliferation_rate, r_min, cells.d_X, cells.d_n,
             protrusions.d_state);
 
-        output.write_positions(bolls);
+        output.write_positions(cells);
         output.write_links(protrusions);
         output.write_property(type);
-        output.write_field(bolls);
-        output.write_field(bolls, "f", &Cell::f);
+        output.write_field(cells);
+        output.write_field(cells, "f", &Cell::f);
     }
 
     return 0;

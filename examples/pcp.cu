@@ -34,20 +34,20 @@ __device__ Po_cell pcp(Po_cell Xi, Po_cell r, float dist, int i, int j)
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Grid_solver> bolls;
+    Solution<Po_cell, n_cells, Grid_solver> cells;
     for (auto i = 0; i < n_cells; i++) {
-        bolls.h_X[i].theta = acos(2. * rand() / (RAND_MAX + 1.) - 1.);
-        bolls.h_X[i].phi = 2. * M_PI * rand() / (RAND_MAX + 1.);
+        cells.h_X[i].theta = acos(2. * rand() / (RAND_MAX + 1.) - 1.);
+        cells.h_X[i].phi = 2. * M_PI * rand() / (RAND_MAX + 1.);
     }
-    random_sphere(0.5, bolls);
+    random_sphere(0.5, cells);
 
     // Integrate cell positions
     Vtk_output output("pcp");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
-        bolls.take_step<pcp>(dt);
-        output.write_positions(bolls);
-        output.write_polarity(bolls);
+        cells.copy_to_host();
+        cells.take_step<pcp>(dt);
+        output.write_positions(cells);
+        output.write_polarity(cells);
     }
 
     return 0;

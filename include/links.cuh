@@ -1,4 +1,4 @@
-// Links between bolls, to simulate protrusions, ... Similar models have been
+// Links between points, to simulate protrusions, ... Similar models have been
 // used in https://dx.doi.org/doi:10.1073/pnas.97.19.10448 and
 // https://dx.doi.org/doi:10.1371/journal.pcbi.1004952
 #pragma once

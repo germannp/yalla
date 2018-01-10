@@ -277,7 +277,7 @@ int main(int argc, char const* argv[])
 
     // Load the initial conditions
     Vtk_input input(file_name);
-    int n0 = input.n_bolls;
+    int n0 = input.n_points;
     Solution<Cell, n_max, Grid_solver> limb(n0);
 
     input.read_positions(limb);
@@ -307,7 +307,7 @@ int main(int argc, char const* argv[])
     limb.copy_to_device();
     type.copy_to_device();
 
-    std::cout << "initial nbolls " << n0 << " nmax " << n_max << std::endl;
+    std::cout << "initial ncells " << n0 << " nmax " << n_max << std::endl;
 
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));

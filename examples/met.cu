@@ -34,27 +34,27 @@ __device__ Po_cell rigid_relu_force(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Grid_solver> bolls;
-    relaxed_sphere(0.8, bolls);
+    Solution<Po_cell, n_cells, Grid_solver> cells;
+    relaxed_sphere(0.8, cells);
     for (auto i = 0; i < n_cells; i++) {
-        auto dist = sqrtf(bolls.h_X[i].x * bolls.h_X[i].x +
-                          bolls.h_X[i].y * bolls.h_X[i].y +
-                          bolls.h_X[i].z * bolls.h_X[i].z);
-        bolls.h_X[i].theta =
-            acosf(bolls.h_X[i].z / dist) + rand() / (RAND_MAX + 1.) * 0.5;
-        bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x) +
+        auto dist = sqrtf(cells.h_X[i].x * cells.h_X[i].x +
+                          cells.h_X[i].y * cells.h_X[i].y +
+                          cells.h_X[i].z * cells.h_X[i].z);
+        cells.h_X[i].theta =
+            acosf(cells.h_X[i].z / dist) + rand() / (RAND_MAX + 1.) * 0.5;
+        cells.h_X[i].phi = atan2(cells.h_X[i].y, cells.h_X[i].x) +
                            rand() / (RAND_MAX + 1.) * 0.5;
     }
-    bolls.copy_to_device();
+    cells.copy_to_device();
 
     // Integrate cell positions
     Vtk_output output("epithelium");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
-        bolls.take_step<rigid_relu_force, friction_on_background>(dt);
-        output.write_positions(bolls);
-        output.write_polarity(bolls);
-        output.write_field(bolls, "z", &Po_cell::z);  // For visualization
+        cells.copy_to_host();
+        cells.take_step<rigid_relu_force, friction_on_background>(dt);
+        output.write_positions(cells);
+        output.write_polarity(cells);
+        output.write_field(cells, "z", &Po_cell::z);  // For visualization
     }
 
     return 0;

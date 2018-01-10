@@ -169,45 +169,45 @@ __global__ void proliferate(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Lb_cell, n_max, Grid_solver> bolls(n_0);
-    random_disk(r_max / 2, bolls);
+    Solution<Lb_cell, n_max, Grid_solver> cells(n_0);
+    random_disk(r_max / 2, cells);
     Property<n_max, Cell_types> type;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     for (auto i = 0; i < n_0 / 2; i++) {
         type.h_prop[i] = mesoderm;
-        bolls.h_X[i].y /= 1.5;
-        bolls.h_X[i].theta = -M_PI / 2;
+        cells.h_X[i].y /= 1.5;
+        cells.h_X[i].theta = -M_PI / 2;
         type.h_prop[i + n_0 / 2] = ectoderm;
-        bolls.h_X[i + n_0 / 2].x += mean_distance / 2;
-        bolls.h_X[i + n_0 / 2].w = 1;
-        bolls.h_X[i + n_0 / 2].y /= 1.5;
-        bolls.h_X[i + n_0 / 2].theta = M_PI / 2;
+        cells.h_X[i + n_0 / 2].x += mean_distance / 2;
+        cells.h_X[i + n_0 / 2].w = 1;
+        cells.h_X[i + n_0 / 2].y /= 1.5;
+        cells.h_X[i + n_0 / 2].theta = M_PI / 2;
     }
-    bolls.copy_to_device();
+    cells.copy_to_device();
     type.copy_to_device();
     Property<n_max, int> n_mes_nbs;
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     Property<n_max, int> n_epi_nbs;
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
-    for (auto i = 0; i < 100; i++) bolls.take_step<lb_force>(dt);
-    bolls.copy_to_host();
+    for (auto i = 0; i < 100; i++) cells.take_step<lb_force>(dt);
+    cells.copy_to_host();
     for (auto i = n_0 / 2; i < n_0; i++) {
-        if ((fabs(bolls.h_X[i].y) < 0.5) and (fabs(bolls.h_X[i].z) < 4)) {
-            bolls.h_X[i].f = 1;
+        if ((fabs(cells.h_X[i].y) < 0.5) and (fabs(cells.h_X[i].z) < 4)) {
+            cells.h_X[i].f = 1;
             type.h_prop[i] = aer;
         }
     }
-    *bolls.h_n += 100;
-    random_disk(mean_distance * 1.5, bolls, n_0);
-    for (auto i = n_0; i < *bolls.h_n; i++) {
-        bolls.h_X[i].x = 0.1;
-        bolls.h_X[i].y /= 2.5;
+    *cells.h_n += 100;
+    random_disk(mean_distance * 1.5, cells, n_0);
+    for (auto i = n_0; i < *cells.h_n; i++) {
+        cells.h_X[i].x = 0.1;
+        cells.h_X[i].y /= 2.5;
         type.h_prop[i] = mesenchyme;
     }
     Property<n_max, int> clone("clone");
     cudaMemcpyToSymbol(d_clone, &clone.d_prop, sizeof(d_clone));
-    for (auto i = 0; i < *bolls.h_n; i++) clone.h_prop[i] = i;
-    bolls.copy_to_device();
+    for (auto i = 0; i < *cells.h_n; i++) clone.h_prop[i] = i;
+    cells.copy_to_device();
     type.copy_to_device();
     clone.copy_to_device();
     Links<n_max * prots_per_cell> protrusions(0.1, n_0 * prots_per_cell);
@@ -219,31 +219,31 @@ int main(int argc, const char* argv[])
     // Proliferate
     Vtk_output output("initialization");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
+        cells.copy_to_host();
         type.copy_to_host();
         clone.copy_to_host();
         protrusions.copy_to_host();
 
-        proliferate<<<(bolls.get_d_n() + 128 - 1) / 128, 128>>>(
-            bolls.get_d_n(), bolls.d_X, bolls.d_n, protrusions.d_state);
-        protrusions.set_d_n(bolls.get_d_n() * prots_per_cell);
-        grid.build(bolls, r_protrusion);
+        proliferate<<<(cells.get_d_n() + 128 - 1) / 128, 128>>>(
+            cells.get_d_n(), cells.d_X, cells.d_n, protrusions.d_state);
+        protrusions.set_d_n(cells.get_d_n() * prots_per_cell);
+        grid.build(cells, r_protrusion);
         update_protrusions<<<(protrusions.get_d_n() + 32 - 1) / 32, 32>>>(
-            bolls.get_d_n(), grid.d_grid, bolls.d_X, protrusions.d_state,
+            cells.get_d_n(), grid.d_grid, cells.d_X, protrusions.d_state,
             protrusions.d_link);
         thrust::fill(thrust::device, n_mes_nbs.d_prop,
-            n_mes_nbs.d_prop + bolls.get_d_n(), 0);
+            n_mes_nbs.d_prop + cells.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop,
-            n_epi_nbs.d_prop + bolls.get_d_n(), 0);
-        bolls.take_step<lb_force>(dt, intercalation);
+            n_epi_nbs.d_prop + cells.get_d_n(), 0);
+        cells.take_step<lb_force>(dt, intercalation);
 
-        output.write_positions(bolls);
+        output.write_positions(cells);
         output.write_links(protrusions);
         output.write_property(type);
         output.write_property(clone);
-        // output.write_polarity(bolls);
-        output.write_field(bolls, "Wnt");
-        output.write_field(bolls, "Fgf", &Lb_cell::f);
+        // output.write_polarity(cells);
+        output.write_field(cells, "Wnt");
+        output.write_field(cells, "Fgf", &Lb_cell::f);
     }
 
     return 0;

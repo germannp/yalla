@@ -34,32 +34,32 @@ __device__ Po_cell rigid_relu_force(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Tile_solver> bolls;
-    regular_hexagon(0.75, bolls);
+    Solution<Po_cell, n_cells, Tile_solver> cells;
+    regular_hexagon(0.75, cells);
     auto radius = 1.6;
     for (auto i = 0; i < n_cells; i++) {
         // Rotate by π/6 to reduce negative curvature from tips
-        auto x = bolls.h_X[i].x;
-        auto y = bolls.h_X[i].y;
-        bolls.h_X[i].x = cos(M_PI / 6) * x - sin(M_PI / 6) * y;
-        bolls.h_X[i].y = sin(M_PI / 6) * x + cos(M_PI / 6) * y;
+        auto x = cells.h_X[i].x;
+        auto y = cells.h_X[i].y;
+        cells.h_X[i].x = cos(M_PI / 6) * x - sin(M_PI / 6) * y;
+        cells.h_X[i].y = sin(M_PI / 6) * x + cos(M_PI / 6) * y;
 
         // Wrap around cylinder
-        auto phi = bolls.h_X[i].x / radius;
+        auto phi = cells.h_X[i].x / radius;
         if (phi == 0) phi = 0.01;
-        bolls.h_X[i].x = radius * sin(phi);
-        bolls.h_X[i].z = radius * cos(phi);
-        bolls.h_X[i].theta = phi;
+        cells.h_X[i].x = radius * sin(phi);
+        cells.h_X[i].z = radius * cos(phi);
+        cells.h_X[i].theta = phi;
     }
-    bolls.copy_to_device();
+    cells.copy_to_device();
 
     // Integrate cell positions
     Vtk_output output("epithelium");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
-        bolls.take_step<rigid_relu_force>(dt);
-        output.write_positions(bolls);
-        output.write_polarity(bolls);
+        cells.copy_to_host();
+        cells.take_step<rigid_relu_force>(dt);
+        output.write_positions(cells);
+        output.write_polarity(cells);
     }
 
     return 0;

@@ -66,18 +66,18 @@ const char* test_transformations()
 
 const char* test_exclusion()
 {
-    const auto n_bolls = 1500;
-    Solution<float3, n_bolls, Grid_solver> bolls;
-    random_cuboid(0.25, float3{-1.5, -1.5, -0.5}, float3{1.5, 1.5, 0.5}, bolls);
+    const auto n_points = 1500;
+    Solution<float3, n_points, Grid_solver> points;
+    random_cuboid(0.25, float3{-1.5, -1.5, -0.5}, float3{1.5, 1.5, 0.5}, points);
 
     Meix meix("tests/torus.vtk");
-    for (auto i = 0; i < n_bolls; i++) {
+    for (auto i = 0; i < n_points; i++) {
         auto dist_from_ring = sqrt(
-            pow(1 - sqrt(pow(bolls.h_X[i].x, 2) + pow(bolls.h_X[i].y, 2)), 2) +
-            pow(bolls.h_X[i].z, 2));
+            pow(1 - sqrt(pow(points.h_X[i].x, 2) + pow(points.h_X[i].y, 2)), 2) +
+            pow(points.h_X[i].z, 2));
         if (abs(dist_from_ring - 0.5) < 0.01) continue;  // Tolerance for mesh
 
-        auto out = meix.test_exclusion(bolls.h_X[i]);
+        auto out = meix.test_exclusion(points.h_X[i]);
         MU_ASSERT("Exclusion test wrong", (dist_from_ring >= 0.5) == out);
     }
 
@@ -89,21 +89,21 @@ const char* test_shape_comparison()
 {
     Meix meix("tests/torus.vtk");
     meix.copy_to_device();
-    Solution<float3, 987, Grid_solver> bolls;
+    Solution<float3, 987, Grid_solver> points;
     for (auto i = 0; i < 987; i++) {
-        bolls.h_X[i].x = meix.vertices[i].x;
-        bolls.h_X[i].y = meix.vertices[i].y;
-        bolls.h_X[i].z = meix.vertices[i].z;
+        points.h_X[i].x = meix.vertices[i].x;
+        points.h_X[i].y = meix.vertices[i].y;
+        points.h_X[i].z = meix.vertices[i].z;
     }
-    bolls.copy_to_device();
+    points.copy_to_device();
 
     MU_ASSERT("Shape comparison wrong",
-        isclose(meix.shape_comparison_distance_meix_to_bolls(bolls), 0.0));
+        isclose(meix.shape_comparison_distance_meix_to_points(points), 0.0));
 
     meix.grow_normally(0.1);
     meix.copy_to_device();
     MU_ASSERT("Grown shape comparison wrong",
-        isclose(meix.shape_comparison_distance_meix_to_bolls(bolls), 0.1));
+        isclose(meix.shape_comparison_distance_meix_to_points(points), 0.1));
 
     return NULL;
 }

@@ -295,23 +295,23 @@ const char* test_grid_spacing()
     const auto n_y = 7;
     const auto n_z = 7;
 
-    Solution<float3, n_x * n_y * n_z, Grid_solver> bolls;
+    Solution<float3, n_x * n_y * n_z, Grid_solver> points;
     for (auto i = 0; i < n_z; i++) {
         for (auto j = 0; j < n_y; j++) {
             for (auto k = 0; k < n_x; k++) {
-                bolls.h_X[n_x * n_y * i + n_x * j + k].x = k + 0.5;
-                bolls.h_X[n_x * n_y * i + n_x * j + k].y = j + 0.5;
-                bolls.h_X[n_x * n_y * i + n_x * j + k].z = i + 0.5;
+                points.h_X[n_x * n_y * i + n_x * j + k].x = k + 0.5;
+                points.h_X[n_x * n_y * i + n_x * j + k].y = j + 0.5;
+                points.h_X[n_x * n_y * i + n_x * j + k].z = i + 0.5;
             }
         }
     }
-    bolls.copy_to_device();
+    points.copy_to_device();
 
     Grid<n_x * n_y * n_z> grid;
-    grid.build(bolls, 1);
+    grid.build(points, 1);
     single_grid<<<1, dim3{n_x, n_y, n_z}>>>(grid.d_grid);
 
-    grid.build(bolls, 2);
+    grid.build(points, 2);
     double_grid<<<1, dim3{n_x, n_y, n_z}>>>(grid.d_grid);
     cudaDeviceSynchronize();  // Wait for device to exit
 

@@ -34,28 +34,28 @@ __device__ Po_cell pcp_force(Po_cell Xi, Po_cell r, float dist, int i, int j)
 
 const char* test_pcp()
 {
-    Solution<Po_cell, 2, Tile_solver> bolls;
+    Solution<Po_cell, 2, Tile_solver> points;
 
     // Turn in theta and phi, close to z-axis to test transformation
     Polarity p_i{M_PI / 2 + M_PI / 4 + 0.01, 0.5};
     Polarity p_f{M_PI / 2 + M_PI / 4 + 0.01, M_PI};
     auto arc_if = acosf(pol_dot_product(p_i, p_f));
 
-    bolls.h_X[0].theta = p_i.theta;
-    bolls.h_X[0].phi = p_i.phi;
-    bolls.h_X[1].theta = p_f.theta;
-    bolls.h_X[1].phi = p_f.phi;
-    bolls.copy_to_device();
+    points.h_X[0].theta = p_i.theta;
+    points.h_X[0].phi = p_i.phi;
+    points.h_X[1].theta = p_f.theta;
+    points.h_X[1].phi = p_f.phi;
+    points.copy_to_device();
 
     for (auto i = 0; i < 5000; i++) {
-        bolls.copy_to_host();
-        bolls.take_step<pcp_force>(0.01);
-        auto arc_i0 = acosf(pol_dot_product(p_i, bolls.h_X[0]));
-        auto arc_0f = acosf(pol_dot_product(bolls.h_X[0], p_f));
+        points.copy_to_host();
+        points.take_step<pcp_force>(0.01);
+        auto arc_i0 = acosf(pol_dot_product(p_i, points.h_X[0]));
+        auto arc_0f = acosf(pol_dot_product(points.h_X[0], p_f));
         MU_ASSERT("PCP off great circle", isclose(arc_i0 + arc_0f, arc_if));
     }
 
-    auto prod = pol_dot_product(bolls.h_X[0], bolls.h_X[1]);
+    auto prod = pol_dot_product(points.h_X[0], points.h_X[1]);
     MU_ASSERT("PCP not aligned", isclose(fabs(prod), 1));
 
     return NULL;
@@ -100,33 +100,33 @@ __device__ Po_cell rigid_cubic_force(
 
 const char* test_line_of_four()
 {
-    Solution<Po_cell, 4, Tile_solver> bolls;
+    Solution<Po_cell, 4, Tile_solver> points;
 
     for (auto i = 0; i < 4; i++) {
-        bolls.h_X[i].x = 0.733333 * cosf((i - 0.5) * M_PI / 3);
-        bolls.h_X[i].y = 0.733333 * sinf((i - 0.5) * M_PI / 3);
-        bolls.h_X[i].z = 0;
-        bolls.h_X[i].theta = M_PI / 2;
-        bolls.h_X[i].phi = (i - 0.5) * M_PI / 3;
+        points.h_X[i].x = 0.733333 * cosf((i - 0.5) * M_PI / 3);
+        points.h_X[i].y = 0.733333 * sinf((i - 0.5) * M_PI / 3);
+        points.h_X[i].z = 0;
+        points.h_X[i].theta = M_PI / 2;
+        points.h_X[i].phi = (i - 0.5) * M_PI / 3;
     }
-    bolls.copy_to_device();
-    auto com_i = center_of_mass(bolls);
+    points.copy_to_device();
+    auto com_i = center_of_mass(points);
     for (auto i = 0; i < 500; i++) {
-        bolls.take_step<rigid_cubic_force>(0.5);
+        points.take_step<rigid_cubic_force>(0.5);
     }
 
-    bolls.copy_to_host();
+    points.copy_to_host();
     for (auto i = 1; i < 4; i++) {
-        auto prod = pol_dot_product(bolls.h_X[0], bolls.h_X[i]);
+        auto prod = pol_dot_product(points.h_X[0], points.h_X[i]);
         MU_ASSERT("Epithelial polarity not aligned", isclose(prod, 1));
     }
 
-    float3 r_01{bolls.h_X[1].x - bolls.h_X[0].x,
-        bolls.h_X[1].y - bolls.h_X[0].y, bolls.h_X[1].z - bolls.h_X[0].z};
-    float3 r_12{bolls.h_X[2].x - bolls.h_X[1].x,
-        bolls.h_X[2].y - bolls.h_X[1].y, bolls.h_X[2].z - bolls.h_X[1].z};
-    float3 r_23{bolls.h_X[3].x - bolls.h_X[2].x,
-        bolls.h_X[3].y - bolls.h_X[2].y, bolls.h_X[3].z - bolls.h_X[2].z};
+    float3 r_01{points.h_X[1].x - points.h_X[0].x,
+        points.h_X[1].y - points.h_X[0].y, points.h_X[1].z - points.h_X[0].z};
+    float3 r_12{points.h_X[2].x - points.h_X[1].x,
+        points.h_X[2].y - points.h_X[1].y, points.h_X[2].z - points.h_X[1].z};
+    float3 r_23{points.h_X[3].x - points.h_X[2].x,
+        points.h_X[3].y - points.h_X[2].y, points.h_X[3].z - points.h_X[2].z};
     MU_ASSERT("Cells not on line in x", isclose(r_01.x, r_12.x));
     MU_ASSERT("Cells not on line in x", isclose(r_12.x, r_23.x));
     MU_ASSERT("Cells not on line in y", isclose(r_01.y, r_12.y));
@@ -134,7 +134,7 @@ const char* test_line_of_four()
     MU_ASSERT("Cells not on line in z", isclose(r_01.z, r_12.z));
     MU_ASSERT("Cells not on line in z", isclose(r_12.z, r_23.z));
 
-    auto com_f = center_of_mass(bolls);
+    auto com_f = center_of_mass(points);
     MU_ASSERT("Momentum in line in x", isclose(com_i.x, com_f.x));
     MU_ASSERT("Momentum in line in y", isclose(com_i.y, com_f.y));
     MU_ASSERT("Momentum in line in z", isclose(com_i.z, com_f.z));

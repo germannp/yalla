@@ -18,7 +18,7 @@ template<typename Pt>
 using Pairwise_interaction = Pt(Pt Xi, Pt r, float dist, int i, int j);
 
 // Similarly, a pairwise friction coefficient can be specified, see
-// http://dx.doi.org/10.1007/s10237-014-0613-5. By default bolls closer
+// http://dx.doi.org/10.1007/s10237-014-0613-5. By default points closer
 // than 1 exert friction on each other.
 template<typename Pt>
 using Pairwise_friction = float(Pt Xi, Pt r, float dist, int i, int j);
@@ -286,8 +286,8 @@ using Tile_solver = Heun_solver<Pt, n_max, Tile_computer>;
 
 
 // Compute pairwise interactions and frictions with sorting based grid ONLY for
-// bolls closer than CUBE_SIZE. Scales linearly in n, faster with maybe 7k
-// bolls. After http://developer.download.nvidia.com/compute/cuda/1.1-Beta/
+// points closer than CUBE_SIZE. Scales linearly in n, faster with maybe 7k
+// points. After http://developer.download.nvidia.com/compute/cuda/1.1-Beta/
 // x86_website/projects/particles/doc/particles.pdf
 const auto CUBE_SIZE = 1.f;
 const auto GRID_SIZE = 50;
@@ -353,12 +353,12 @@ public:
     }
     template<typename Pt, int n_max_solution,
         template<typename, int> class Solver>
-    void build(Solution<Pt, n_max_solution, Solver>& bolls,
+    void build(Solution<Pt, n_max_solution, Solver>& points,
         const float cube_size = CUBE_SIZE)
     {
-        auto n = bolls.get_d_n();
+        auto n = points.get_d_n();
         assert(n <= n_max);
-        build(n, bolls.d_X, cube_size);
+        build(n, points.d_X, cube_size);
     }
 };
 

@@ -142,14 +142,14 @@ __global__ void proliferate(
 int main(int argc, const char* argv[])
 {
     // Initial state
-    Solution<Cell, n_max, Grid_solver> bolls(n_0);
-    relaxed_sphere(0.75, bolls);
+    Solution<Cell, n_max, Grid_solver> cells(n_0);
+    relaxed_sphere(0.75, cells);
     Property<n_max, Cell_types> type("type");
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     for (auto i = 0; i < n_0; i++) {
         type.h_prop[i] = mesenchyme;
     }
-    bolls.copy_to_device();
+    cells.copy_to_device();
     type.copy_to_device();
     Property<n_max, int> n_mes_nbs("n_mes_nbs");
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
@@ -163,47 +163,47 @@ int main(int argc, const char* argv[])
 
     // Find epithelium
     thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
-    bolls.take_step<epi_turing_mes_noturing>(0);
-    bolls.copy_to_host();
+    cells.take_step<epi_turing_mes_noturing>(0);
+    cells.copy_to_host();
     n_mes_nbs.copy_to_host();
     for (auto i = 0; i < n_0; i++) {
         if (n_mes_nbs.h_prop[i] < 20) {
             type.h_prop[i] = epithelium;
-            auto dist = sqrtf(bolls.h_X[i].x * bolls.h_X[i].x +
-                              bolls.h_X[i].y * bolls.h_X[i].y +
-                              bolls.h_X[i].z * bolls.h_X[i].z);
-            bolls.h_X[i].theta = acosf(bolls.h_X[i].z / dist);
-            bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x);
+            auto dist = sqrtf(cells.h_X[i].x * cells.h_X[i].x +
+                              cells.h_X[i].y * cells.h_X[i].y +
+                              cells.h_X[i].z * cells.h_X[i].z);
+            cells.h_X[i].theta = acosf(cells.h_X[i].z / dist);
+            cells.h_X[i].phi = atan2(cells.h_X[i].y, cells.h_X[i].x);
 
-            bolls.h_X[i].u = rand() / (RAND_MAX + 1.) / 5 - 0.1;
-            bolls.h_X[i].v = rand() / (RAND_MAX + 1.) / 5 - 0.1;
+            cells.h_X[i].u = rand() / (RAND_MAX + 1.) / 5 - 0.1;
+            cells.h_X[i].v = rand() / (RAND_MAX + 1.) / 5 - 0.1;
         }
     }
-    bolls.copy_to_device();
+    cells.copy_to_device();
     type.copy_to_device();
 
     // Integrate positions
     Vtk_output output("branching");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
+        cells.copy_to_host();
         type.copy_to_host();
 
         std::thread calculation([&] {
             for (auto i = 0; i <= skip_steps; i++) {
-                proliferate<<<(bolls.get_d_n() + 128 - 1) / 128, 128>>>(
-                    0.75, bolls.d_X, bolls.d_n, d_state);
+                proliferate<<<(cells.get_d_n() + 128 - 1) / 128, 128>>>(
+                    0.75, cells.d_X, cells.d_n, d_state);
                 thrust::fill(thrust::device, n_mes_nbs.d_prop,
-                    n_mes_nbs.d_prop + bolls.get_d_n(), 0);
+                    n_mes_nbs.d_prop + cells.get_d_n(), 0);
                 thrust::fill(thrust::device, n_epi_nbs.d_prop,
-                    n_epi_nbs.d_prop + bolls.get_d_n(), 0);
-                bolls.take_step<epi_turing_mes_noturing>(dt);
+                    n_epi_nbs.d_prop + cells.get_d_n(), 0);
+                cells.take_step<epi_turing_mes_noturing>(dt);
             }
         });
 
-        output.write_positions(bolls);
-        output.write_polarity(bolls);
-        output.write_field(bolls, "u", &Cell::u);
-        output.write_field(bolls, "v", &Cell::v);
+        output.write_positions(cells);
+        output.write_polarity(cells);
+        output.write_field(cells, "u", &Cell::u);
+        output.write_field(cells, "v", &Cell::v);
         output.write_property(type);
 
         calculation.join();

@@ -160,16 +160,16 @@ __global__ void proliferate(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Lb_cell, n_max, Grid_solver> bolls(n_0);
-    random_sphere(0.733333, bolls);
+    Solution<Lb_cell, n_max, Grid_solver> cells(n_0);
+    random_sphere(0.733333, cells);
     Property<n_max, Cell_types> type;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     for (auto i = 0; i < n_0; i++) {
-        bolls.h_X[i].x = fabs(bolls.h_X[i].x);
-        bolls.h_X[i].y = bolls.h_X[i].y / 1.5;
+        cells.h_X[i].x = fabs(cells.h_X[i].x);
+        cells.h_X[i].y = cells.h_X[i].y / 1.5;
         type.h_prop[i] = mesenchyme;
     }
-    bolls.copy_to_device();
+    cells.copy_to_device();
     type.copy_to_device();
     Property<n_max, int> n_mes_nbs;
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
@@ -184,75 +184,75 @@ int main(int argc, const char* argv[])
     // Relax
     Grid<n_max> grid;
     for (auto time_step = 0; time_step <= 100; time_step++) {
-        grid.build(bolls, r_protrusion);
+        grid.build(cells, r_protrusion);
         update_protrusions<<<(protrusions.get_d_n() + 32 - 1) / 32, 32>>>(
-            bolls.get_d_n(), grid.d_grid, bolls.d_X, protrusions.d_state,
+            cells.get_d_n(), grid.d_grid, cells.d_X, protrusions.d_state,
             protrusions.d_link);
         thrust::fill(
             thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
-        bolls.take_step<lb_force>(dt, intercalation);
+        cells.take_step<lb_force>(dt, intercalation);
     }
 
     // Find epithelium
-    bolls.copy_to_host();
+    cells.copy_to_host();
     n_mes_nbs.copy_to_host();
     for (auto i = 0; i < n_0; i++) {
         if (n_mes_nbs.h_prop[i] < 16 * 2 and
-            bolls.h_X[i].x > 0) {  // *2 for 2nd order solver
-            bolls.h_X[i].w = 1;
-            if (fabs(bolls.h_X[i].y) < 0.75 and bolls.h_X[i].x > 5) {
+            cells.h_X[i].x > 0) {  // *2 for 2nd order solver
+            cells.h_X[i].w = 1;
+            if (fabs(cells.h_X[i].y) < 0.75 and cells.h_X[i].x > 5) {
                 type.h_prop[i] = aer;
-                bolls.h_X[i].f = 1;
+                cells.h_X[i].f = 1;
             } else {
                 type.h_prop[i] = epithelium;
             }
-            auto dist = sqrtf(bolls.h_X[i].x * bolls.h_X[i].x +
-                              bolls.h_X[i].y * bolls.h_X[i].y +
-                              bolls.h_X[i].z * bolls.h_X[i].z);
-            bolls.h_X[i].theta = acosf(bolls.h_X[i].z / dist);
-            bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x);
+            auto dist = sqrtf(cells.h_X[i].x * cells.h_X[i].x +
+                              cells.h_X[i].y * cells.h_X[i].y +
+                              cells.h_X[i].z * cells.h_X[i].z);
+            cells.h_X[i].theta = acosf(cells.h_X[i].z / dist);
+            cells.h_X[i].phi = atan2(cells.h_X[i].y, cells.h_X[i].x);
         }
     }
-    bolls.copy_to_device();
+    cells.copy_to_device();
     type.copy_to_device();
     protrusions.reset([&](int a, int b) {
         return ((type.h_prop[a] > mesenchyme) or (type.h_prop[b] > mesenchyme));
     });
     for (auto time_step = 0; time_step <= 50; time_step++)
-        bolls.take_step<lb_force>(
+        cells.take_step<lb_force>(
             dt, intercalation);  // Relax epithelium before proliferate
 
     // Simulate diffusion & intercalation
     Vtk_output output("elongation");
     for (auto time_step = 0; time_step <= n_time_steps / (skip_steps + 1);
          time_step++) {
-        bolls.copy_to_host();
+        cells.copy_to_host();
         protrusions.copy_to_host();
         type.copy_to_host();
 
         std::thread calculation([&] {
             for (auto i = 0; i <= skip_steps; i++) {
-                proliferate<<<(bolls.get_d_n() + 128 - 1) / 128, 128>>>(
-                    0.733333, bolls.d_X, bolls.d_n, protrusions.d_state);
-                protrusions.set_d_n(bolls.get_d_n() * prots_per_cell);
-                grid.build(bolls, r_protrusion);
+                proliferate<<<(cells.get_d_n() + 128 - 1) / 128, 128>>>(
+                    0.733333, cells.d_X, cells.d_n, protrusions.d_state);
+                protrusions.set_d_n(cells.get_d_n() * prots_per_cell);
+                grid.build(cells, r_protrusion);
                 update_protrusions<<<(protrusions.get_d_n() + 32 - 1) / 32,
-                    32>>>(bolls.get_d_n(), grid.d_grid, bolls.d_X,
+                    32>>>(cells.get_d_n(), grid.d_grid, cells.d_X,
                     protrusions.d_state, protrusions.d_link);
                 thrust::fill(thrust::device, n_mes_nbs.d_prop,
-                    n_mes_nbs.d_prop + bolls.get_d_n(), 0);
+                    n_mes_nbs.d_prop + cells.get_d_n(), 0);
                 thrust::fill(thrust::device, n_epi_nbs.d_prop,
-                    n_epi_nbs.d_prop + bolls.get_d_n(), 0);
-                bolls.take_step<lb_force>(dt, intercalation);
+                    n_epi_nbs.d_prop + cells.get_d_n(), 0);
+                cells.take_step<lb_force>(dt, intercalation);
             }
         });
 
-        output.write_positions(bolls);
+        output.write_positions(cells);
         output.write_links(protrusions);
         output.write_property(type);
-        // output.write_polarity(bolls);
-        output.write_field(bolls, "Wnt");
-        output.write_field(bolls, "Fgf", &Lb_cell::f);
+        // output.write_polarity(cells);
+        output.write_field(cells, "Wnt");
+        output.write_field(cells, "Fgf", &Lb_cell::f);
 
         calculation.join();
     }

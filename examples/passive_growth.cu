@@ -91,8 +91,8 @@ __global__ void proliferate(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell, n_max, Grid_solver> bolls(n_0);
-    relaxed_sphere(mean_dist, bolls);
+    Solution<Po_cell, n_max, Grid_solver> cells(n_0);
+    relaxed_sphere(mean_dist, cells);
     Property<n_max, Cell_types> type;
     for (auto i = 0; i < n_0; i++) type.h_prop[i] = mesenchyme;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
@@ -108,41 +108,41 @@ int main(int argc, const char* argv[])
 
     // Find epithelium
     thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_0, 0);
-    bolls.take_step<relu_w_epithelium>(dt);
-    bolls.copy_to_host();
+    cells.take_step<relu_w_epithelium>(dt);
+    cells.copy_to_host();
     n_mes_nbs.copy_to_host();
     for (auto i = 0; i < n_0; i++) {
         if (n_mes_nbs.h_prop[i] < 12 * 2) {  // *2 for 2nd order solver
             type.h_prop[i] = epithelium;
-            auto dist = sqrtf(bolls.h_X[i].x * bolls.h_X[i].x +
-                              bolls.h_X[i].y * bolls.h_X[i].y +
-                              bolls.h_X[i].z * bolls.h_X[i].z);
-            bolls.h_X[i].theta = acosf(bolls.h_X[i].z / dist);
-            bolls.h_X[i].phi = atan2(bolls.h_X[i].y, bolls.h_X[i].x);
+            auto dist = sqrtf(cells.h_X[i].x * cells.h_X[i].x +
+                              cells.h_X[i].y * cells.h_X[i].y +
+                              cells.h_X[i].z * cells.h_X[i].z);
+            cells.h_X[i].theta = acosf(cells.h_X[i].z / dist);
+            cells.h_X[i].phi = atan2(cells.h_X[i].y, cells.h_X[i].x);
         } else {
-            bolls.h_X[i].theta = 0;
-            bolls.h_X[i].phi = 0;
+            cells.h_X[i].theta = 0;
+            cells.h_X[i].phi = 0;
         }
     }
-    bolls.copy_to_device();
+    cells.copy_to_device();
     type.copy_to_device();
 
     // Simulate growth
     Vtk_output sim_output("passive_growth");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
+        cells.copy_to_host();
         type.copy_to_host();
         thrust::fill(thrust::device, n_mes_nbs.d_prop,
-            n_mes_nbs.d_prop + bolls.get_d_n(), 0);
+            n_mes_nbs.d_prop + cells.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop,
-            n_epi_nbs.d_prop + bolls.get_d_n(), 0);
-        bolls.take_step<relu_w_epithelium>(dt);
-        proliferate<<<(bolls.get_d_n() + 128 - 1) / 128, 128>>>(
-            prolif_rate * (time_step > 100), bolls.get_d_n(), d_state,
-            bolls.d_X, bolls.d_n);
-        sim_output.write_positions(bolls);
+            n_epi_nbs.d_prop + cells.get_d_n(), 0);
+        cells.take_step<relu_w_epithelium>(dt);
+        proliferate<<<(cells.get_d_n() + 128 - 1) / 128, 128>>>(
+            prolif_rate * (time_step > 100), cells.get_d_n(), d_state,
+            cells.d_X, cells.d_n);
+        sim_output.write_positions(cells);
         sim_output.write_property(type);
-        sim_output.write_polarity(bolls);
+        sim_output.write_polarity(cells);
     }
 
     return 0;
