@@ -24,14 +24,14 @@ __device__ float3 spring(float3 Xi, float3 r, float dist, int i, int j)
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<float3, n_bodies, Tile_solver> bodies;
+    Solution<float3, Tile_solver> bodies{n_bodies};
     random_sphere(L_0, bodies);
 
     // Integrate positions
-    Vtk_output output("springs");  // Writes to output/springs_###.vtk
+    Vtk_output output{"springs"};  // Writes to output/springs_###.vtk
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bodies.copy_to_host();
-        bodies.take_step<spring>(dt);    // Ordering to write during calculation,
+        bodies.take_step<spring>(dt);    // Ordered to write during calculation,
         output.write_positions(bodies);  // use thread for full concurency.
     }
 

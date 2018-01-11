@@ -7,13 +7,13 @@
 #include <random>
 
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
+template<typename Pt, template<typename> class Solver>
 class Solution;
 
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
+template<typename Pt, template<typename> class Solver>
 void random_disk(
-    float dist_to_nb, Solution<Pt, n_max, Solver>& points, unsigned int n_0 = 0)
+    float dist_to_nb, Solution<Pt, Solver>& points, unsigned int n_0 = 0)
 {
     assert(n_0 < *points.h_n);
     std::random_device rd;
@@ -30,9 +30,9 @@ void random_disk(
     points.copy_to_device();
 }
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
+template<typename Pt, template<typename> class Solver>
 void random_sphere(
-    float dist_to_nb, Solution<Pt, n_max, Solver>& points, unsigned int n_0 = 0)
+    float dist_to_nb, Solution<Pt, Solver>& points, unsigned int n_0 = 0)
 {
     assert(n_0 < *points.h_n);
     std::random_device rd;
@@ -50,9 +50,9 @@ void random_sphere(
     points.copy_to_device();
 }
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
+template<typename Pt, template<typename> class Solver>
 void random_cuboid(float dist_to_nb, float3 minimum, float3 maximum,
-    Solution<Pt, n_max, Solver>& points, unsigned int n_0 = 0)
+    Solution<Pt, Solver>& points, unsigned int n_0 = 0)
 {
     assert(n_0 < *points.h_n);
 
@@ -61,7 +61,7 @@ void random_cuboid(float dist_to_nb, float3 minimum, float3 maximum,
     auto boll_volume = 4. / 3 * M_PI * pow(dist_to_nb / 2, 3);
     auto n = cube_volume / boll_volume * 0.64;  // Sphere packing
 
-    assert(n_0 + n < n_max);
+    assert(n_0 + n < *points.h_n);
     *points.h_n = n_0 + n;
 
     std::random_device rd;
@@ -92,9 +92,9 @@ __device__ Pt relu_force(Pt Xi, Pt r, float dist, int i, int j)
     return dF;
 }
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
+template<typename Pt, template<typename> class Solver>
 void relaxed_sphere(
-    float dist_to_nb, Solution<Pt, n_max, Solver>& points, unsigned int n_0 = 0)
+    float dist_to_nb, Solution<Pt, Solver>& points, unsigned int n_0 = 0)
 {
     random_sphere(0.6, points, n_0);
 
@@ -124,9 +124,9 @@ void relaxed_sphere(
     points.copy_to_device();
 }
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
+template<typename Pt, template<typename> class Solver>
 void relaxed_cuboid(float dist_to_nb, float3 minimum, float3 maximum,
-    Solution<Pt, n_max, Solver>& points, unsigned int n_0 = 0)
+    Solution<Pt, Solver>& points, unsigned int n_0 = 0)
 {
     auto scale = dist_to_nb / 0.8;
     random_cuboid(0.8, minimum / scale, maximum / scale, points, n_0);
@@ -155,9 +155,9 @@ void relaxed_cuboid(float dist_to_nb, float3 minimum, float3 maximum,
 }
 
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
+template<typename Pt, template<typename> class Solver>
 void regular_hexagon(
-    float dist_to_nb, Solution<Pt, n_max, Solver>& points, unsigned int n_0 = 0)
+    float dist_to_nb, Solution<Pt, Solver>& points, unsigned int n_0 = 0)
 {
     assert(n_0 < *points.h_n);
 

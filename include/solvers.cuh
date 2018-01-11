@@ -34,8 +34,7 @@ __device__ float friction_w_neighbour(Pt Xi, Pt r, float dist, int i, int j)
 }
 
 template<typename Pt>
-__device__ float friction_on_background(
-    Pt Xi, Pt r, float dist, int i, int j)
+__device__ float friction_on_background(Pt Xi, Pt r, float dist, int i, int j)
 {
     return 0;
 }
@@ -46,42 +45,50 @@ using Generic_forces =
     std::function<void(const Pt* __restrict__ d_X, Pt* d_dX)>;
 
 template<typename Pt>
-void no_gen_forces(const Pt* __restrict__ d_X, Pt* d_dX) {}
+void no_gen_forces(const Pt* __restrict__ d_X, Pt* d_dX)
+{
+}
 
 // Generic forces are computed before the pairwise interactions, e.g. to reset
 // the number of neighbours between computations of the derivatives.
 
 
-// Solution<Pt, n_max, Solver> combines a method, Solver, with a point type, Pt.
-// It stores the variables on the host and specifies how the variables on the
+// Solution<Pt, Solver> combines a method, Solver, with a point type, Pt. It
+// stores the variables on the host and specifies how the variables on the
 // device can be accessed and how new steps are computed. However, all the GPU
 // action is happening in the Solver classes.
-template<typename Pt, int n_max, template<typename, int> class Solver>
-class Solution : public Solver<Pt, n_max> {
+template<typename Pt, template<typename> class Solver>
+class Solution : public Solver<Pt> {
 public:
-    Pt* h_X = (Pt*)malloc(n_max * sizeof(Pt));  // Current variables on host
-    Pt* d_X = Solver<Pt, n_max>::d_X;           // Variables on device (GPU)
-    int* h_n = (int*)malloc(sizeof(int));       // Number of points
-    int* d_n = Solver<Pt, n_max>::d_n;
-    Solution(int n_0 = n_max) { *h_n = n_0; }
+    Pt* h_X;                               // Current variables on host
+    Pt* d_X = Solver<Pt>::d_X;             // Variables on device (GPU)
+    int* h_n = (int*)malloc(sizeof(int));  // Number of points
+    int* d_n = Solver<Pt>::d_n;
+    Solution(int n_max) : Solver<Pt>(n_max)
+    {
+        *h_n = n_max;
+        h_X = (Pt*)malloc(n_max * sizeof(Pt));
+    }
     void copy_to_device()
     {
+        auto n_max = Solver<Pt>::n_max;
         assert(*h_n <= n_max);
         cudaMemcpy(d_X, h_X, n_max * sizeof(Pt), cudaMemcpyHostToDevice);
         cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice);
     }
     void copy_to_host()
     {
+        auto n_max = Solver<Pt>::n_max;
         cudaMemcpy(h_X, d_X, n_max * sizeof(Pt), cudaMemcpyDeviceToHost);
         cudaMemcpy(h_n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
         assert(*h_n <= n_max);
     }
-    int get_d_n() { return Solver<Pt, n_max>::get_d_n(); }
+    int get_d_n() { return Solver<Pt>::get_d_n(); }
     template<Pairwise_interaction<Pt> pw_int,
         Pairwise_friction<Pt> pw_friction = friction_w_neighbour<Pt>>
     void take_step(float dt, Generic_forces<Pt> gen_forces = no_gen_forces<Pt>)
     {
-        return Solver<Pt, n_max>::template take_step<pw_int, pw_friction>(
+        return Solver<Pt>::template take_step<pw_int, pw_friction>(
             dt, gen_forces);
     }
 };
@@ -89,7 +96,7 @@ public:
 
 // 2nd order solver for the equation v = F + <v(t - dt)> for x, y, and z, where
 // <v> is the mean velocity of the neighbours weighted by the friction
-// coefficients. One point or the center of mass needs is kept fix. Solves 
+// coefficients. One point or the center of mass needs is kept fix. Solves
 // dw/dt = F_w for other variables in Pt.
 template<typename Pt>
 __global__ void euler_step(const int n, const float dt,
@@ -142,11 +149,11 @@ __global__ void add_rhs(const int n, const float3* __restrict__ d_sum_v,
 }
 
 // Computer specifies how pairwise interactions are computed.
-template<typename Pt, int n_max, template<typename, int> class Computer>
-class Heun_solver : public Computer<Pt, n_max> {
+template<typename Pt, template<typename> class Computer>
+class Heun_solver : public Computer<Pt> {
 public:
     void set_fixed() { fix_com = true; }
-    void set_fixed(int point_id) 
+    void set_fixed(int point_id)
     {
         fix_com = false;
         fix_point = point_id;
@@ -159,8 +166,10 @@ protected:
     int* d_n;
     bool fix_com = true;
     int fix_point;
-    Heun_solver()
+    int n_max;
+    Heun_solver(int n)
     {
+        n_max = n;
         cudaMalloc(&d_X, n_max * sizeof(Pt));
         cudaMalloc(&d_dX, n_max * sizeof(Pt));
         cudaMalloc(&d_X1, n_max * sizeof(Pt));
@@ -190,7 +199,7 @@ protected:
         thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
         thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3{0});
         gen_forces(d_X, d_dX);
-        Computer<Pt, n_max>::template pwints<pw_int, pw_friction>(
+        Computer<Pt>::template pwints<pw_int, pw_friction>(
             n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
         add_rhs<<<(n + 32 - 1) / 32, 32>>>(
             n, d_sum_v, d_sum_friction, d_dX);  // ceil int div.
@@ -198,7 +207,8 @@ protected:
         if (fix_com) {
             fix_dX = thrust::reduce(thrust::device, d_dX, d_dX + n, Pt{0}) / n;
         } else {
-            cudaMemcpy(&fix_dX, &d_dX[fix_point], sizeof(Pt), cudaMemcpyDeviceToHost);
+            cudaMemcpy(
+                &fix_dX, &d_dX[fix_point], sizeof(Pt), cudaMemcpyDeviceToHost);
         }
         euler_step<<<(n + 32 - 1) / 32, 32>>>(n, dt, d_X, fix_dX, d_dX, d_X1);
 
@@ -207,14 +217,16 @@ protected:
         thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
         thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3{0});
         gen_forces(d_X1, d_dX1);
-        Computer<Pt, n_max>::template pwints<pw_int, pw_friction>(
+        Computer<Pt>::template pwints<pw_int, pw_friction>(
             n, d_X1, d_dX1, d_old_v, d_sum_v, d_sum_friction);
         add_rhs<<<(n + 32 - 1) / 32, 32>>>(n, d_sum_v, d_sum_friction, d_dX1);
         Pt fix_dX1;
         if (fix_com) {
-            fix_dX1 = thrust::reduce(thrust::device, d_dX1, d_dX1 + n, Pt{0}) / n;
+            fix_dX1 =
+                thrust::reduce(thrust::device, d_dX1, d_dX1 + n, Pt{0}) / n;
         } else {
-            cudaMemcpy(&fix_dX1, &d_dX1[fix_point], sizeof(Pt), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&fix_dX1, &d_dX1[fix_point], sizeof(Pt),
+                cudaMemcpyDeviceToHost);
         }
         heun_step<<<(n + 32 - 1) / 32, 32>>>(
             n, dt, d_dX, fix_dX1, d_dX1, d_X, d_old_v);
@@ -268,7 +280,7 @@ __global__ void compute_tile(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
     }
 }
 
-template<typename Pt, int n_max>
+template<typename Pt>
 class Tile_computer {
 protected:
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
@@ -282,10 +294,10 @@ protected:
     }
 };
 
-template<typename Pt, int n_max>
-using Tile_solver = Heun_solver<Pt, n_max, Tile_computer>;
+template<typename Pt>
+using Tile_solver = Heun_solver<Pt, Tile_computer>;
 
-
+/*
 // Compute pairwise interactions and frictions with sorting based grid ONLY for
 // points closer than CUBE_SIZE. Scales linearly in n, faster with maybe 7k
 // points. After http://developer.download.nvidia.com/compute/cuda/1.1-Beta/
@@ -352,10 +364,8 @@ public:
         compute_cube_start_and_end<<<(n + 32 - 1) / 32, 32>>>(
             n, d_cube_id, d_cube_start, d_cube_end);
     }
-    template<typename Pt, int n_max_solution,
-        template<typename, int> class Solver>
-    void build(Solution<Pt, n_max_solution, Solver>& points,
-        const float cube_size = CUBE_SIZE)
+    template<typename Pt, template<typename> class Solver>
+    void build(Solution<Pt, Solver>& points, const float cube_size = CUBE_SIZE)
     {
         auto n = points.get_d_n();
         assert(n <= n_max);
@@ -401,11 +411,11 @@ __global__ void compute_cube(const int n, const Pt* __restrict__ d_X,
     d_sum_friction[d_grid->d_point_id[i]] = sum_friction;
 }
 
-template<typename Pt, int n_max>
+template<typename Pt>
 class Grid_computer {
 protected:
     Grid<n_max> grid;
-    Grid_computer()
+    Grid_computer(int n_max)
     {
         int h_nhood[27];
         h_nhood[0] = -1;
@@ -432,5 +442,6 @@ protected:
     }
 };
 
-template<typename Pt, int n_max>
+template<typename Pt>
 using Grid_solver = Heun_solver<Pt, n_max, Grid_computer>;
+*/
