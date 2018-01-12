@@ -50,7 +50,7 @@ int main(int argc, const char* argv[])
     cells.copy_to_device();
 
     // Integrate cell positions
-    Vtk_output output("wnt");
+    Vtk_output output{"wnt"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();
         cells.take_step<diffusion>(dt);

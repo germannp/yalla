@@ -6,7 +6,6 @@
 // argv[3]=proliferation rate
 // argv[4]=time steps
 // argv[4]=proliferation rate distr. (0=uniform, 1=PD gradient)
-
 #include <curand_kernel.h>
 #include <time.h>
 #include <iostream>
@@ -44,8 +43,8 @@ __device__ float* d_prolif_rate;
 __device__ float* d_out_prolif_rate;
 // __device__ int* d_fix_point;
 
-Property<n_max, int> n_mes_nbs("n_mes_nbs");  // defining these here so function
-Property<n_max, int> n_epi_nbs("n_epi_nbs");  // "neighbour_init" can see them
+Property<int> n_mes_nbs{n_max, "n_mes_nbs"};  // defining these here so function
+Property<int> n_epi_nbs{n_max, "n_epi_nbs"};  // "neighbour_init" can see them
 
 MAKE_PT(Cell, w, f, theta, phi);
 
@@ -327,13 +326,12 @@ int main(int argc, char const* argv[])
     *limb.h_n = n_0;
     input.read_positions(limb);
     input.read_polarity(limb);
-    Property<n_max, Cell_types> type;
+    Property<Cell_types> type{n_max};
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
-    Property<n_max, int> intype;
+    Property<int> intype{n_max};
 
-    input.read_property(
-        intype, "cell_type");  // we read it as an int, then we translate to
-                               // enum "Cell_types"
+    input.read_property(intype, "cell_type");  // Read as int, translate to enum
+
     for (int i = 0; i < n_0; i++) {
         limb.h_X[i].w = 0.0f;
         limb.h_X[i].f = 0.0f;
@@ -369,7 +367,7 @@ int main(int argc, char const* argv[])
         }
     }
     limb.set_fixed(fixed);
-    float3 X_fixed = {limb.h_X[fixed].x, limb.h_X[fixed].y, limb.h_X[fixed].z};
+    float3 X_fixed{limb.h_X[fixed].x, limb.h_X[fixed].y, limb.h_X[fixed].z};
 
     Links<static_cast<int>(n_max * prots_per_cell)> protrusions(
         protrusion_strength, n_0 * prots_per_cell);
@@ -381,10 +379,10 @@ int main(int argc, char const* argv[])
     Grid grid{n_max};
 
     // determine cell-specific proliferation rates
-    Property<n_max, float> prolif_rate("prolif_rate");
+    Property<float> prolif_rate{n_max, "prolif_rate"};
     cudaMemcpyToSymbol(
         d_prolif_rate, &prolif_rate.d_prop, sizeof(d_prolif_rate));
-    Property<n_max, float> out_prolif_rate("real_prolif_rate");
+    Property<float> out_prolif_rate{n_max, "real_prolif_rate"};
     cudaMemcpyToSymbol(
         d_out_prolif_rate, &out_prolif_rate.d_prop, sizeof(d_out_prolif_rate));
 
@@ -430,7 +428,7 @@ int main(int argc, char const* argv[])
     std::cout << "n_time_steps " << n_time_steps << " write interval "
               << skip_step << std::endl;
 
-    Vtk_output limb_output(output_tag);
+    Vtk_output limb_output{output_tag};
 
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         if (time_step % skip_step == 0 || time_step == n_time_steps) {
@@ -500,7 +498,7 @@ int main(int argc, char const* argv[])
         }
     }
     *epi_Tf.h_n = j;
-    Vtk_output epi_Tf_output(output_tag + ".shape");
+    Vtk_output epi_Tf_output{output_tag + ".shape"};
     epi_Tf_output.write_positions(epi_Tf);
     epi_Tf_output.write_polarity(epi_Tf);
     std::cout << "hola" << std::endl;

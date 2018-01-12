@@ -67,7 +67,7 @@ int main(int argc, const char* argv[])
         protrusions, std::placeholders::_1, std::placeholders::_2);
 
     // Integrate cell positions
-    Vtk_output output("intercalation");
+    Vtk_output output{"intercalation"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();
         protrusions.copy_to_host();

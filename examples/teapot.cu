@@ -17,9 +17,9 @@ int main(int argc, const char* argv[])
 {
     // Prepare cuboid
     Solution<float3, Tile_solver> points{n_points};
-    Mesh teapot("examples/teapot.vtk");
+    Mesh teapot{"examples/teapot.vtk"};
     random_cuboid(0.125, teapot.get_minimum(), teapot.get_maximum(), points);
-    Vtk_output output("teapot", false);
+    Vtk_output output{"teapot", false};
     output.write_positions(points);
 
     // Cut teapot out

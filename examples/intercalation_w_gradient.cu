@@ -173,17 +173,17 @@ __global__ void update_protrusions(const int n_cells,
 int main(int argc, char const* argv[])
 {
     // Load the initial conditions
-    Vtk_input input("examples/sphere_ic.vtk");
+    Vtk_input input{"examples/sphere_ic.vtk"};
     int n_0 = input.n_points;
-    Solution<Cell, Grid_solver> cells(n_max);
+    Solution<Cell, Grid_solver> cells{n_max};
     *cells.h_n = n_0;
 
     input.read_positions(cells);
     input.read_polarity(cells);
 
-    Property<n_max, int> intype;
+    Property<int> intype{n_max};
     input.read_property(intype, "cell_type");  // read as int, then
-    Property<n_max, Cell_types> type;          // translate to Cell_types
+    Property<Cell_types> type{n_max};          // translate to Cell_types
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
 
     for (int i = 0; i < n_0; i++) {
@@ -203,8 +203,8 @@ int main(int argc, char const* argv[])
     cells.copy_to_device();
     type.copy_to_device();
 
-    Property<n_max, int> n_mes_nbs("n_mes_nbs");
-    Property<n_max, int> n_epi_nbs("n_epi_nbs");
+    Property<int> n_mes_nbs{n_max, "n_mes_nbs"};
+    Property<int> n_epi_nbs{n_max, "n_epi_nbs"};
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
 
@@ -215,7 +215,7 @@ int main(int argc, char const* argv[])
             protrusions, std::placeholders::_1, std::placeholders::_2);
     Grid grid{n_max};
 
-    Vtk_output output("intercalation_w_gradient");
+    Vtk_output output{"intercalation_w_gradient"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();
         protrusions.copy_to_host();

@@ -1,4 +1,4 @@
-// Simulate Meinhard equations within a 2D epithelium
+// Simulate Meinhard equations within an epithelium
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
 #include "../include/polarity.cuh"
@@ -69,7 +69,7 @@ int main(int argc, const char* argv[])
     random_disk(0.5, cells);
 
     // Integrate positions
-    Vtk_output output("turing2D");
+    Vtk_output output{"turing"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();
         cells.take_step<epithelium_w_turing>(dt);

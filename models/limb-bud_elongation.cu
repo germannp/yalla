@@ -163,7 +163,7 @@ int main(int argc, const char* argv[])
     Solution<Lb_cell, Grid_solver> cells{n_max};
     *cells.h_n = n_0;
     random_sphere(0.733333, cells);
-    Property<n_max, Cell_types> type;
+    Property<Cell_types> type{n_max};
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     for (auto i = 0; i < n_0; i++) {
         cells.h_X[i].x = fabs(cells.h_X[i].x);
@@ -172,9 +172,9 @@ int main(int argc, const char* argv[])
     }
     cells.copy_to_device();
     type.copy_to_device();
-    Property<n_max, int> n_mes_nbs;
+    Property<int> n_mes_nbs{n_max};
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
-    Property<n_max, int> n_epi_nbs;
+    Property<int> n_epi_nbs{n_max};
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
     Links<static_cast<int>(n_max * prots_per_cell)> protrusions(
         protrusion_strength, n_0 * prots_per_cell);
@@ -219,12 +219,12 @@ int main(int argc, const char* argv[])
     protrusions.reset([&](int a, int b) {
         return ((type.h_prop[a] > mesenchyme) or (type.h_prop[b] > mesenchyme));
     });
+    // Relax epithelium before proliferate
     for (auto time_step = 0; time_step <= 50; time_step++)
-        cells.take_step<lb_force>(
-            dt, intercalation);  // Relax epithelium before proliferate
+        cells.take_step<lb_force>(dt, intercalation);
 
     // Simulate diffusion & intercalation
-    Vtk_output output("elongation");
+    Vtk_output output{"elongation"};
     for (auto time_step = 0; time_step <= n_time_steps / (skip_steps + 1);
          time_step++) {
         cells.copy_to_host();

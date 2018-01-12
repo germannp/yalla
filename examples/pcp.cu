@@ -42,7 +42,7 @@ int main(int argc, const char* argv[])
     random_sphere(0.5, cells);
 
     // Integrate cell positions
-    Vtk_output output("pcp");
+    Vtk_output output{"pcp"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();
         cells.take_step<pcp>(dt);

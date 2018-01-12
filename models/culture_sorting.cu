@@ -71,13 +71,13 @@ int main(int argc, const char* argv[])
     Links<n_protrusions> protrusions(prot_strength);
     auto prot_forces = std::bind(link_forces<n_protrusions>, protrusions,
         std::placeholders::_1, std::placeholders::_2);
-    Property<n_cells> type;
+    Property<> type{n_cells};
     for (auto i = 0; i < n_cells; i++) {
         type.h_prop[i] = (i < n_cells * type_ratio) ? 0 : 1;
     }
 
     // Integrate cell positions
-    Vtk_output output("sorting");
+    Vtk_output output{"sorting"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();
         protrusions.copy_to_host();

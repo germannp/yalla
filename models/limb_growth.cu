@@ -38,8 +38,8 @@ __device__ int* d_mes_nbs;
 __device__ int* d_epi_nbs;
 __device__ float* d_prolif_rate;
 
-Property<n_max, int> n_mes_nbs("n_mes_nbs");  // defining these here so function
-Property<n_max, int> n_epi_nbs("n_epi_nbs");  // "neighbour_init" can see them
+Property<int> n_mes_nbs{n_max, "n_mes_nbs"};  // defining these here so function
+Property<int> n_epi_nbs{n_max, "n_epi_nbs"};  // "neighbour_init" can see them
 
 MAKE_PT(Cell, w, f, theta, phi);
 
@@ -280,7 +280,7 @@ int main(int argc, char const* argv[])
     int prolif_dist = std::stoi(argv[5]);
 
     // Load the initial conditions
-    Vtk_input input(file_name);
+    Vtk_input input{file_name};
     int n_0 = input.n_points;
     Solution<Cell, Grid_solver> limb{n_max};
     *limb.h_n = n_0;
@@ -288,9 +288,9 @@ int main(int argc, char const* argv[])
     input.read_positions(limb);
     input.read_polarity(limb);
 
-    Property<n_max, Cell_types> type;
+    Property<Cell_types> type{n_max};
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
-    Property<n_max, int> intype;
+    Property<int> intype{n_max};
 
     input.read_property(
         intype, "cell_type");  // we read it as an int, then we translate to
@@ -328,7 +328,7 @@ int main(int argc, char const* argv[])
     Grid grid{n_max};
 
     // determine cell-specific proliferation rates
-    Property<n_max, float> prolif_rate("prolif_rate");
+    Property<float> prolif_rate{n_max, "prolif_rate"};
     cudaMemcpyToSymbol(
         d_prolif_rate, &prolif_rate.d_prop, sizeof(d_prolif_rate));
 
@@ -363,7 +363,7 @@ int main(int argc, char const* argv[])
     std::cout << "n_time_steps " << n_time_steps << " write interval "
               << skip_step << std::endl;
 
-    Vtk_output limb_output(output_tag);
+    Vtk_output limb_output{output_tag};
 
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         if (time_step % skip_step == 0 || time_step == n_time_steps) {

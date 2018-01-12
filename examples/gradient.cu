@@ -34,7 +34,7 @@ int main(int argc, const char* argv[])
     regular_hexagon(0.75, cells);
 
     // Integrate cell positions
-    Vtk_output output("gradient");
+    Vtk_output output{"gradient"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();
         cells.take_step<diffusion>(dt);

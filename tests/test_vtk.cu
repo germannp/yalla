@@ -22,11 +22,11 @@ const char* test_io()
         points_to_write.h_X[i].theta = acos(2. * rand() / (RAND_MAX + 1.) - 1);
     }
 
-    Vtk_output output("test_vtk", false);
+    Vtk_output output{"test_vtk", false};
     output.write_positions(points_to_write);
     output.write_polarity(points_to_write);
     output.write_field(points_to_write, "w", &Po_cell4::w);
-    Vtk_input input("output/test_vtk_1.vtk");
+    Vtk_input input{"output/test_vtk_1.vtk"};
     input.read_field(points_to_read, "w", &Po_cell4::w);
     input.read_polarity(points_to_read);
     input.read_positions(points_to_read);
@@ -47,10 +47,10 @@ const char* test_io()
     }
 
     // Test writing & reading Property
-    Property<n_cells, int> ints_to_write("intprop");
-    Property<n_cells, int> ints_to_read;
-    Property<n_cells, float> floats_to_write("floatprop");
-    Property<n_cells, float> floats_to_read;
+    Property<int> ints_to_write{n_cells, "intprop"};
+    Property<int> ints_to_read{n_cells};
+    Property<float> floats_to_write{n_cells, "floatprop"};
+    Property<float> floats_to_read{n_cells};
 
     for (auto i = 0; i < n_cells; i++) {
         ints_to_write.h_prop[i] = rand();

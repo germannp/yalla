@@ -94,13 +94,13 @@ int main(int argc, const char* argv[])
     Solution<Po_cell, Grid_solver> cells{n_max};
     *cells.h_n = n_0;
     relaxed_sphere(mean_dist, cells);
-    Property<n_max, Cell_types> type;
+    Property<Cell_types> type{n_max};
     for (auto i = 0; i < n_0; i++) type.h_prop[i] = mesenchyme;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     type.copy_to_device();
-    Property<n_max, int> n_mes_nbs;
+    Property<int> n_mes_nbs{n_max};
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
-    Property<n_max, int> n_epi_nbs;
+    Property<int> n_epi_nbs{n_max};
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
     curandState* d_state;
     cudaMalloc(&d_state, n_max * sizeof(curandState));
@@ -129,7 +129,7 @@ int main(int argc, const char* argv[])
     type.copy_to_device();
 
     // Simulate growth
-    Vtk_output sim_output("passive_growth");
+    Vtk_output sim_output{"passive_growth"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();
         type.copy_to_host();

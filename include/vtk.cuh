@@ -23,7 +23,7 @@ class Solution;
 template<int n_links>
 class Links;
 
-template<int n_max, typename Prop>
+template<typename Prop>
 struct Property;
 
 
@@ -54,8 +54,8 @@ public:
     template<typename Pt, template<typename> class Solver>
     void write_polarity(Solution<Pt, Solver>& points);
     // Write not integrated property, see property.cuh
-    template<int n_max, typename Prop>
-    void write_property(Property<n_max, Prop>& property);
+    template<typename Prop>
+    void write_property(Property<Prop>& property);
 };
 
 Vtk_output::Vtk_output(std::string base_name, bool verbose)
@@ -164,8 +164,8 @@ void Vtk_output::write_polarity(Solution<Pt, Solver>& points)
     }
 }
 
-template<int n_max, typename Prop>
-void Vtk_output::write_property(Property<n_max, Prop>& property)
+template<typename Prop>
+void Vtk_output::write_property(Property<Prop>& property)
 {
     std::ofstream file(current_path, std::ios_base::app);
     assert(file.is_open());
@@ -181,6 +181,7 @@ void Vtk_output::write_property(Property<n_max, Prop>& property)
     else
         ptype = "int";
 
+    assert(n_points <= property.n_max);
     file << "SCALARS " << property.name << " " << ptype << "\n";
     file << "LOOKUP_TABLE default\n";
     for (auto i = 0; i < n_points; i++) file << property.h_prop[i] << "\n";
@@ -203,8 +204,8 @@ public:
     void read_field(Solution<Pt, Solver>& points, const char* data_name = "w",
         float Pt::*field = &Pt::w);
     // Read property, see property.cuh
-    template<int n_max, typename Prop>
-    void read_property(Property<n_max, Prop>& property, std::string prop_name);
+    template<typename Prop>
+    void read_property(Property<Prop>& property, std::string prop_name);
     int n_points;
 };
 
@@ -324,9 +325,8 @@ void Vtk_input::read_field(
     }
 }
 
-template<int n_max, typename Prop>
-void Vtk_input::read_property(
-    Property<n_max, Prop>& property, std::string prop_name)
+template<typename Prop>
+void Vtk_input::read_property(Property<Prop>& property, std::string prop_name)
 {
     std::ifstream input_file(file_name);
     assert(input_file.is_open());
@@ -338,6 +338,7 @@ void Vtk_input::read_property(
 
     getline(input_file, line);  // LOOKUP_TABLE line
 
+    assert(n_points <= property.n_max);
     for (int i = 0; i < n_points; i++) {
         getline(input_file, line);
         std::istringstream(line) >> property.h_prop[i];

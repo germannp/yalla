@@ -284,10 +284,10 @@ int main(int argc, char const* argv[])
     }
 
     // Variable indicating cell type
-    Property<n_max, Cell_types> type;
+    Property<Cell_types> type{n_max};
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     // Variable that indicates which cells are 'frozen', so don't move
-    Property<n_max, int> freeze("freeze");
+    Property<int> freeze{n_max, "freeze"};
     cudaMemcpyToSymbol(d_freeze, &freeze.d_prop, sizeof(d_freeze));
 
     for (auto i = 0; i < n_cells_cube; i++) {
@@ -466,7 +466,7 @@ int main(int argc, char const* argv[])
         AER.write_vtk(output_tag + ".aer");
     }
 
-    Vtk_output output(output_tag);
+    Vtk_output output{output_tag};
 
     for (auto time_step = 0; time_step <= epi_relax_time; time_step++) {
         // if (time_step % skip_step == 0 || time_step == epi_relax_time) {
@@ -519,7 +519,7 @@ int main(int argc, char const* argv[])
     Solution<Cell, Grid_solver> mesh_T0{n_max};
     *mesh_T0.h_n = mesh.n_facets;
     fill_solver_w_mesh_no_flank(mesh, mesh_T0);
-    Vtk_output output_mesh_T0(output_tag + ".mesh_T0");
+    Vtk_output output_mesh_T0{output_tag + ".mesh_T0"};
     output_mesh_T0.write_positions(mesh_T0);
     output_mesh_T0.write_polarity(mesh_T0);
 
@@ -533,14 +533,14 @@ int main(int argc, char const* argv[])
 
     // load the mesh for the optimal shape and process it with the same
     // parameters
-    Mesh optimum_mesh(optimum_file_name);
+    Mesh optimum_mesh{optimum_file_name};
     optimum_mesh.rescale(resc);
     optimum_mesh.rotate(0.0f, 0.0f, -0.2f);
     optimum_mesh.write_vtk(output_tag + ".optmesh");
     Solution<Cell, Grid_solver> optimum_mesh_TF{n_max};
     *optimum_mesh_TF.h_n = optimum_mesh.n_facets;
     fill_solver_w_mesh_no_flank(optimum_mesh, optimum_mesh_TF);
-    Vtk_output output_opt_mesh_TF(output_tag + ".mesh_TF");
+    Vtk_output output_opt_mesh_TF{output_tag + ".mesh_TF"};
     output_opt_mesh_TF.write_positions(optimum_mesh_TF);
     output_opt_mesh_TF.write_polarity(optimum_mesh_TF);
 

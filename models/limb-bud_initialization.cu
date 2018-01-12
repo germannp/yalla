@@ -172,7 +172,7 @@ int main(int argc, const char* argv[])
     Solution<Lb_cell, Grid_solver> cells{n_max};
     *cells.h_n = n_0;
     random_disk(r_max / 2, cells);
-    Property<n_max, Cell_types> type;
+    Property<Cell_types> type{n_max};
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     for (auto i = 0; i < n_0 / 2; i++) {
         type.h_prop[i] = mesoderm;
@@ -186,9 +186,9 @@ int main(int argc, const char* argv[])
     }
     cells.copy_to_device();
     type.copy_to_device();
-    Property<n_max, int> n_mes_nbs;
+    Property<int> n_mes_nbs{n_max};
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
-    Property<n_max, int> n_epi_nbs;
+    Property<int> n_epi_nbs{n_max};
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
     for (auto i = 0; i < 100; i++) cells.take_step<lb_force>(dt);
     cells.copy_to_host();
@@ -205,7 +205,7 @@ int main(int argc, const char* argv[])
         cells.h_X[i].y /= 2.5;
         type.h_prop[i] = mesenchyme;
     }
-    Property<n_max, int> clone("clone");
+    Property<int> clone{n_max, "clone"};
     cudaMemcpyToSymbol(d_clone, &clone.d_prop, sizeof(d_clone));
     for (auto i = 0; i < *cells.h_n; i++) clone.h_prop[i] = i;
     cells.copy_to_device();
@@ -218,7 +218,7 @@ int main(int argc, const char* argv[])
     Grid grid{n_max};
 
     // Proliferate
-    Vtk_output output("initialization");
+    Vtk_output output{"initialization"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();
         type.copy_to_host();
