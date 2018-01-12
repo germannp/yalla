@@ -40,7 +40,7 @@ int main(int argc, const char* argv[])
     cells.copy_to_device();
 
     // Integrate cell positions
-    Vtk_output output{"amoeboid_migration"};
+    Vtk_output output{"migration"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();
         cells.take_step<relu_w_migration>(dt);
