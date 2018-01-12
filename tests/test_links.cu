@@ -16,9 +16,9 @@ __device__ float3 no_pw_int(float3 Xi, float3 r, float dist, int i, int j)
 const char* square_of_four()
 {
     Solution<float3, Tile_solver> points{4};
-    Links<4> links;
+    Links links{4};
     auto forces = std::bind(
-        link_forces<4>, links, std::placeholders::_1, std::placeholders::_2);
+        link_forces<>, links, std::placeholders::_1, std::placeholders::_2);
 
     // clang-format off
     points.h_X[0].x = 1;  points.h_X[0].y = 1;  points.h_X[0].z = 0;

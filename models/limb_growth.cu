@@ -250,18 +250,15 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
 }
 
 // Double step solver means we have to initialise n_neibhbours before every
-// step.
-// This function is called before each step.
+// step. This function is called before each step.
 void neighbour_init(const Cell* __restrict__ d_X, Cell* d_dX)
 {
     thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + n_max, 0);
     thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_max, 0);
 }
 
-template<int n_links, typename Pt = float3,
-    Link_force<Pt> force = linear_force<Pt>>
-void link_forces_w_n_init(
-    Links<n_links>& links, const Pt* __restrict__ d_X, Pt* d_dX)
+template<typename Pt = float3, Link_force<Pt> force = linear_force<Pt>>
+void link_forces_w_n_init(Links& links, const Pt* __restrict__ d_X, Pt* d_dX)
 {
     thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + n_max, 0);
     thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_max, 0);
@@ -318,12 +315,10 @@ int main(int argc, char const* argv[])
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
 
-    Links<static_cast<int>(n_max * prots_per_cell)> protrusions(
-        protrusion_strength, n_0 * prots_per_cell);
-    auto intercalation =
-        std::bind(link_forces_w_n_init<static_cast<int>(n_max * prots_per_cell),
-                      Cell, link_force>,
-            protrusions, std::placeholders::_1, std::placeholders::_2);
+    Links protrusions{n_max * prots_per_cell, protrusion_strength};
+    protrusions.set_d_n(n_0 * prots_per_cell);
+    auto intercalation = std::bind(link_forces_w_n_init<Cell, link_force>,
+        protrusions, std::placeholders::_1, std::placeholders::_2);
 
     Grid grid{n_max};
 

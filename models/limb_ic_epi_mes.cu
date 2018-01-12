@@ -300,11 +300,10 @@ int main(int argc, char const* argv[])
     freeze.copy_to_device();
 
     // Declaration of links
-    Links<static_cast<int>(n_max * prots_per_cell)> protrusions(
-        protrusion_strength, n_cells_cube * prots_per_cell);
-    auto intercalation =
-        std::bind(link_forces<static_cast<int>(n_max * prots_per_cell), Cell>,
-            protrusions, std::placeholders::_1, std::placeholders::_2);
+    Links protrusions(n_max * prots_per_cell, protrusion_strength);
+    protrusions.set_d_n(n_cells_cube * prots_per_cell);
+    auto intercalation = std::bind(link_forces<Cell>, protrusions,
+        std::placeholders::_1, std::placeholders::_2);
 
     Grid grid{n_max};
 

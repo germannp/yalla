@@ -208,11 +208,10 @@ int main(int argc, char const* argv[])
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
 
-    Links<static_cast<int>(n_max * prots_per_cell)> protrusions(
-        protrusion_strength, n_0 * prots_per_cell);
-    auto intercalation =
-        std::bind(link_forces<static_cast<int>(n_max * prots_per_cell), Cell>,
-            protrusions, std::placeholders::_1, std::placeholders::_2);
+    Links protrusions{n_max * prots_per_cell, protrusion_strength};
+    protrusions.set_d_n(n_0 * prots_per_cell);
+    auto intercalation = std::bind(link_forces<Cell>, protrusions,
+        std::placeholders::_1, std::placeholders::_2);
     Grid grid{n_max};
 
     Vtk_output output{"intercalation_w_gradient"};

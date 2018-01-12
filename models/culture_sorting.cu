@@ -14,7 +14,7 @@ const auto type_ratio = 0.2f;
 const auto n_cells = 1000u;
 const auto prots_per_cell = 5;
 const auto r_protrusion = 1.25;
-const auto prot_strength = 0.3;
+const auto prot_strength = 0.3f;
 const auto n_time_steps = 300u;
 const auto dt = 0.1;
 const auto n_protrusions =
@@ -68,8 +68,8 @@ int main(int argc, const char* argv[])
     // Prepare initial state
     Solution<float3, Grid_solver> cells{n_cells};
     random_sphere(1, cells);
-    Links<n_protrusions> protrusions(prot_strength);
-    auto prot_forces = std::bind(link_forces<n_protrusions>, protrusions,
+    Links protrusions{n_protrusions, prot_strength};
+    auto prot_forces = std::bind(link_forces<>, protrusions,
         std::placeholders::_1, std::placeholders::_2);
     Property<> type{n_cells};
     for (auto i = 0; i < n_cells; i++) {

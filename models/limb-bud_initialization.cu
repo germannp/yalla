@@ -211,10 +211,10 @@ int main(int argc, const char* argv[])
     cells.copy_to_device();
     type.copy_to_device();
     clone.copy_to_device();
-    Links<n_max * prots_per_cell> protrusions(0.1, n_0 * prots_per_cell);
-    auto intercalation = std::bind(
-        link_forces<static_cast<int>(n_max * prots_per_cell), Lb_cell>,
-        protrusions, std::placeholders::_1, std::placeholders::_2);
+    Links protrusions(n_max * prots_per_cell, 0.1);
+    protrusions.set_d_n(n_0 * prots_per_cell);
+    auto intercalation = std::bind(link_forces<Lb_cell>, protrusions,
+        std::placeholders::_1, std::placeholders::_2);
     Grid grid{n_max};
 
     // Proliferate

@@ -114,14 +114,12 @@ int main(int argc, const char* argv[])
         cells.h_X[i].phi = phi + M_PI / 2;
     }
     cells.copy_to_device();
-    Links<static_cast<int>(n_cells * prots_per_cell)> protrusions;
-    auto intercalation =
-        std::bind(link_forces<static_cast<int>(n_cells * prots_per_cell),
-                      Po_cell, protrusion_force>,
-            protrusions, std::placeholders::_1, std::placeholders::_2);
+    Links protrusions{n_cells * prots_per_cell};
+    auto intercalation = std::bind(link_forces<Po_cell, protrusion_force>,
+        protrusions, std::placeholders::_1, std::placeholders::_2);
 
     // Simulate elongation
-    Vtk_output output("aggregate");
+    Vtk_output output{"aggregate"};
     Grid grid{n_cells};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();

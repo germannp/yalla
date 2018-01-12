@@ -75,8 +75,8 @@ int main(int argc, const char* argv[])
     // Prepare initial state
     Solution<float3, Grid_solver> cells{n_cells};
     random_sphere(r_min, cells);
-    Links<n_protrusions> protrusions;
-    auto prot_forces = std::bind(link_forces<n_protrusions>, protrusions,
+    Links protrusions{n_protrusions};
+    auto prot_forces = std::bind(link_forces<>, protrusions,
         std::placeholders::_1, std::placeholders::_2);
     Property<> type{n_cells};
     for (auto i = 0; i < n_cells; i++) {

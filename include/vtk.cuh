@@ -14,14 +14,12 @@
 #include <typeinfo>
 #include <vector>
 
+#include "links.cuh"
 #include "utils.cuh"
 
 
 template<typename Pt, template<typename> class Solver>
 class Solution;
-
-template<int n_links>
-class Links;
 
 template<typename Prop>
 struct Property;
@@ -44,8 +42,7 @@ public:
     template<typename Pt, template<typename> class Solver>
     void write_positions(Solution<Pt, Solver>& points);
     // Write links, see links.cuh; if written has to be second
-    template<int n_links>
-    void write_links(Links<n_links>& links);
+    void write_links(Links& links);
     // Write further components of Pt
     template<typename Pt, template<typename> class Solver>
     void write_field(Solution<Pt, Solver>& points, const char* data_name = "w",
@@ -115,8 +112,7 @@ void Vtk_output::write_positions(Solution<Pt, Solver>& points)
     std::cout.flush();
 }
 
-template<int n_links>
-void Vtk_output::write_links(Links<n_links>& links)
+void Vtk_output::write_links(Links& links)
 {
     std::ofstream file(current_path, std::ios_base::app);
     assert(file.is_open());

@@ -142,7 +142,7 @@ __global__ void proliferate(
 int main(int argc, const char* argv[])
 {
     // Initial state
-    Solution<Cell, Grid_solver> cells(n_max);
+    Solution<Cell, Grid_solver> cells{n_max};
     *cells.h_n = n_0;
     relaxed_sphere(0.75, cells);
     Property<Cell_types> type{n_max, "type"};

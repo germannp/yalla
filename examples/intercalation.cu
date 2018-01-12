@@ -62,9 +62,9 @@ int main(int argc, const char* argv[])
     // Prepare initial state
     Solution<float3, Grid_solver> cells{n_cells};
     random_sphere(r_min, cells);
-    Links<n_cells * prots_per_cell> protrusions;
-    auto intercalation = std::bind(link_forces<n_cells * prots_per_cell>,
-        protrusions, std::placeholders::_1, std::placeholders::_2);
+    Links protrusions{n_cells * prots_per_cell};
+    auto intercalation = std::bind(link_forces<>, protrusions,
+        std::placeholders::_1, std::placeholders::_2);
 
     // Integrate cell positions
     Vtk_output output{"intercalation"};

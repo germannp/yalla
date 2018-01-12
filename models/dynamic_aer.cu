@@ -298,10 +298,8 @@ void neighbour_init(const Cell* __restrict__ d_X, Cell* d_dX)
     thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_max, 0);
 }
 
-template<int n_links, typename Pt = float3,
-    Link_force<Pt> force = linear_force<Pt>>
-void link_forces_w_n_init(
-    Links<n_links>& links, const Pt* __restrict__ d_X, Pt* d_dX)
+template<typename Pt = float3, Link_force<Pt> force = linear_force<Pt>>
+void link_forces_w_n_init(Links& links, const Pt* __restrict__ d_X, Pt* d_dX)
 {
     thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + n_max, 0);
     thrust::fill(thrust::device, n_mes_nbs.d_prop, n_mes_nbs.d_prop + n_max, 0);
@@ -369,12 +367,10 @@ int main(int argc, char const* argv[])
     limb.set_fixed(fixed);
     float3 X_fixed{limb.h_X[fixed].x, limb.h_X[fixed].y, limb.h_X[fixed].z};
 
-    Links<static_cast<int>(n_max * prots_per_cell)> protrusions(
-        protrusion_strength, n_0 * prots_per_cell);
-    auto intercalation =
-        std::bind(link_forces_w_n_init<static_cast<int>(n_max * prots_per_cell),
-                      Cell, link_force>,
-            protrusions, std::placeholders::_1, std::placeholders::_2);
+    Links protrusions{n_max * prots_per_cell, protrusion_strength};
+    protrusions.set_d_n(n_0 * prots_per_cell);
+    auto intercalation = std::bind(link_forces_w_n_init<Cell, link_force>,
+        protrusions, std::placeholders::_1, std::placeholders::_2);
 
     Grid grid{n_max};
 
