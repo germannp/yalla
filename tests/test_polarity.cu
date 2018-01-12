@@ -6,33 +6,34 @@
 #include "minunit.cuh"
 
 
-const char* test_pcp_force()
+const char* test_polarization_force()
 {
     Po_cell i{0.601, 0.305, 0.320, 0.209, 0.295};
     Po_cell j{0.762, 0.403, 0.121, 0.340, 0.431};
 
-    auto dF = pcp_force(i, j);
+    auto dF = polarization_force(i, j);
 
-    MU_ASSERT("PCP force wrong in x", isclose(dF.x, 0));
-    MU_ASSERT("PCP force wrong in y", isclose(dF.y, 0));
-    MU_ASSERT("PCP force wrong in z", isclose(dF.z, 0));
-    MU_ASSERT("PCP force wrong in theta", isclose(dF.theta, 0.126));
-    MU_ASSERT("PCP force wrong in phi", isclose(dF.phi, 0.215));
+    MU_ASSERT("Polarization force wrong in x", isclose(dF.x, 0));
+    MU_ASSERT("Polarization force wrong in y", isclose(dF.y, 0));
+    MU_ASSERT("Polarization force wrong in z", isclose(dF.z, 0));
+    MU_ASSERT("Polarization force wrong in theta", isclose(dF.theta, 0.126));
+    MU_ASSERT("Polarization force wrong in phi", isclose(dF.phi, 0.215));
 
     return NULL;
 }
 
 
-__device__ Po_cell pcp_force(Po_cell Xi, Po_cell r, float dist, int i, int j)
+__device__ Po_cell polarization_force(
+    Po_cell Xi, Po_cell r, float dist, int i, int j)
 {
     Po_cell dF{0};
     if (i == j or i == 1) return dF;
 
-    dF += pcp_force(Xi, Xi - r);
+    dF += polarization_force(Xi, Xi - r);
     return dF;
 }
 
-const char* test_pcp()
+const char* test_polarization()
 {
     Solution<Po_cell, Tile_solver> points{2};
 
@@ -49,14 +50,15 @@ const char* test_pcp()
 
     for (auto i = 0; i < 5000; i++) {
         points.copy_to_host();
-        points.take_step<pcp_force>(0.01);
+        points.take_step<polarization_force>(0.01);
         auto arc_i0 = acosf(pol_dot_product(p_i, points.h_X[0]));
         auto arc_0f = acosf(pol_dot_product(points.h_X[0], p_f));
-        MU_ASSERT("PCP off great circle", isclose(arc_i0 + arc_0f, arc_if));
+        MU_ASSERT(
+            "Polarity off great circle", isclose(arc_i0 + arc_0f, arc_if));
     }
 
     auto prod = pol_dot_product(points.h_X[0], points.h_X[1]);
-    MU_ASSERT("PCP not aligned", isclose(fabs(prod), 1));
+    MU_ASSERT("Polarities not aligned", isclose(fabs(prod), 1));
 
     return NULL;
 }
@@ -184,8 +186,8 @@ const char* test_migration_force()
 
 const char* all_tests()
 {
-    MU_RUN_TEST(test_pcp_force);
-    MU_RUN_TEST(test_pcp);
+    MU_RUN_TEST(test_polarization_force);
+    MU_RUN_TEST(test_polarization);
     MU_RUN_TEST(test_rigidity_force);
     MU_RUN_TEST(test_line_of_four);
     MU_RUN_TEST(test_orthonormal);

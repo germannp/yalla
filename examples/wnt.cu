@@ -27,7 +27,7 @@ __device__ Po_cell4 diffusion(Po_cell4 Xi, Po_cell4 r, float dist, int i, int j)
 
     // U_WNT = - ΣXj.w*(n_i . r_ij/r)^2/2 to bias along w
     Polarity rhat{acosf(-r.z / dist), atan2(-r.y, -r.x)};
-    dF += (Xi.w - r.w) * pcp_force(Xi, rhat);
+    dF += (Xi.w - r.w) * polarization_force(Xi, rhat);
 
     return dF;
 }

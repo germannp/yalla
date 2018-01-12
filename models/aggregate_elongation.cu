@@ -50,11 +50,11 @@ __device__ void protrusion_force(const Po_cell* __restrict__ d_X, const int a,
     atomicAdd(&d_dX[b].z, strength * r.z / dist);
 
     Polarity r_hat{acosf(-r.z / dist), atan2(-r.y, -r.x)};
-    auto Fa = pcp_force(d_X[a], r_hat);
+    auto Fa = polarization_force(d_X[a], r_hat);
     atomicAdd(&d_dX[a].theta, strength * Fa.theta);
     atomicAdd(&d_dX[a].phi, strength * Fa.phi);
 
-    auto Fb = pcp_force(d_X[b], r_hat);
+    auto Fb = polarization_force(d_X[b], r_hat);
     atomicAdd(&d_dX[b].theta, strength * Fb.theta);
     atomicAdd(&d_dX[b].phi, strength * Fb.phi);
 }
