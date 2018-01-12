@@ -91,7 +91,8 @@ __global__ void proliferate(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell, n_max, Grid_solver> cells(n_0);
+    Solution<Po_cell, Grid_solver> cells{n_max};
+    *cells.h_n = n_0;
     relaxed_sphere(mean_dist, cells);
     Property<n_max, Cell_types> type;
     for (auto i = 0; i < n_0; i++) type.h_prop[i] = mesenchyme;

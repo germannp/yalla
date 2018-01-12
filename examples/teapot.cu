@@ -16,7 +16,7 @@ const auto n_points = 70000u;
 int main(int argc, const char* argv[])
 {
     // Prepare cuboid
-    Solution<float3, n_points, Tile_solver> points;
+    Solution<float3, Tile_solver> points{n_points};
     Mesh teapot("examples/teapot.vtk");
     random_cuboid(0.125, teapot.get_minimum(), teapot.get_maximum(), points);
     Vtk_output output("teapot", false);

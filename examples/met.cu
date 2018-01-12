@@ -34,7 +34,7 @@ __device__ Po_cell rigid_relu_force(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Grid_solver> cells;
+    Solution<Po_cell, Grid_solver> cells{n_cells};
     relaxed_sphere(0.8, cells);
     for (auto i = 0; i < n_cells; i++) {
         auto dist = sqrtf(cells.h_X[i].x * cells.h_X[i].x +

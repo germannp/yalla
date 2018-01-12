@@ -9,9 +9,9 @@
 // argv[4]=cube relax_time
 // argv[5]=limb bud relax_time
 // argv[6]=links flag (activate if you want to use links in later simulations)
-// argv[7]=wall flag (activate in limb buds, when you want a wall boundary cond.).
-// argv[8]=AER flag (activate in limb buds)
-// argv[9]=Optimum mesh file name
+// argv[7]=wall flag (activate in limb buds, when you want a wall boundary
+// cond.). argv[8]=AER flag (activate in limb buds) argv[9]=Optimum mesh file
+// name
 
 #include <curand_kernel.h>
 #include <time.h>
@@ -105,7 +105,7 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
 }
 
 __global__ void update_protrusions(const int n_cells,
-    const Grid<n_max>* __restrict__ d_grid, const Cell* __restrict d_X,
+    const Grid* __restrict__ d_grid, const Cell* __restrict d_X,
     curandState* d_state, Link* d_link)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -158,9 +158,9 @@ __device__ float freeze_friction(Cell Xi, Cell r, float dist, int i, int j)
     return 1;
 }
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
+template<typename Pt, template<typename> class Solver>
 void fill_solver_w_mesh_no_flank(
-    Mesh mesh, Solution<Pt, n_max, Solver>& cells, unsigned int n_0 = 0)
+    Mesh mesh, Solution<Pt, Solver>& cells, unsigned int n_0 = 0)
 {
     // eliminate the flank boundary
     int i = 0;
@@ -200,13 +200,11 @@ void fill_solver_w_mesh_no_flank(
         cells.h_X[mesh.n_facets + i].y = P.y;
         cells.h_X[mesh.n_facets + i].z = P.z;
     }
-
 }
 
-template<typename Pt, int n_max, template<typename, int> class Solver,
-    typename Prop>
-void fill_solver_w_epithelium(Solution<Pt, n_max, Solver>& incells,
-    Solution<Pt, n_max, Solver>& outcells, Prop& type, unsigned int n_0 = 0)
+template<typename Pt, template<typename> class Solver, typename Prop>
+void fill_solver_w_epithelium(Solution<Pt, Solver>& incells,
+    Solution<Pt, Solver>& outcells, Prop& type, unsigned int n_0 = 0)
 {
     assert(n_0 < *incells.h_n);
     assert(n_0 < *outcells.h_n);
@@ -228,21 +226,17 @@ void fill_solver_w_epithelium(Solution<Pt, n_max, Solver>& incells,
 
 int main(int argc, char const* argv[])
 {
-
     std::string file_name = argv[1];
     std::string output_tag = argv[2];
     float target_dx = std::stof(argv[3]);
     int cube_relax_time = std::stoi(argv[4]);
     int epi_relax_time = std::stoi(argv[5]);
     bool links_flag = false;
-    if(std::stoi(argv[6]) == 1)
-        links_flag = true;
+    if (std::stoi(argv[6]) == 1) links_flag = true;
     bool wall_flag = false;
-    if(std::stoi(argv[7]) == 1)
-        wall_flag = true;
+    if (std::stoi(argv[7]) == 1) wall_flag = true;
     bool AER_flag = false;
-    if(std::stoi(argv[8]) == 1)
-        AER_flag = true;
+    if (std::stoi(argv[8]) == 1) AER_flag = true;
     std::string optimum_file_name = argv[9];
 
     Mesh mesh(file_name);
@@ -251,7 +245,8 @@ int main(int argc, char const* argv[])
     auto min_point = mesh.get_minimum();
     auto diagonal_vector = mesh.get_maximum() - min_point;
     float resc = target_dx / diagonal_vector.x;
-    std::cout << "xmax= " << min_point.x + diagonal_vector.x << " xmin= " << min_point.x << std::endl;
+    std::cout << "xmax= " << min_point.x + diagonal_vector.x
+              << " xmin= " << min_point.x << std::endl;
     std::cout << "dx= " << diagonal_vector.x << " target_dx= " << target_dx
               << " rescaling factor resc= " << resc << std::endl;
 
@@ -260,7 +255,7 @@ int main(int argc, char const* argv[])
     mesh.rescale(resc);
     // mesh.rotate(0.0f,0.0f,-0.2f); // formula for old "limb only" meshes
     // around    z    y     x
-    mesh.rotate(0.5f,0.0f, M_PI - 0.2f); // formula for old "limb only" meshes
+    mesh.rotate(0.5f, 0.0f, M_PI - 0.2f);  // formula for old "limb only" meshes
 
     // mesh_mesench defines the volume occupied by the mesenchyme (smaller than
     // mesh)
@@ -270,7 +265,7 @@ int main(int argc, char const* argv[])
     // we use the maximum lengths of the mesh to draw a cube that includes the
     // mesh
     // Let's fill the cube with cells
-    Solution<Cell, n_max, Grid_solver> cube;
+    Solution<Cell, Grid_solver> cube{n_max};
     relaxed_cuboid(r_min, mesh.get_minimum(), mesh.get_maximum(), cube);
     auto n_cells_cube = *cube.h_n;
 
@@ -308,20 +303,18 @@ int main(int argc, char const* argv[])
     Links<static_cast<int>(n_max * prots_per_cell)> protrusions(
         protrusion_strength, n_cells_cube * prots_per_cell);
     auto intercalation =
-    std::bind(link_forces<static_cast<int>(n_max * prots_per_cell), Cell>,
-        protrusions, std::placeholders::_1, std::placeholders::_2);
+        std::bind(link_forces<static_cast<int>(n_max * prots_per_cell), Cell>,
+            protrusions, std::placeholders::_1, std::placeholders::_2);
 
-    Grid<n_max> grid;
+    Grid grid{n_max};
 
     // State for links
     curandState* d_state;
     cudaMalloc(&d_state, n_max * sizeof(curandState));
     auto seed = time(NULL);
-    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(
-        n_max, seed, d_state);
+    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(n_max, seed, d_state);
 
-    if(links_flag) {
-
+    if (links_flag) {
         // Vtk_output cubic_output(output_tag+".cubic_relaxation");
 
         // We apply the links to the relaxed cube to compress it (as will be the
@@ -348,8 +341,8 @@ int main(int argc, char const* argv[])
             // }
         }
         std::cout
-            <<"Cube 2 integrated with links (only when links flag is active)"
-            <<std::endl;
+            << "Cube 2 integrated with links (only when links flag is active)"
+            << std::endl;
     }
 
     // Fit the cube into a mesh and sort which cells are inside the mesh
@@ -383,8 +376,8 @@ int main(int argc, char const* argv[])
     std::vector<float3> epi_cells;
     int n_cells_epi = 0;
     for (int i = 0; i < n_cells_cube; i++) {
-        if (!mesh.test_exclusion(cube_relax_points[i])
-            and mesh_mesench.test_exclusion(cube_relax_points[i])) {
+        if (!mesh.test_exclusion(cube_relax_points[i]) and
+            mesh_mesench.test_exclusion(cube_relax_points[i])) {
             epi_cells.push_back(cube_relax_points[i]);
             n_cells_epi++;
         }
@@ -396,7 +389,8 @@ int main(int argc, char const* argv[])
               << n_cells_epi << " cells_in_total " << n_cells_total
               << std::endl;
 
-    Solution<Cell, n_max, Grid_solver> cells(n_cells_total);
+    Solution<Cell, Grid_solver> cells{n_max};
+    *cells.h_n = n_cells_total;
 
     for (int i = 0; i < n_cells_mes; i++) {
         cells.h_X[i].x = mes_cells[i].x;
@@ -429,8 +423,9 @@ int main(int argc, char const* argv[])
             }
         }
         count++;
-        if (mesh.facets[f].C.x < 0.1f && wall_flag) {  // the cells contacting the flank
-                                                       // boundary can't be epithelial 0.001
+        if (mesh.facets[f].C.x < 0.1f &&
+            wall_flag) {  // the cells contacting the flank
+                          // boundary can't be epithelial 0.001
             type.h_prop[i] = mesenchyme;
             cells.h_X[i].phi = 0.f;
             cells.h_X[i].theta = 0.f;
@@ -448,11 +443,11 @@ int main(int argc, char const* argv[])
 
     std::cout << "n_cells_total= " << n_cells_total << std::endl;
 
-    if(AER_flag) {
+    if (AER_flag) {
         // Imprint the AER on the epithelium (based on a mesh file too)
-        std::string AER_file=file_name;
+        std::string AER_file = file_name;
         AER_file.insert(AER_file.length() - 4, "_AER");
-        std::cout<<"AER file "<<AER_file<<std::endl;
+        std::cout << "AER file " << AER_file << std::endl;
         Mesh AER(AER_file);
         AER.rescale(resc);
 
@@ -509,9 +504,8 @@ int main(int argc, char const* argv[])
     // float3 A{0.f, 2 * min_point.y, 2 * min_point.z};
     // float3 B{0.f, 2 * min_point.y, 2 * (min_point.z + diagonal_vector.z)};
     // float3 C{0.f, 2 * (min_point.y + diagonal_vector.y), 2 * min_point.z};
-    // float3 D{0.f, 2 * (min_point.y + diagonal_vector.y), 2 * (min_point.z + diagonal_vector.z)};
-    // Triangle ABC{A, B, C};
-    // Triangle BCD{B, C, D};
+    // float3 D{0.f, 2 * (min_point.y + diagonal_vector.y), 2 * (min_point.z +
+    // diagonal_vector.z)}; Triangle ABC{A, B, C}; Triangle BCD{B, C, D};
     // wall.n_facets = 2;
     // wall.facets.push_back(ABC);
     // wall.facets.push_back(BCD);
@@ -522,25 +516,29 @@ int main(int argc, char const* argv[])
     // centres and the cells epithelium in separate vtk files.
 
     std::cout << "writing mesh_T0" << std::endl;
-    Solution<Cell, n_max, Grid_solver> mesh_T0(mesh.n_facets);
+    Solution<Cell, Grid_solver> mesh_T0{n_max};
+    *mesh_T0.h_n = mesh.n_facets;
     fill_solver_w_mesh_no_flank(mesh, mesh_T0);
     Vtk_output output_mesh_T0(output_tag + ".mesh_T0");
     output_mesh_T0.write_positions(mesh_T0);
     output_mesh_T0.write_polarity(mesh_T0);
 
     std::cout << "writing epi_T0" << std::endl;
-    Solution<Cell, n_max, Grid_solver> epi_T0(n_cells_total);
+    Solution<Cell, Grid_solver> epi_T0{n_max};
+    *epi_T0.h_n = n_cells_total;
     fill_solver_w_epithelium(cells, epi_T0, type);
     Vtk_output output_epi_T0(output_tag + ".epi_T0");
     output_epi_T0.write_positions(epi_T0);
     output_epi_T0.write_polarity(epi_T0);
 
-    //load the mesh for the optimal shape and process it with the same parameters
+    // load the mesh for the optimal shape and process it with the same
+    // parameters
     Mesh optimum_mesh(optimum_file_name);
     optimum_mesh.rescale(resc);
-    optimum_mesh.rotate(0.0f,0.0f,-0.2f);
+    optimum_mesh.rotate(0.0f, 0.0f, -0.2f);
     optimum_mesh.write_vtk(output_tag + ".optmesh");
-    Solution<Cell, n_max, Grid_solver> optimum_mesh_TF(optimum_mesh.n_facets);
+    Solution<Cell, Grid_solver> optimum_mesh_TF{n_max};
+    *optimum_mesh_TF.h_n = optimum_mesh.n_facets;
     fill_solver_w_mesh_no_flank(optimum_mesh, optimum_mesh_TF);
     Vtk_output output_opt_mesh_TF(output_tag + ".mesh_TF");
     output_opt_mesh_TF.write_positions(optimum_mesh_TF);

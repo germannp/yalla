@@ -34,7 +34,7 @@ __device__ Po_cell rigid_relu_force(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Tile_solver> cells;
+    Solution<Po_cell, Tile_solver> cells{n_cells};
     regular_hexagon(0.75, cells);
     auto radius = 1.6;
     for (auto i = 0; i < n_cells; i++) {

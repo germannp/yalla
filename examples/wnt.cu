@@ -36,7 +36,7 @@ __device__ Po_cell4 diffusion(Po_cell4 Xi, Po_cell4 r, float dist, int i, int j)
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell4, n_cells, Tile_solver> cells;
+    Solution<Po_cell4, Tile_solver> cells{n_cells};
     regular_hexagon(0.75, cells);
     for (auto i = 0; i < n_cells; i++) {
         if (i == 11) {

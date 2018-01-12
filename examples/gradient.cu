@@ -27,7 +27,7 @@ __device__ float4 diffusion(float4 Xi, float4 r, float dist, int i, int j)
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<float4, n_cells, Tile_solver> cells;
+    Solution<float4, Tile_solver> cells{n_cells};
     for (auto i = 0; i < n_cells; i++) {
         cells.h_X[i].w = i == 11 ? 1 : 0;
     }

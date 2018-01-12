@@ -167,7 +167,7 @@ protected:
     bool fix_com = true;
     int fix_point;
     int n_max;
-    Heun_solver(int n)
+    Heun_solver(int n) : Computer<Pt>(n)
     {
         n_max = n;
         cudaMalloc(&d_X, n_max * sizeof(Pt));
@@ -283,6 +283,7 @@ __global__ void compute_tile(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
 template<typename Pt>
 class Tile_computer {
 protected:
+    Tile_computer(int n_max) {}
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
     void pwints(const int n, Pt* d_X, Pt* d_dX,
         const float3* __restrict__ d_old_v, float3* d_sum_v,
@@ -297,7 +298,7 @@ protected:
 template<typename Pt>
 using Tile_solver = Heun_solver<Pt, Tile_computer>;
 
-/*
+
 // Compute pairwise interactions and frictions with sorting based grid ONLY for
 // points closer than CUBE_SIZE. Scales linearly in n, faster with maybe 7k
 // points. After http://developer.download.nvidia.com/compute/cuda/1.1-Beta/
@@ -336,20 +337,21 @@ __global__ void compute_cube_start_and_end(const int n,
     if (cube != next) d_cube_end[cube] = i;
 }
 
-template<int n_max>
 class Grid {
 public:
     int *d_cube_id, *d_point_id, *d_cube_start, *d_cube_end;
-    Grid<n_max>* d_grid;
-    Grid()
+    Grid* d_grid;
+    int n_max;
+    Grid(int n)
     {
+        n_max = n;
         cudaMalloc(&d_cube_id, n_max * sizeof(int));
         cudaMalloc(&d_point_id, n_max * sizeof(int));
         cudaMalloc(&d_cube_start, N_CUBES * sizeof(int));
         cudaMalloc(&d_cube_end, N_CUBES * sizeof(int));
 
-        cudaMalloc(&d_grid, sizeof(Grid<n_max>));
-        cudaMemcpy(d_grid, this, sizeof(Grid<n_max>), cudaMemcpyHostToDevice);
+        cudaMalloc(&d_grid, sizeof(Grid));
+        cudaMemcpy(d_grid, this, sizeof(Grid), cudaMemcpyHostToDevice);
     }
     template<typename Pt>
     void build(const int n, const Pt* __restrict__ d_X,
@@ -376,10 +378,10 @@ public:
 
 __constant__ int d_nhood[27];  // This is wasted w/o Grid_computer
 
-template<typename Pt, int n_max, Pairwise_interaction<Pt> pw_int,
+template<typename Pt, Pairwise_interaction<Pt> pw_int,
     Pairwise_friction<Pt> pw_friction>
 __global__ void compute_cube(const int n, const Pt* __restrict__ d_X,
-    const float3* __restrict__ d_old_v, const Grid<n_max>* __restrict__ d_grid,
+    const float3* __restrict__ d_old_v, const Grid* __restrict__ d_grid,
     Pt* d_dX, float3* d_sum_v, float* d_sum_friction)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -414,8 +416,8 @@ __global__ void compute_cube(const int n, const Pt* __restrict__ d_X,
 template<typename Pt>
 class Grid_computer {
 protected:
-    Grid<n_max> grid;
-    Grid_computer(int n_max)
+    Grid grid;
+    Grid_computer(int n_max) : grid(n_max)
     {
         int h_nhood[27];
         h_nhood[0] = -1;
@@ -436,12 +438,11 @@ protected:
         float3* d_sum_v, float* d_sum_friction)
     {
         grid.build(n, d_X);
-        compute_cube<Pt, n_max, pw_int, pw_friction>
+        compute_cube<Pt, pw_int, pw_friction>
             <<<(n + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
                 n, d_X, d_old_v, grid.d_grid, d_dX, d_sum_v, d_sum_friction);
     }
 };
 
 template<typename Pt>
-using Grid_solver = Heun_solver<Pt, n_max, Grid_computer>;
-*/
+using Grid_solver = Heun_solver<Pt, Grid_computer>;

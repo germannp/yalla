@@ -34,7 +34,7 @@ __device__ Po_cell pcp(Po_cell Xi, Po_cell r, float dist, int i, int j)
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Grid_solver> cells;
+    Solution<Po_cell, Grid_solver> cells{n_cells};
     for (auto i = 0; i < n_cells; i++) {
         cells.h_X[i].theta = acos(2. * rand() / (RAND_MAX + 1.) - 1.);
         cells.h_X[i].phi = 2. * M_PI * rand() / (RAND_MAX + 1.);

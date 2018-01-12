@@ -31,7 +31,7 @@ __device__ float3 differential_adhesion(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<float3, n_cells, Grid_solver> cells;
+    Solution<float3, Grid_solver> cells{n_cells};
     random_sphere(r_min, cells);
     Property<n_cells> type;
     for (auto i = 0; i < n_cells; i++) {

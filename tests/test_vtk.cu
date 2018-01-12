@@ -10,8 +10,8 @@ const char* test_io()
 {
     // Test writing & reading Solution
     const auto n_cells = 100;
-    Solution<Po_cell4, n_cells, Tile_solver> points_to_write;
-    Solution<Po_cell4, n_cells, Tile_solver> points_to_read;
+    Solution<Po_cell4, Tile_solver> points_to_write{n_cells};
+    Solution<Po_cell4, Tile_solver> points_to_read{n_cells};
 
     for (auto i = 0; i < n_cells; i++) {
         points_to_write.h_X[i].x = rand() / (RAND_MAX + 1.);
@@ -42,8 +42,8 @@ const char* test_io()
             isclose(points_to_write.h_X[i].w, points_to_read.h_X[i].w));
         MU_ASSERT("Not close in phi",
             isclose(points_to_write.h_X[i].phi, points_to_read.h_X[i].phi));
-        MU_ASSERT("Not close in theta", isclose(points_to_write.h_X[i].theta,
-                                            points_to_read.h_X[i].theta));
+        MU_ASSERT("Not close in theta",
+            isclose(points_to_write.h_X[i].theta, points_to_read.h_X[i].theta));
     }
 
     // Test writing & reading Property

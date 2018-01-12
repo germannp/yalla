@@ -66,7 +66,7 @@ __global__ void update_protrusions(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<float3, n_cells, Grid_solver> cells;
+    Solution<float3, Grid_solver> cells{n_cells};
     random_sphere(1, cells);
     Links<n_protrusions> protrusions(prot_strength);
     auto prot_forces = std::bind(link_forces<n_protrusions>, protrusions,

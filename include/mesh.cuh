@@ -77,13 +77,12 @@ public:
     bool test_exclusion(const Pt point);
     void write_vtk(std::string);
     void copy_to_device();
-    template<typename Pt, int n_max, template<typename, int> class Solver>
+    template<typename Pt, template<typename> class Solver>
     float shape_comparison_distance_mesh_to_points(
-        Solution<Pt, n_max, Solver>& points);
-    template<typename Pt, int n_max, template<typename, int> class Solver>
+        Solution<Pt, Solver>& points);
+    template<typename Pt, template<typename> class Solver>
     float shape_comparison_distance_points_to_points(
-        Solution<Pt, n_max, Solver>& points1,
-        Solution<Pt, n_max, Solver>& points2);
+        Solution<Pt, Solver>& points1, Solution<Pt, Solver>& points2);
     ~Mesh();
 };
 
@@ -491,9 +490,9 @@ __global__ void calculate_minimum_distance(const int n1, const int n2,
     if (i < n1) d_min_dist[i] = min_dist;
 }
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
+template<typename Pt, template<typename> class Solver>
 float Mesh::shape_comparison_distance_mesh_to_points(
-    Solution<Pt, n_max, Solver>& points)
+    Solution<Pt, Solver>& points)
 {
     auto n_points = points.get_d_n();
 
@@ -513,7 +512,8 @@ float Mesh::shape_comparison_distance_mesh_to_points(
     cudaMalloc(&d_points_dist, *points.h_n * sizeof(float));
     float* h_points_dist = (float*)malloc(n_points * sizeof(float));
     calculate_minimum_distance<<<(n_points + TILE_SIZE - 1) / TILE_SIZE,
-        TILE_SIZE>>>(n_points, n_vertices, points.d_X, d_vertices, d_points_dist);
+        TILE_SIZE>>>(
+        n_points, n_vertices, points.d_X, d_vertices, d_points_dist);
     cudaMemcpy(h_points_dist, d_points_dist, n_points * sizeof(float),
         cudaMemcpyDeviceToHost);
 
@@ -522,9 +522,9 @@ float Mesh::shape_comparison_distance_mesh_to_points(
     return distance / (n_vertices + n_points);
 }
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
+template<typename Pt, template<typename> class Solver>
 float Mesh::shape_comparison_distance_points_to_points(
-    Solution<Pt, n_max, Solver>& points1, Solution<Pt, n_max, Solver>& points2)
+    Solution<Pt, Solver>& points1, Solution<Pt, Solver>& points2)
 {
     auto n_points1 = points1.get_d_n();
     auto n_points2 = points2.get_d_n();
@@ -535,8 +535,8 @@ float Mesh::shape_comparison_distance_points_to_points(
 
     calculate_minimum_distance<<<(n_points1 + TILE_SIZE - 1) / TILE_SIZE,
         TILE_SIZE>>>(n_points1, n_points2, points1.d_X, points2.d_X, d_12_dist);
-    cudaMemcpy(
-        h_12_dist, d_12_dist, n_points1 * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_12_dist, d_12_dist, n_points1 * sizeof(float),
+        cudaMemcpyDeviceToHost);
 
     auto distance = 0.0f;
     for (int i = 0; i < n_points1; i++) distance += h_12_dist[i];
@@ -546,8 +546,8 @@ float Mesh::shape_comparison_distance_points_to_points(
     float* h_21_dist = (float*)malloc(n_points2 * sizeof(float));
     calculate_minimum_distance<<<(n_points2 + TILE_SIZE - 1) / TILE_SIZE,
         TILE_SIZE>>>(n_points2, n_points1, points2.d_X, points1.d_X, d_21_dist);
-    cudaMemcpy(
-        h_21_dist, d_21_dist, n_points2 * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_21_dist, d_21_dist, n_points2 * sizeof(float),
+        cudaMemcpyDeviceToHost);
 
     for (int i = 0; i < n_points2; i++) distance += h_21_dist[i];
 

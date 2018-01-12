@@ -114,7 +114,7 @@ __global__ void proliferate(float mean_rate, float mean_distance, Cell* d_X,
 
 
 __global__ void update_protrusions(const int n_cells,
-    const Grid<n_max>* __restrict__ d_grid, const Cell* __restrict d_X,
+    const Grid* __restrict__ d_grid, const Cell* __restrict d_X,
     curandState* d_state, Link* d_link)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -175,7 +175,8 @@ int main(int argc, char const* argv[])
     // Load the initial conditions
     Vtk_input input("examples/sphere_ic.vtk");
     int n_0 = input.n_points;
-    Solution<Cell, n_max, Grid_solver> cells(n_0);
+    Solution<Cell, Grid_solver> cells(n_max);
+    *cells.h_n = n_0;
 
     input.read_positions(cells);
     input.read_polarity(cells);
@@ -212,7 +213,7 @@ int main(int argc, char const* argv[])
     auto intercalation =
         std::bind(link_forces<static_cast<int>(n_max * prots_per_cell), Cell>,
             protrusions, std::placeholders::_1, std::placeholders::_2);
-    Grid<n_max> grid;
+    Grid grid{n_max};
 
     Vtk_output output("intercalation_w_gradient");
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {

@@ -142,7 +142,8 @@ __global__ void proliferate(
 int main(int argc, const char* argv[])
 {
     // Initial state
-    Solution<Cell, n_max, Grid_solver> cells(n_0);
+    Solution<Cell, Grid_solver> cells(n_max);
+    *cells.h_n = n_0;
     relaxed_sphere(0.75, cells);
     Property<n_max, Cell_types> type("type");
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));

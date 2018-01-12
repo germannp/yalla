@@ -67,13 +67,15 @@ const char* test_transformations()
 const char* test_exclusion()
 {
     const auto n_points = 1500;
-    Solution<float3, n_points, Grid_solver> points;
-    random_cuboid(0.25, float3{-1.5, -1.5, -0.5}, float3{1.5, 1.5, 0.5}, points);
+    Solution<float3, Grid_solver> points{n_points};
+    random_cuboid(
+        0.25, float3{-1.5, -1.5, -0.5}, float3{1.5, 1.5, 0.5}, points);
 
     Mesh mesh("tests/torus.vtk");
     for (auto i = 0; i < n_points; i++) {
         auto dist_from_ring = sqrt(
-            pow(1 - sqrt(pow(points.h_X[i].x, 2) + pow(points.h_X[i].y, 2)), 2) +
+            pow(1 - sqrt(pow(points.h_X[i].x, 2) + pow(points.h_X[i].y, 2)),
+                2) +
             pow(points.h_X[i].z, 2));
         if (abs(dist_from_ring - 0.5) < 0.01) continue;  // Tolerance for mesh
 
@@ -89,7 +91,7 @@ const char* test_shape_comparison()
 {
     Mesh mesh("tests/torus.vtk");
     mesh.copy_to_device();
-    Solution<float3, 987, Grid_solver> points;
+    Solution<float3, Grid_solver> points{987};
     for (auto i = 0; i < 987; i++) {
         points.h_X[i].x = mesh.vertices[i].x;
         points.h_X[i].y = mesh.vertices[i].y;

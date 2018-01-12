@@ -28,9 +28,9 @@ const auto r_min = 0.8;
 const auto dt = 0.1f;
 const auto n_max = 1200000;
 const auto prots_per_cell = 1;
-const auto protrusion_strength = 0.2f; // 0.2
+const auto protrusion_strength = 0.2f;  // 0.2
 const auto r_protrusion = 2.0f;
-const auto distal_threshold = 0.010f; // 0.0025f;
+const auto distal_threshold = 0.010f;  // 0.0025f;
 const auto very_distal_threshold = 0.2f;
 const auto superficial_threshold = 0.55f;
 const auto skip_step = 100;
@@ -115,7 +115,7 @@ __device__ float wall_friction(Cell Xi, Cell r, float dist, int i, int j)
 __device__ void link_force(const Cell* __restrict__ d_X, const int a,
     const int b, const float strength, Cell* d_dX)
 {
-    if(d_X[a].f + d_X[b].f > 0.2f) return;
+    if (d_X[a].f + d_X[b].f > 0.2f) return;
     // if(d_X[a].w + d_X[b].w > 0.8f) return;
 
     auto r = d_X[a] - d_X[b];
@@ -130,7 +130,7 @@ __device__ void link_force(const Cell* __restrict__ d_X, const int a,
 }
 
 __global__ void update_protrusions(const int n_cells,
-    const Grid<n_max>* __restrict__ d_grid, const Cell* __restrict d_X,
+    const Grid* __restrict__ d_grid, const Cell* __restrict d_X,
     curandState* d_state, Link* d_link)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -170,10 +170,16 @@ __global__ void update_protrusions(const int n_cells,
 
     auto random = false;
     // auto random = (d_X[a].f + d_X[b].f) > 0.8f;
-    auto distal = (d_X[a].f + d_X[b].f) > 2 * distal_threshold;// distal_threshold;//0.025f;//0.20f; //0.025
-    auto very_distal = (d_X[a].f + d_X[b].f) > 2 * very_distal_threshold;// distal_threshold;//0.025f;//0.20f; //0.025
+    auto distal =
+        (d_X[a].f + d_X[b].f) >
+        2 * distal_threshold;  // distal_threshold;//0.025f;//0.20f; //0.025
+    auto very_distal =
+        (d_X[a].f + d_X[b].f) >
+        2 * very_distal_threshold;  // distal_threshold;//0.025f;//0.20f;
+                                    // //0.025
     auto superficial = (d_X[a].w + d_X[b].w) > 2 * superficial_threshold;
-    auto mid = (d_X[a].f + d_X[b].f) > distal_threshold;//0.025f;//0.20f; //0.025
+    auto mid =
+        (d_X[a].f + d_X[b].f) > distal_threshold;  // 0.025f;//0.20f; //0.025
 
     auto more_along_w =
         fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
@@ -184,10 +190,13 @@ __global__ void update_protrusions(const int n_cells,
     auto normal_to_f =
         fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
 
-    if (not_initialized or (!superficial and distal and normal_to_f and more_along_w)
-        or (distal and superficial and normal_to_w and more_along_f) or !distal or very_distal) {
-            // normal_to_f) or (distal and superficial and more_along_w) or !distal or very_distal) {
-    // if (not_initialized or (distal and normal_to_f) or !distal) {
+    if (not_initialized or
+        (!superficial and distal and normal_to_f and more_along_w) or
+        (distal and superficial and normal_to_w and more_along_f) or !distal or
+        very_distal) {
+        // normal_to_f) or (distal and superficial and more_along_w) or !distal
+        // or very_distal) {
+        // if (not_initialized or (distal and normal_to_f) or !distal) {
         link->a = a;
         link->b = b;
     }
@@ -202,8 +211,8 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
         return;  // Dividing new cells is problematic!
 
     // float rate = d_prolif_rate[i] * d_X[i].f;
-    // float rate = d_prolif_rate[i] - d_prolif_rate[i]*(1.f - 0.25f)*(1.f-d_X[i].f);
-    // float rate = d_prolif_rate[i];
+    // float rate = d_prolif_rate[i] - d_prolif_rate[i]*(1.f -
+    // 0.25f)*(1.f-d_X[i].f); float rate = d_prolif_rate[i];
 
 
     float rate;
@@ -211,11 +220,11 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
         case mesenchyme: {
             // float rate = d_prolif_rate[i] * d_X[i].f;
             // if(d_X[i].f > distal_threshold)
-                rate = d_prolif_rate[i];
+            rate = d_prolif_rate[i];
             // else
             //     rate = 0.5f * d_prolif_rate[i];
-            // float rate = d_prolif_rate[i] - d_prolif_rate[i]*(1.f - 0.25f)*(1.f-d_X[i].f);
-            // d_out_prolif_rate[i] = rate;
+            // float rate = d_prolif_rate[i] - d_prolif_rate[i]*(1.f -
+            // 0.25f)*(1.f-d_X[i].f); d_out_prolif_rate[i] = rate;
             auto r = curand_uniform(&d_state[i]);
             if (r > rate) return;
             break;
@@ -253,18 +262,18 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
     d_out_prolif_rate[n] = 0.0f;
 }
 
-__global__ void dynamic_aer(float3 centroid, float width, Cell* d_X,
-    int* d_n_cells)
+__global__ void dynamic_aer(
+    float3 centroid, float width, Cell* d_X, int* d_n_cells)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
-    if(i > *d_n_cells) return;
+    if (i > *d_n_cells) return;
 
-    if(d_type[i] == epithelium or d_type[i] == aer) {
-        if(d_X[i].x > centroid.x - 10.0f){
+    if (d_type[i] == epithelium or d_type[i] == aer) {
+        if (d_X[i].x > centroid.x - 10.0f) {
             d_X[i].w = 1.0f;
             d_X[i].f = 0.0f;
-            if(d_X[i].x > centroid.x - 10.f and d_X[i].z < centroid.z - 0.4f
-                and d_X[i].z > centroid.z - 3.4f) {
+            if (d_X[i].x > centroid.x - 10.f and
+                d_X[i].z < centroid.z - 0.4f and d_X[i].z > centroid.z - 3.4f) {
                 d_type[i] = aer;
                 d_X[i].f = 1.f;
             } else {
@@ -277,18 +286,13 @@ __global__ void dynamic_aer(float3 centroid, float width, Cell* d_X,
         }
     }
     d_out_prolif_rate[i] = 0.0;
-    if(d_X[i].f > distal_threshold)
-        d_out_prolif_rate[i] += 1.0;
-    if(d_X[i].w > superficial_threshold)
-        d_out_prolif_rate[i] += 1.0;
-    if(d_X[i].f > very_distal_threshold)
-            d_out_prolif_rate[i] += 1.0;
-
+    if (d_X[i].f > distal_threshold) d_out_prolif_rate[i] += 1.0;
+    if (d_X[i].w > superficial_threshold) d_out_prolif_rate[i] += 1.0;
+    if (d_X[i].f > very_distal_threshold) d_out_prolif_rate[i] += 1.0;
 }
 
-// Double step solver means we have to initialise n_neibhbours before every
-// step.
-// This function is called before each step.
+// 2nd order solver means we have to initialise n_neibhbours before every
+// step. This function is called before each step.
 void neighbour_init(const Cell* __restrict__ d_X, Cell* d_dX)
 {
     thrust::fill(thrust::device, n_epi_nbs.d_prop, n_epi_nbs.d_prop + n_max, 0);
@@ -318,17 +322,19 @@ int main(int argc, char const* argv[])
 
     // Load the initial conditions
     Vtk_input input(file_name);
-    int n0 = input.n_points;
-    Solution<Cell, n_max, Grid_solver> limb(n0);
+    int n_0 = input.n_points;
+    Solution<Cell, Grid_solver> limb{n_max};
+    *limb.h_n = n_0;
     input.read_positions(limb);
     input.read_polarity(limb);
     Property<n_max, Cell_types> type;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     Property<n_max, int> intype;
 
-    input.read_property(intype, "cell_type");  // we read it as an int, then we translate to
-                                               // enum "Cell_types"
-    for (int i = 0; i < n0; i++) {
+    input.read_property(
+        intype, "cell_type");  // we read it as an int, then we translate to
+                               // enum "Cell_types"
+    for (int i = 0; i < n_0; i++) {
         limb.h_X[i].w = 0.0f;
         limb.h_X[i].f = 0.0f;
         if (intype.h_prop[i] == 0) {
@@ -346,7 +352,7 @@ int main(int argc, char const* argv[])
     limb.copy_to_device();
     type.copy_to_device();
 
-    std::cout << "initial ncells " << n0 << " nmax " << n_max << std::endl;
+    std::cout << "initial ncells " << n_0 << " nmax " << n_max << std::endl;
 
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
@@ -356,8 +362,8 @@ int main(int argc, char const* argv[])
 
     float maximum = limb.h_X[0].x;
     int fixed;
-    for (auto i = 1; i < n0; i++) {
-        if(maximum < limb.h_X[i].x) {
+    for (auto i = 1; i < n_0; i++) {
+        if (maximum < limb.h_X[i].x) {
             maximum = limb.h_X[i].x;
             fixed = i;
         }
@@ -366,12 +372,13 @@ int main(int argc, char const* argv[])
     float3 X_fixed = {limb.h_X[fixed].x, limb.h_X[fixed].y, limb.h_X[fixed].z};
 
     Links<static_cast<int>(n_max * prots_per_cell)> protrusions(
-        protrusion_strength, n0 * prots_per_cell);
-    auto intercalation = std::bind(
-        link_forces_w_n_init<static_cast<int>(n_max * prots_per_cell), Cell, link_force>,
-        protrusions, std::placeholders::_1, std::placeholders::_2);
+        protrusion_strength, n_0 * prots_per_cell);
+    auto intercalation =
+        std::bind(link_forces_w_n_init<static_cast<int>(n_max * prots_per_cell),
+                      Cell, link_force>,
+            protrusions, std::placeholders::_1, std::placeholders::_2);
 
-    Grid<n_max> grid;
+    Grid grid{n_max};
 
     // determine cell-specific proliferation rates
     Property<n_max, float> prolif_rate("prolif_rate");
@@ -383,15 +390,15 @@ int main(int argc, char const* argv[])
 
     // float min_proliferation_rate = 0.5f * max_proliferation_rate;
     // if (prolif_dist == 0) {
-        for (int i = 0; i < n0; i++) {
-            prolif_rate.h_prop[i] = max_proliferation_rate;
-        }
+    for (int i = 0; i < n_0; i++) {
+        prolif_rate.h_prop[i] = max_proliferation_rate;
+    }
     // } else {
     //     float xmax = -10000.0f;
-    //     for (int i = 0; i < n0; i++) {
+    //     for (int i = 0; i < n_0; i++) {
     //         if (limb.h_X[i].x > xmax) xmax = limb.h_X[i].x;
     //     }
-    //     for (int i = 0; i < n0; i++) {
+    //     for (int i = 0; i < n_0; i++) {
     //         if (limb.h_X[i].x < 0)
     //             prolif_rate.h_prop[i] = 0;
     //         else
@@ -406,19 +413,18 @@ int main(int argc, char const* argv[])
     curandState* d_state;
     cudaMalloc(&d_state, n_max * sizeof(curandState));
     auto seed = time(NULL);
-    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(
-        n_max, seed, d_state);
+    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(n_max, seed, d_state);
 
     // Calculate centroid (needed to dynamically control AER)
     // float3 centroid {0};
-    // for (auto i = 0; i <= n0; i++) {
+    // for (auto i = 0; i <= n_0; i++) {
     //     centroid.x += limb.h_X[i].x;
     //     centroid.y += limb.h_X[i].y;
     //     centroid.z += limb.h_X[i].z;
     // }
-    // centroid *= 1.f / float(n0);
-    // std::cout<<"centroid pre "<<centroid.x<<" "<<centroid.y<<" "<<centroid.z<<std::endl;
-
+    // centroid *= 1.f / float(n_0);
+    // std::cout<<"centroid pre "<<centroid.x<<" "<<centroid.y<<"
+    // "<<centroid.z<<std::endl;
 
 
     std::cout << "n_time_steps " << n_time_steps << " write interval "
@@ -437,7 +443,7 @@ int main(int argc, char const* argv[])
             out_prolif_rate.copy_to_host();
         }
 
-        //restricts aer cells to a geometric rule
+        // restricts aer cells to a geometric rule
         dynamic_aer<<<(limb.get_d_n() + 128 - 1) / 128, 128>>>(
             X_fixed, 1.f, limb.d_X, limb.d_n);
 
@@ -470,17 +476,18 @@ int main(int argc, char const* argv[])
     // centroid.x = 0.f;
     // centroid.y = 0.f;
     // centroid.z = 0.f;
-    // for (auto i = 0; i <= n0; i++) {
+    // for (auto i = 0; i <= n_0; i++) {
     //     centroid.x += limb.h_X[i].x;
     //     centroid.y += limb.h_X[i].y;
     //     centroid.z += limb.h_X[i].z;
     // }
-    // centroid *= 1.f / float(n0);
-    // std::cout<<"centroid post "<<centroid.x<<" "<<centroid.y<<" "<<centroid.z<<std::endl;
+    // centroid *= 1.f / float(n_0);
+    // std::cout<<"centroid post "<<centroid.x<<" "<<centroid.y<<"
+    // "<<centroid.z<<std::endl;
 
-    //write down the limb epithelium for later shape comparison
+    // write down the limb epithelium for later shape comparison
 
-    Solution<Cell, n_max, Grid_solver> epi_Tf;
+    Solution<Cell, Grid_solver> epi_Tf{n_max};
     int j = 0;
     for (int i = 0; i < *limb.h_n; i++) {
         if (type.h_prop[i] >= epithelium) {
@@ -496,7 +503,7 @@ int main(int argc, char const* argv[])
     Vtk_output epi_Tf_output(output_tag + ".shape");
     epi_Tf_output.write_positions(epi_Tf);
     epi_Tf_output.write_polarity(epi_Tf);
-    std::cout<<"hola"<<std::endl;
+    std::cout << "hola" << std::endl;
 
     return 0;
 }

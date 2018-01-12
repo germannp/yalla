@@ -91,8 +91,8 @@ __device__ Cell wall_force(Cell Xi, Cell r, float dist, int i, int j)
     //     dF.w = 0.f;
     // }
 
-    if (Xi.w<0.f) dF.w=0.f;
-    if (Xi.f<0.f) dF.f=0.f;
+    if (Xi.w < 0.f) dF.w = 0.f;
+    if (Xi.f < 0.f) dF.f = 0.f;
     return dF;
 }
 
@@ -106,7 +106,7 @@ __device__ float wall_friction(Cell Xi, Cell r, float dist, int i, int j)
 __device__ void link_force(const Cell* __restrict__ d_X, const int a,
     const int b, const float strength, Cell* d_dX)
 {
-    if(d_X[a].f + d_X[b].f> 0.2f) return;
+    if (d_X[a].f + d_X[b].f > 0.2f) return;
 
     auto r = d_X[a] - d_X[b];
     auto dist = norm3df(r.x, r.y, r.z);
@@ -120,7 +120,7 @@ __device__ void link_force(const Cell* __restrict__ d_X, const int a,
 }
 
 __global__ void update_protrusions(const int n_cells,
-    const Grid<n_max>* __restrict__ d_grid, const Cell* __restrict d_X,
+    const Grid* __restrict__ d_grid, const Cell* __restrict d_X,
     curandState* d_state, Link* d_link)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -160,23 +160,26 @@ __global__ void update_protrusions(const int n_cells,
 
     auto high_f = false;
     // auto high_f = (d_X[a].f + d_X[b].f) > 0.2f;
-    auto distal = (d_X[a].f + d_X[b].f) > 0.025f;//0.025f;//0.20f; //0.025
+    auto distal = (d_X[a].f + d_X[b].f) > 0.025f;  // 0.025f;//0.20f; //0.025
     bool more_along_w = false;
     bool normal_to_f_gradient = false;
     bool normal_to_w = false;
-    if(distal) {
+    if (distal) {
         more_along_w =
             fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
         // normal_to_f_gradient =
-        //     fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
+        //     fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f -
+        //     noise);
         // normal_to_w =
-        //     fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f - noise);
+        //     fabs(new_r.w / new_dist) < fabs(old_r.w / old_dist) * (1.f -
+        //     noise);
         // high_f = true;
     } else {
         more_along_w =
             fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
         // normal_to_f_gradient =
-        //     fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
+        //     fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f -
+        //     noise);
         // high_f = true;
     }
     // high_f = false;
@@ -196,7 +199,8 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
         return;  // Dividing new cells is problematic!
 
     // float rate = d_prolif_rate[i] * d_X[i].f;
-    // float rate = d_prolif_rate[i] - d_prolif_rate[i]*(1.f - 0.25f)*(1.f-d_X[i].f);
+    // float rate = d_prolif_rate[i] - d_prolif_rate[i]*(1.f -
+    // 0.25f)*(1.f-d_X[i].f);
     float rate = d_prolif_rate[i];
 
 
@@ -277,8 +281,9 @@ int main(int argc, char const* argv[])
 
     // Load the initial conditions
     Vtk_input input(file_name);
-    int n0 = input.n_points;
-    Solution<Cell, n_max, Grid_solver> limb(n0);
+    int n_0 = input.n_points;
+    Solution<Cell, Grid_solver> limb{n_max};
+    *limb.h_n = n_0;
 
     input.read_positions(limb);
     input.read_polarity(limb);
@@ -287,9 +292,10 @@ int main(int argc, char const* argv[])
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     Property<n_max, int> intype;
 
-    input.read_property(intype, "cell_type");  // we read it as an int, then we translate to
-                                               // enum "Cell_types"
-    for (int i = 0; i < n0; i++) {
+    input.read_property(
+        intype, "cell_type");  // we read it as an int, then we translate to
+                               // enum "Cell_types"
+    for (int i = 0; i < n_0; i++) {
         limb.h_X[i].w = 0.0f;
         limb.h_X[i].f = 0.0f;
         if (intype.h_prop[i] == 0) {
@@ -307,18 +313,19 @@ int main(int argc, char const* argv[])
     limb.copy_to_device();
     type.copy_to_device();
 
-    std::cout << "initial ncells " << n0 << " nmax " << n_max << std::endl;
+    std::cout << "initial ncells " << n_0 << " nmax " << n_max << std::endl;
 
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
 
     Links<static_cast<int>(n_max * prots_per_cell)> protrusions(
-        protrusion_strength, n0 * prots_per_cell);
-    auto intercalation = std::bind(
-        link_forces_w_n_init<static_cast<int>(n_max * prots_per_cell), Cell, link_force>,
-        protrusions, std::placeholders::_1, std::placeholders::_2);
+        protrusion_strength, n_0 * prots_per_cell);
+    auto intercalation =
+        std::bind(link_forces_w_n_init<static_cast<int>(n_max * prots_per_cell),
+                      Cell, link_force>,
+            protrusions, std::placeholders::_1, std::placeholders::_2);
 
-    Grid<n_max> grid;
+    Grid grid{n_max};
 
     // determine cell-specific proliferation rates
     Property<n_max, float> prolif_rate("prolif_rate");
@@ -327,15 +334,15 @@ int main(int argc, char const* argv[])
 
     float min_proliferation_rate = 0.5f * max_proliferation_rate;
     // if (prolif_dist == 0) {
-        for (int i = 0; i < n0; i++) {
-            prolif_rate.h_prop[i] = max_proliferation_rate;
-        }
+    for (int i = 0; i < n_0; i++) {
+        prolif_rate.h_prop[i] = max_proliferation_rate;
+    }
     // } else {
     //     float xmax = -10000.0f;
-    //     for (int i = 0; i < n0; i++) {
+    //     for (int i = 0; i < n_0; i++) {
     //         if (limb.h_X[i].x > xmax) xmax = limb.h_X[i].x;
     //     }
-    //     for (int i = 0; i < n0; i++) {
+    //     for (int i = 0; i < n_0; i++) {
     //         if (limb.h_X[i].x < 0)
     //             prolif_rate.h_prop[i] = 0;
     //         else
@@ -350,8 +357,7 @@ int main(int argc, char const* argv[])
     curandState* d_state;
     cudaMalloc(&d_state, n_max * sizeof(curandState));
     auto seed = time(NULL);
-    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(
-        n_max, seed, d_state);
+    setup_rand_states<<<(n_max + 128 - 1) / 128, 128>>>(n_max, seed, d_state);
 
     int skip_step = 1;  // n_time_steps/10;
     std::cout << "n_time_steps " << n_time_steps << " write interval "

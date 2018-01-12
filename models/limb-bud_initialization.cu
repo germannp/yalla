@@ -75,7 +75,7 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j)
 
 
 __global__ void update_protrusions(const int n_cells,
-    const Grid<n_max>* __restrict__ d_grid, const Lb_cell* __restrict d_X,
+    const Grid* __restrict__ d_grid, const Lb_cell* __restrict d_X,
     curandState* d_state, Link* d_link)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -169,7 +169,8 @@ __global__ void proliferate(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Lb_cell, n_max, Grid_solver> cells(n_0);
+    Solution<Lb_cell, Grid_solver> cells{n_max};
+    *cells.h_n = n_0;
     random_disk(r_max / 2, cells);
     Property<n_max, Cell_types> type;
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
@@ -214,7 +215,7 @@ int main(int argc, const char* argv[])
     auto intercalation = std::bind(
         link_forces<static_cast<int>(n_max * prots_per_cell), Lb_cell>,
         protrusions, std::placeholders::_1, std::placeholders::_2);
-    Grid<n_max> grid;
+    Grid grid{n_max};
 
     // Proliferate
     Vtk_output output("initialization");

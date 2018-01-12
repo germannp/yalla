@@ -33,7 +33,7 @@ __device__ Po_cell relu_w_migration(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Tile_solver> cells;
+    Solution<Po_cell, Tile_solver> cells{n_cells};
     relaxed_cuboid(0.75, float3{-1.5, -1.5, 0}, float3{1.5, 1.5, 10}, cells);
     cells.h_X[*cells.h_n].phi = 0.01;
     *cells.h_n += 1;

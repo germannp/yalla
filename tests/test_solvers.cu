@@ -16,7 +16,7 @@ __device__ float4 oscillator(float4 Xi, float4 r, float dist, int i, int j)
 
 const char* test_oscillation()
 {
-    Solution<float4, 2, Tile_solver> oscillation;
+    Solution<float4, Tile_solver> oscillation{2};
     oscillation.h_X[0].w = 1;
     oscillation.h_X[1].w = 0;
     oscillation.copy_to_device();
@@ -53,7 +53,7 @@ __device__ float3 clipped_spring(float3 Xi, float3 r, float dist, int i, int j)
 
 const char* test_tile_tetrahedron()
 {
-    Solution<float3, 4, Tile_solver> tile;
+    Solution<float3, Tile_solver> tile{4};
     random_sphere(L_0, tile);
     auto com_i = center_of_mass(tile);
     for (auto i = 0; i < 500; i++) {
@@ -64,8 +64,7 @@ const char* test_tile_tetrahedron()
     for (auto i = 1; i < 4; i++) {
         auto r = tile.h_X[0] - tile.h_X[i];
         auto dist = sqrtf(r.x * r.x + r.y * r.y + r.z * r.z);
-        MU_ASSERT(
-            "Spring not relaxed in tile tetrahedron", isclose(dist, L_0));
+        MU_ASSERT("Spring not relaxed in tile tetrahedron", isclose(dist, L_0));
     }
 
     auto com_f = center_of_mass(tile);
@@ -78,7 +77,7 @@ const char* test_tile_tetrahedron()
 
 const char* test_grid_tetrahedron()
 {
-    Solution<float3, 4, Grid_solver> grid;
+    Solution<float3, Grid_solver> grid{4};
     random_sphere(L_0, grid);
     auto com_i = center_of_mass(grid);
     for (auto i = 0; i < 500; i++) {
@@ -90,8 +89,7 @@ const char* test_grid_tetrahedron()
         auto r = float3{grid.h_X[0].x - grid.h_X[i].x,
             grid.h_X[0].y - grid.h_X[i].y, grid.h_X[0].z - grid.h_X[i].z};
         auto dist = sqrtf(r.x * r.x + r.y * r.y + r.z * r.z);
-        MU_ASSERT(
-            "Spring not relaxed in grid tetrahedron", isclose(dist, L_0));
+        MU_ASSERT("Spring not relaxed in grid tetrahedron", isclose(dist, L_0));
     }
 
     auto com_f = center_of_mass(grid);
@@ -106,8 +104,8 @@ const auto n_max = 50;
 
 const char* test_compare_methods()
 {
-    Solution<float3, n_max, Tile_solver> tile;
-    Solution<float3, n_max, Grid_solver> grid;
+    Solution<float3, Tile_solver> tile{n_max};
+    Solution<float3, Grid_solver> grid{n_max};
     random_sphere(0.733333, tile);
     for (auto i = 0; i < n_max; i++) {
         grid.h_X[i].x = tile.h_X[i].x;
@@ -150,7 +148,7 @@ void push(const float3* __restrict__ d_X, float3* d_dX)
 
 const char* test_generic_forces()
 {
-    Solution<float3, 2, Tile_solver> tile;
+    Solution<float3, Tile_solver> tile{2};
     tile.h_X[0] = float3{0, 0, 10};
     tile.h_X[1] = float3{0, 0, 0};
     tile.copy_to_device();
@@ -167,7 +165,7 @@ const char* test_generic_forces()
     MU_ASSERT("Tile generic force failed in y", isclose(tile.h_X[1].y, 0));
     MU_ASSERT("Tile generic force failed in z", isclose(tile.h_X[1].z, 0));
 
-    Solution<float3, 2, Grid_solver> grid;
+    Solution<float3, Grid_solver> grid{2};
     grid.h_X[0] = float3{0, 0, 10};
     grid.h_X[1] = float3{0, 0, 0};
     grid.copy_to_device();
@@ -190,7 +188,7 @@ const char* test_generic_forces()
 
 const char* test_friction()
 {
-    Solution<float3, 2, Tile_solver> tile;
+    Solution<float3, Tile_solver> tile{2};
     tile.h_X[0] = float3{0, 0, 0};
     tile.h_X[1] = float3{.5, 0, 0};
     tile.copy_to_device();
@@ -208,7 +206,7 @@ const char* test_friction()
     MU_ASSERT("Tile friction w/ neighbour",
         isclose(tile.h_X[1].x - tile.h_X[0].x, 0.75));
 
-    Solution<float3, 2, Grid_solver> grid;
+    Solution<float3, Grid_solver> grid{2};
     grid.h_X[0] = float3{0, 0, 0};
     grid.h_X[1] = float3{.5, 0, 0};
     grid.copy_to_device();
@@ -232,7 +230,7 @@ const char* test_friction()
 
 const char* test_fix_point()
 {
-    Solution<float3, 100, Tile_solver> tile;
+    Solution<float3, Tile_solver> tile{100};
     random_sphere(0.733333, tile);
     auto fix_point = 13;
     tile.h_X[fix_point] = float3{0};
@@ -249,8 +247,7 @@ const char* test_fix_point()
 }
 
 
-template<int n_max>
-__global__ void single_grid(const Grid<n_max>* __restrict__ d_grid)
+__global__ void single_grid(const Grid* __restrict__ d_grid)
 {
     auto i = threadIdx.x + blockDim.x * threadIdx.y +
              blockDim.x * blockDim.y * threadIdx.z;
@@ -268,8 +265,7 @@ __global__ void single_grid(const Grid<n_max>* __restrict__ d_grid)
     D_ASSERT(d_grid->d_cube_id[i] == expected_cube);
 }
 
-template<int n_max>
-__global__ void double_grid(const Grid<n_max>* __restrict__ d_grid)
+__global__ void double_grid(const Grid* __restrict__ d_grid)
 {
     auto i = threadIdx.x + blockDim.x * threadIdx.y +
              blockDim.x * blockDim.y * threadIdx.z;
@@ -295,7 +291,7 @@ const char* test_grid_spacing()
     const auto n_y = 7;
     const auto n_z = 7;
 
-    Solution<float3, n_x * n_y * n_z, Grid_solver> points;
+    Solution<float3, Grid_solver> points{n_x * n_y * n_z};
     for (auto i = 0; i < n_z; i++) {
         for (auto j = 0; j < n_y; j++) {
             for (auto k = 0; k < n_x; k++) {
@@ -307,7 +303,7 @@ const char* test_grid_spacing()
     }
     points.copy_to_device();
 
-    Grid<n_x * n_y * n_z> grid;
+    Grid grid{n_x * n_y * n_z};
     grid.build(points, 1);
     single_grid<<<1, dim3{n_x, n_y, n_z}>>>(grid.d_grid);
 

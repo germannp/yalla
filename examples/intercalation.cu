@@ -60,7 +60,7 @@ __global__ void update_protrusions(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<float3, n_cells, Grid_solver> cells;
+    Solution<float3, Grid_solver> cells{n_cells};
     random_sphere(r_min, cells);
     Links<n_cells * prots_per_cell> protrusions;
     auto intercalation = std::bind(link_forces<n_cells * prots_per_cell>,

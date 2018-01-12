@@ -60,7 +60,7 @@ __device__ void protrusion_force(const Po_cell* __restrict__ d_X, const int a,
 }
 
 
-__global__ void update_protrusions(const Grid<n_cells>* __restrict__ d_grid,
+__global__ void update_protrusions(const Grid* __restrict__ d_grid,
     const Po_cell* __restrict d_X, curandState* d_state, Link* d_link)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -103,7 +103,7 @@ __global__ void update_protrusions(const Grid<n_cells>* __restrict__ d_grid,
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Grid_solver> cells;
+    Solution<Po_cell, Grid_solver> cells{n_cells};
     random_disk(0.733333, cells);
     for (auto i = 0; i < n_cells; i++) {
         cells.h_X[i].x = cells.h_X[i].z;
@@ -122,7 +122,7 @@ int main(int argc, const char* argv[])
 
     // Simulate elongation
     Vtk_output output("aggregate");
-    Grid<n_cells> grid;
+    Grid grid{n_cells};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();
         protrusions.copy_to_host();
