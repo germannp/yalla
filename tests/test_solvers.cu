@@ -247,16 +247,17 @@ const char* test_fix_point()
 }
 
 
-__global__ void single_grid(const Grid* __restrict__ d_grid)
+__global__ void single_grid(
+    const Grid* __restrict__ d_grid, const int grid_size)
 {
     auto i = threadIdx.x + blockDim.x * threadIdx.y +
              blockDim.x * blockDim.y * threadIdx.z;
 
-    auto cube_id_origin = (GRID_SIZE * GRID_SIZE * GRID_SIZE) / 2 +
-                          (GRID_SIZE * GRID_SIZE) / 2 + GRID_SIZE / 2;
+    auto cube_id_origin = (grid_size * grid_size * grid_size) / 2 +
+                          (grid_size * grid_size) / 2 + grid_size / 2;
     auto expected_cube = cube_id_origin + threadIdx.x +
-                         (GRID_SIZE * threadIdx.y) +
-                         (GRID_SIZE * GRID_SIZE * threadIdx.z);
+                         (grid_size * threadIdx.y) +
+                         (grid_size * grid_size * threadIdx.z);
 
     auto one_point_per_cube = d_grid->d_cube_start[expected_cube] ==
                               d_grid->d_cube_end[expected_cube];
@@ -265,17 +266,18 @@ __global__ void single_grid(const Grid* __restrict__ d_grid)
     D_ASSERT(d_grid->d_cube_id[i] == expected_cube);
 }
 
-__global__ void double_grid(const Grid* __restrict__ d_grid)
+__global__ void double_grid(
+    const Grid* __restrict__ d_grid, const int grid_size)
 {
     auto i = threadIdx.x + blockDim.x * threadIdx.y +
              blockDim.x * blockDim.y * threadIdx.z;
 
-    auto cube_id_origin = (GRID_SIZE * GRID_SIZE * GRID_SIZE) / 2 +
-                          (GRID_SIZE * GRID_SIZE) / 2 + GRID_SIZE / 2;
+    auto cube_id_origin = (grid_size * grid_size * grid_size) / 2 +
+                          (grid_size * grid_size) / 2 + grid_size / 2;
     auto expected_cube =
         static_cast<int>(cube_id_origin + floor(threadIdx.x / 2.f) +
-                         (GRID_SIZE * floor(threadIdx.y / 2.f)) +
-                         (GRID_SIZE * GRID_SIZE * floor(threadIdx.z / 2.f)));
+                         (grid_size * floor(threadIdx.y / 2.f)) +
+                         (grid_size * grid_size * floor(threadIdx.z / 2.f)));
 
     auto in_expected_cube = false;
     for (auto j = d_grid->d_cube_start[expected_cube];
@@ -303,12 +305,13 @@ const char* test_grid_spacing()
     }
     points.copy_to_device();
 
-    Grid grid{n_x * n_y * n_z};
+    auto grid_size = 70;
+    Grid grid{n_x * n_y * n_z, grid_size};
     grid.build(points, 1);
-    single_grid<<<1, dim3{n_x, n_y, n_z}>>>(grid.d_grid);
+    single_grid<<<1, dim3{n_x, n_y, n_z}>>>(grid.d_grid, grid_size);
 
     grid.build(points, 2);
-    double_grid<<<1, dim3{n_x, n_y, n_z}>>>(grid.d_grid);
+    double_grid<<<1, dim3{n_x, n_y, n_z}>>>(grid.d_grid, grid_size);
     cudaDeviceSynchronize();  // Wait for device to exit
 
     return NULL;
