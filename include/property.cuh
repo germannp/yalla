@@ -9,10 +9,9 @@ struct Property {
     Prop* h_prop;
     Prop* d_prop;
     std::string name;
-    int n_max;
-    Property(int n, std::string init_name = "cell_type")
+    const int n_max;
+    Property(int n, std::string init_name = "cell_type") : n_max{n}
     {
-        n_max = n;
         h_prop = (Prop*)malloc(n_max * sizeof(Prop));
         cudaMalloc(&d_prop, n_max * sizeof(Prop));
         name = init_name;

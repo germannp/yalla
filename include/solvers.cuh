@@ -60,26 +60,25 @@ void no_gen_forces(const Pt* __restrict__ d_X, Pt* d_dX)
 template<typename Pt, template<typename> class Solver>
 class Solution : public Solver<Pt> {
 public:
-    Pt* h_X;                               // Current variables on host
-    Pt* d_X = Solver<Pt>::d_X;             // Variables on device (GPU)
-    int* h_n = (int*)malloc(sizeof(int));  // Number of points
-    int* d_n = Solver<Pt>::d_n;
+    Pt* h_X;                                     // Current variables on host
+    Pt* const d_X = Solver<Pt>::d_X;             // Variables on device (GPU)
+    int* const h_n = (int*)malloc(sizeof(int));  // Number of points
+    int* const d_n = Solver<Pt>::d_n;
+    const int n_max;
     template<typename... Args>
-    Solution(int n_max, Args... args) : Solver<Pt>(n_max, args...)
+    Solution(int n, Args... args) : n_max{n}, Solver<Pt>{n, args...}
     {
         *h_n = n_max;
         h_X = (Pt*)malloc(n_max * sizeof(Pt));
     }
     void copy_to_device()
     {
-        auto n_max = Solver<Pt>::n_max;
         assert(*h_n <= n_max);
         cudaMemcpy(d_X, h_X, n_max * sizeof(Pt), cudaMemcpyHostToDevice);
         cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice);
     }
     void copy_to_host()
     {
-        auto n_max = Solver<Pt>::n_max;
         cudaMemcpy(h_X, d_X, n_max * sizeof(Pt), cudaMemcpyDeviceToHost);
         cudaMemcpy(h_n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
         assert(*h_n <= n_max);
@@ -167,11 +166,10 @@ protected:
     int* d_n;
     bool fix_com = true;
     int fix_point;
-    int n_max;
+    const int n_max;
     template<typename... Args>
-    Heun_solver(int n, Args... args) : Computer<Pt>(n, args...)
+    Heun_solver(int n, Args... args) : n_max{n}, Computer<Pt>{n, args...}
     {
-        n_max = n;
         cudaMalloc(&d_X, n_max * sizeof(Pt));
         cudaMalloc(&d_dX, n_max * sizeof(Pt));
         cudaMalloc(&d_X1, n_max * sizeof(Pt));
@@ -340,12 +338,9 @@ class Grid {
 public:
     int *d_cube_id, *d_point_id, *d_cube_start, *d_cube_end;
     Grid* d_grid;
-    int n_max, grid_size, n_cubes;
-    Grid(int n, int gs = 50)
+    const int n_max, grid_size, n_cubes;
+    Grid(int n, int gs = 50) : n_max{n}, grid_size{gs}, n_cubes{gs * gs * gs}
     {
-        n_max = n;
-        grid_size = gs;
-        n_cubes = grid_size * grid_size * grid_size;
         cudaMalloc(&d_cube_id, n_max * sizeof(int));
         cudaMalloc(&d_point_id, n_max * sizeof(int));
         cudaMalloc(&d_cube_start, n_cubes * sizeof(int));
@@ -420,7 +415,7 @@ protected:
     Grid grid;
     float cube_size;
     Grid_computer(int n_max, int grid_size = 50, float cs = 1)
-        : grid(n_max, grid_size)
+        : grid{n_max, grid_size}
     {
         cube_size = cs;
         int h_nhood[27];

@@ -30,12 +30,11 @@ public:
     Link* d_link;
     int* h_n = (int*)malloc(sizeof(int));
     int* d_n;
-    int n_links;
+    const int n_links;
     curandState* d_state;
     float strength;
-    Links(int n, float s = 1.f / 5)
+    Links(int n, float s = 1.f / 5) : n_links{n}
     {
-        n_links = n;
         h_link = (Link*)malloc(n_links * sizeof(Link));
         cudaMalloc(&d_link, n_links * sizeof(Link));
         cudaMalloc(&d_n, sizeof(int));
