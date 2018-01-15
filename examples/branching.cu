@@ -5,10 +5,10 @@
 
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
-#include "../include/links.cuh"
 #include "../include/polarity.cuh"
 #include "../include/property.cuh"
 #include "../include/solvers.cuh"
+#include "../include/utils.cuh"
 #include "../include/vtk.cuh"
 
 const auto n_0 = 500;
