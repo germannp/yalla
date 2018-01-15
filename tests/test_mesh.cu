@@ -1,3 +1,5 @@
+#include <curand_kernel.h>
+
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
 #include "../include/mesh.cuh"

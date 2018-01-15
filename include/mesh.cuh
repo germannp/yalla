@@ -458,9 +458,9 @@ void Mesh::copy_to_device()
         cudaMemcpyHostToDevice);
 }
 
-// Compute pairwise interactions and frictions one thread per point, to
-// TILE_SIZE points at a time, after http://http.developer.nvidia.com/
-// GPUGems3/gpugems3_ch31.html.
+// Compute pairwise minimum distance one thread per point, to TILE_SIZE
+// points at a time, after http://http.developer.nvidia.com/GPUGems3/
+// gpugems3_ch31.html.
 template<typename Pt1, typename Pt2>
 __global__ void calculate_minimum_distance(const int n1, const int n2,
     const Pt1* __restrict__ d_X1, Pt2* d_X2, float* d_min_dist)
@@ -470,7 +470,7 @@ __global__ void calculate_minimum_distance(const int n1, const int n2,
     __shared__ Pt2 shX[TILE_SIZE];
     Pt1 Xi{0};
     if (i < n1) Xi = d_X1[i];
-    float min_dist = 10000.f;
+    float min_dist;
     for (auto tile_start = 0; tile_start < n2; tile_start += TILE_SIZE) {
         auto j = tile_start + threadIdx.x;
         if (j < n2) {
@@ -483,7 +483,10 @@ __global__ void calculate_minimum_distance(const int n1, const int n2,
             if ((i < n1) and (j < n2)) {
                 float3 r{Xi.x - shX[k].x, Xi.y - shX[k].y, Xi.z - shX[k].z};
                 auto dist = norm3df(r.x, r.y, r.z);
-                if (dist < min_dist) min_dist = dist;
+                if (j == 0)
+                    min_dist = dist;
+                else
+                    min_dist = min(dist, min_dist);
             }
         }
     }
