@@ -318,6 +318,26 @@ const char* test_grid_spacing()
 }
 
 
+const char* test_cube_size()
+{
+    Solution<float3, Grid_solver> points{2};
+    points.h_X[1].x = 0.75;
+    points.copy_to_device();
+
+    points.cube_size = 0.5;
+    points.take_step<clipped_spring>(0.1);
+    points.copy_to_host();
+    MU_ASSERT("Cell outside cube moved", points.h_X[0].x == 0);
+
+    points.cube_size = 1;
+    points.take_step<clipped_spring>(0.1);
+    points.copy_to_host();
+    MU_ASSERT("Cell inside cube did not move", points.h_X[0].x != 0);
+
+    return NULL;
+}
+
+
 const char* all_tests()
 {
     MU_RUN_TEST(test_oscillation);
@@ -328,6 +348,7 @@ const char* all_tests()
     MU_RUN_TEST(test_friction);
     MU_RUN_TEST(test_fix_point);
     MU_RUN_TEST(test_grid_spacing);
+    MU_RUN_TEST(test_cube_size);
     return NULL;
 }
 

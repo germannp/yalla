@@ -411,9 +411,11 @@ __global__ void compute_cube(const int n, const Pt* __restrict__ d_X,
 
 template<typename Pt>
 class Grid_computer {
+public:
+    float cube_size;
+
 protected:
     Grid grid;
-    float cube_size;
     Grid_computer(int n_max, int grid_size = 50, float cs = 1)
         : grid{n_max, grid_size}
     {
