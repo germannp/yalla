@@ -152,21 +152,6 @@ __global__ void add_rhs(const int n, const float3* __restrict__ d_sum_v,
 template<typename Pt, template<typename> class Computer>
 class Heun_solver : public Computer<Pt> {
 public:
-    void set_fixed() { fix_com = true; }
-    void set_fixed(int point_id)
-    {
-        fix_com = false;
-        fix_point = point_id;
-    }
-
-protected:
-    Pt *d_X, *d_dX, *d_X1, *d_dX1;
-    float3 *d_old_v, *d_sum_v;
-    float* d_sum_friction;
-    int* d_n;
-    bool fix_com = true;
-    int fix_point;
-    const int n_max;
     template<typename... Args>
     Heun_solver(int n, Args... args) : n_max{n}, Computer<Pt>{n, args...}
     {
@@ -182,6 +167,21 @@ protected:
         cudaMalloc(&d_n, sizeof(int));
         cudaMalloc(&d_sum_friction, n_max * sizeof(int));
     }
+    void set_fixed() { fix_com = true; }
+    void set_fixed(int point_id)
+    {
+        fix_com = false;
+        fix_point = point_id;
+    }
+
+protected:
+    Pt *d_X, *d_dX, *d_X1, *d_dX1;
+    float3 *d_old_v, *d_sum_v;
+    float* d_sum_friction;
+    int* d_n;
+    bool fix_com = true;
+    int fix_point;
+    const int n_max;
     int get_d_n()
     {
         int n;
@@ -282,8 +282,10 @@ __global__ void compute_tile(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
 
 template<typename Pt>
 class Tile_computer {
-protected:
+public:
     Tile_computer(int n_max) {}
+
+protected:
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
     void pwints(const int n, Pt* d_X, Pt* d_dX,
         const float3* __restrict__ d_old_v, float3* d_sum_v,
@@ -413,9 +415,6 @@ template<typename Pt>
 class Grid_computer {
 public:
     float cube_size;
-
-protected:
-    Grid grid;
     Grid_computer(int n_max, int grid_size = 50, float cs = 1)
         : grid{n_max, grid_size}
     {
@@ -434,6 +433,9 @@ protected:
         }
         cudaMemcpyToSymbol(d_nhood, &h_nhood, 27 * sizeof(int));
     }
+
+protected:
+    Grid grid;
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
     void pwints(int n, Pt* d_X, Pt* d_dX, const float3* __restrict__ d_old_v,
         float3* d_sum_v, float* d_sum_friction)
