@@ -1,6 +1,7 @@
 // Snippets used in several places
 #pragma once
 
+#include <curand_kernel.h>
 #include <sstream>
 #include <string>
 #include <vector>
