@@ -31,19 +31,19 @@ __device__ float3 differential_adhesion(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<float3, n_cells, Grid_solver> bolls;
-    random_sphere(r_min, bolls);
-    Property<n_cells> type;
+    Solution<float3, Grid_solver> cells{n_cells};
+    random_sphere(r_min, cells);
+    Property<> type{n_cells};
     for (auto i = 0; i < n_cells; i++) {
         type.h_prop[i] = (i < n_cells / 2) ? 0 : 1;
     }
 
     // Integrate cell positions
-    Vtk_output output("sorting");
+    Vtk_output output{"sorting"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
-        bolls.take_step<differential_adhesion>(dt);
-        output.write_positions(bolls);
+        cells.copy_to_host();
+        cells.take_step<differential_adhesion>(dt);
+        output.write_positions(cells);
         output.write_property(type);
     }
 

@@ -75,13 +75,23 @@ __device__ Lb_cell lb_force(Lb_cell Xi, Lb_cell r, float dist, int i, int j)
 
 
 __global__ void update_protrusions(const int n_cells,
-    const Grid<n_max>* __restrict__ d_grid, const Lb_cell* __restrict d_X,
+    const Grid* __restrict__ d_grid, const Lb_cell* __restrict d_X,
     curandState* d_state, Link* d_link)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= n_cells * prots_per_cell) return;
 
     auto j = static_cast<int>((i + 0.5) / prots_per_cell);
+    auto a = d_grid->d_point_id[j];
+    auto link = &d_link[a * prots_per_cell + i % prots_per_cell];
+    auto initialized = link->a != 0 or link->b != 0;
+    auto r = d_X[link->a] - d_X[link->b];
+    auto dist = norm3df(r.x, r.y, r.z);
+    if (initialized and ((dist < r_max) or (dist > r_protrusion))) {
+        link->a = a;
+        link->b = a;
+    }
+
     auto rnd_cube =
         d_grid->d_cube_id[j] +
         d_nhood[min(static_cast<int>(curand_uniform(&d_state[i]) * 27), 26)];
@@ -92,7 +102,6 @@ __global__ void update_protrusions(const int n_cells,
     auto rnd_cell =
         min(static_cast<int>(curand_uniform(&d_state[i]) * cells_in_cube),
             cells_in_cube - 1);
-    auto a = d_grid->d_point_id[j];
     auto b = d_grid->d_point_id[d_grid->d_cube_start[rnd_cube] + rnd_cell];
     D_ASSERT(a >= 0);
     D_ASSERT(a < n_cells);
@@ -104,17 +113,12 @@ __global__ void update_protrusions(const int n_cells,
 
     auto new_r = d_X[a] - d_X[b];
     auto new_dist = norm3df(new_r.x, new_r.y, new_r.z);
-    if (new_dist > r_protrusion) return;
+    if ((new_dist < r_max) or (new_dist > r_protrusion)) return;
 
-    auto link = &d_link[a * prots_per_cell + i % prots_per_cell];
-    auto not_initialized = link->a == link->b;
-    auto old_r = d_X[link->a] - d_X[link->b];
-    auto old_dist = norm3df(old_r.x, old_r.y, old_r.z);
-    auto more_along_w =
-        fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) + 0.01;
-    auto high_f = (d_X[a].f + d_X[b].f) > 0.01;
-    // auto high_f = false;
-    if (not_initialized or more_along_w or high_f) {
+    auto more_along_w = fabs(new_r.w / new_dist) > fabs(r.w / dist) + 0.01 * 0;
+    // auto high_f = (d_X[a].f + d_X[b].f) > 0.01;
+    auto high_f = false;
+    if (not initialized or more_along_w or high_f) {
         link->a = a;
         link->b = b;
     }
@@ -165,81 +169,82 @@ __global__ void proliferate(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Lb_cell, n_max, Grid_solver> bolls(n_0);
-    random_disk(r_max / 2, bolls);
-    Property<n_max, Cell_types> type;
+    Solution<Lb_cell, Grid_solver> cells{n_max};
+    *cells.h_n = n_0;
+    random_disk(r_max / 2, cells);
+    Property<Cell_types> type{n_max};
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
     for (auto i = 0; i < n_0 / 2; i++) {
         type.h_prop[i] = mesoderm;
-        bolls.h_X[i].y /= 1.5;
-        bolls.h_X[i].theta = -M_PI / 2;
+        cells.h_X[i].y /= 1.5;
+        cells.h_X[i].theta = -M_PI / 2;
         type.h_prop[i + n_0 / 2] = ectoderm;
-        bolls.h_X[i + n_0 / 2].x += mean_distance / 2;
-        bolls.h_X[i + n_0 / 2].w = 1;
-        bolls.h_X[i + n_0 / 2].y /= 1.5;
-        bolls.h_X[i + n_0 / 2].theta = M_PI / 2;
+        cells.h_X[i + n_0 / 2].x += mean_distance / 2;
+        cells.h_X[i + n_0 / 2].w = 1;
+        cells.h_X[i + n_0 / 2].y /= 1.5;
+        cells.h_X[i + n_0 / 2].theta = M_PI / 2;
     }
-    bolls.copy_to_device();
+    cells.copy_to_device();
     type.copy_to_device();
-    Property<n_max, int> n_mes_nbs;
+    Property<int> n_mes_nbs{n_max};
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
-    Property<n_max, int> n_epi_nbs;
+    Property<int> n_epi_nbs{n_max};
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
-    for (auto i = 0; i < 100; i++) bolls.take_step<lb_force>(dt);
-    bolls.copy_to_host();
+    for (auto i = 0; i < 100; i++) cells.take_step<lb_force>(dt);
+    cells.copy_to_host();
     for (auto i = n_0 / 2; i < n_0; i++) {
-        if ((fabs(bolls.h_X[i].y) < 0.5) and (fabs(bolls.h_X[i].z) < 4)) {
-            bolls.h_X[i].f = 1;
+        if ((fabs(cells.h_X[i].y) < 0.5) and (fabs(cells.h_X[i].z) < 4)) {
+            cells.h_X[i].f = 1;
             type.h_prop[i] = aer;
         }
     }
-    *bolls.h_n += 100;
-    random_disk(mean_distance * 1.5, bolls, n_0);
-    for (auto i = n_0; i < *bolls.h_n; i++) {
-        bolls.h_X[i].x = 0.1;
-        bolls.h_X[i].y /= 2.5;
+    *cells.h_n += 100;
+    random_disk(mean_distance * 1.5, cells, n_0);
+    for (auto i = n_0; i < *cells.h_n; i++) {
+        cells.h_X[i].x = 0.1;
+        cells.h_X[i].y /= 2.5;
         type.h_prop[i] = mesenchyme;
     }
-    Property<n_max, int> clone("clone");
+    Property<int> clone{n_max, "clone"};
     cudaMemcpyToSymbol(d_clone, &clone.d_prop, sizeof(d_clone));
-    for (auto i = 0; i < *bolls.h_n; i++) clone.h_prop[i] = i;
-    bolls.copy_to_device();
+    for (auto i = 0; i < *cells.h_n; i++) clone.h_prop[i] = i;
+    cells.copy_to_device();
     type.copy_to_device();
     clone.copy_to_device();
-    Links<n_max * prots_per_cell> protrusions(0.1, n_0 * prots_per_cell);
-    auto intercalation = std::bind(
-        link_forces<static_cast<int>(n_max * prots_per_cell), Lb_cell>,
-        protrusions, std::placeholders::_1, std::placeholders::_2);
-    Grid<n_max> grid;
+    Links protrusions(n_max * prots_per_cell, 0.1);
+    protrusions.set_d_n(n_0 * prots_per_cell);
+    auto intercalation = std::bind(link_forces<Lb_cell>, protrusions,
+        std::placeholders::_1, std::placeholders::_2);
+    Grid grid{n_max};
 
     // Proliferate
-    Vtk_output output("initialization");
+    Vtk_output output{"initialization"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
+        cells.copy_to_host();
         type.copy_to_host();
         clone.copy_to_host();
         protrusions.copy_to_host();
 
-        proliferate<<<(bolls.get_d_n() + 128 - 1) / 128, 128>>>(
-            bolls.get_d_n(), bolls.d_X, bolls.d_n, protrusions.d_state);
-        protrusions.set_d_n(bolls.get_d_n() * prots_per_cell);
-        grid.build(bolls, r_protrusion);
+        proliferate<<<(cells.get_d_n() + 128 - 1) / 128, 128>>>(
+            cells.get_d_n(), cells.d_X, cells.d_n, protrusions.d_state);
+        protrusions.set_d_n(cells.get_d_n() * prots_per_cell);
+        grid.build(cells, r_protrusion);
         update_protrusions<<<(protrusions.get_d_n() + 32 - 1) / 32, 32>>>(
-            bolls.get_d_n(), grid.d_grid, bolls.d_X, protrusions.d_state,
+            cells.get_d_n(), grid.d_grid, cells.d_X, protrusions.d_state,
             protrusions.d_link);
         thrust::fill(thrust::device, n_mes_nbs.d_prop,
-            n_mes_nbs.d_prop + bolls.get_d_n(), 0);
+            n_mes_nbs.d_prop + cells.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop,
-            n_epi_nbs.d_prop + bolls.get_d_n(), 0);
-        bolls.take_step<lb_force>(dt, intercalation);
+            n_epi_nbs.d_prop + cells.get_d_n(), 0);
+        cells.take_step<lb_force>(dt, intercalation);
 
-        output.write_positions(bolls);
+        output.write_positions(cells);
         output.write_links(protrusions);
         output.write_property(type);
         output.write_property(clone);
-        // output.write_polarity(bolls);
-        output.write_field(bolls, "Wnt");
-        output.write_field(bolls, "Fgf", &Lb_cell::f);
+        // output.write_polarity(cells);
+        output.write_field(cells, "Wnt");
+        output.write_field(cells, "Fgf", &Lb_cell::f);
     }
 
     return 0;

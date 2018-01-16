@@ -23,3 +23,10 @@ __device__ __host__ float dot_product(Pt_a a, Pt_b b)
 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
+
+
+__global__ void setup_rand_states(int n_states, int seed, curandState* d_state)
+{
+    auto i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n_states) curand_init(seed, i, 0, &d_state[i]);
+}

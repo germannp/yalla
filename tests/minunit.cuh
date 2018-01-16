@@ -37,17 +37,17 @@ auto tests_run = 0;
 bool isclose(float a, float b) { return fabs(a - b) <= 1e-6 + 1e-2 * fabs(b); }
 
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
+template<typename Pt, template<typename> class Solver>
 class Solution;
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
-float3 center_of_mass(Solution<Pt, n_max, Solver>& bolls)
+template<typename Pt, template<typename> class Solver>
+float3 center_of_mass(Solution<Pt, Solver>& points)
 {
     float3 com{0};
-    for (auto i = 0; i < *bolls.h_n; i++) {
-        com.x += bolls.h_X[i].x / *bolls.h_n;
-        com.y += bolls.h_X[i].y / *bolls.h_n;
-        com.z += bolls.h_X[i].z / *bolls.h_n;
+    for (auto i = 0; i < *points.h_n; i++) {
+        com.x += points.h_X[i].x / *points.h_n;
+        com.y += points.h_X[i].y / *points.h_n;
+        com.z += points.h_X[i].z / *points.h_n;
     }
     return com;
 }

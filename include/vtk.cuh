@@ -14,21 +14,19 @@
 #include <typeinfo>
 #include <vector>
 
+#include "links.cuh"
 #include "utils.cuh"
 
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
+template<typename Pt, template<typename> class Solver>
 class Solution;
 
-template<int n_links>
-class Links;
-
-template<int n_max, typename Prop>
+template<typename Prop>
 struct Property;
 
 
 class Vtk_output {
-    int n_bolls;
+    int n_points;
     int time_step{0};
     std::string base_name;
     std::string current_path;
@@ -41,21 +39,20 @@ public:
     Vtk_output(std::string base_name, bool verbose = true);
     ~Vtk_output(void);
     // Write x, y, and z component of Pt; has to be written first
-    template<typename Pt, int n_max, template<typename, int> class Solver>
-    void write_positions(Solution<Pt, n_max, Solver>& bolls);
+    template<typename Pt, template<typename> class Solver>
+    void write_positions(Solution<Pt, Solver>& points);
     // Write links, see links.cuh; if written has to be second
-    template<int n_links>
-    void write_links(Links<n_links>& links);
+    void write_links(Links& links);
     // Write further components of Pt
-    template<typename Pt, int n_max, template<typename, int> class Solver>
-    void write_field(Solution<Pt, n_max, Solver>& bolls,
-        const char* data_name = "w", float Pt::*field = &Pt::w);
+    template<typename Pt, template<typename> class Solver>
+    void write_field(Solution<Pt, Solver>& points, const char* data_name = "w",
+        float Pt::*field = &Pt::w);
     // Write polarity from phi and theta of Pt, see polarity.cuh
-    template<typename Pt, int n_max, template<typename, int> class Solver>
-    void write_polarity(Solution<Pt, n_max, Solver>& bolls);
+    template<typename Pt, template<typename> class Solver>
+    void write_polarity(Solution<Pt, Solver>& points);
     // Write not integrated property, see property.cuh
-    template<int n_max, typename Prop>
-    void write_property(Property<n_max, Prop>& property);
+    template<typename Prop>
+    void write_property(Property<Prop>& property);
 };
 
 Vtk_output::Vtk_output(std::string base_name, bool verbose)
@@ -78,15 +75,14 @@ Vtk_output::~Vtk_output()
         std::cout << duration / 60 << "m " << duration % 60 << "s";
     else
         std::cout << duration / 60 / 60 << "h " << duration % 60 * 60 << "m";
-    std::cout << " taken (" << n_bolls
-              << " bolls).        \n";  // Overwrite everything
+    std::cout << " taken (" << n_points
+              << " points).        \n";  // Overwrite everything
 }
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
-void Vtk_output::write_positions(Solution<Pt, n_max, Solver>& bolls)
+template<typename Pt, template<typename> class Solver>
+void Vtk_output::write_positions(Solution<Pt, Solver>& points)
 {
-    n_bolls = *bolls.h_n;
-    assert(n_bolls <= n_max);
+    n_points = *points.h_n;
 
     current_path =
         "output/" + base_name + "_" + std::to_string(time_step) + ".vtk";
@@ -98,25 +94,25 @@ void Vtk_output::write_positions(Solution<Pt, n_max, Solver>& bolls)
     file << "ASCII\n";
     file << "DATASET POLYDATA\n";
 
-    file << "\nPOINTS " << n_bolls << " float\n";
-    for (auto i = 0; i < n_bolls; i++)
-        file << bolls.h_X[i].x << " " << bolls.h_X[i].y << " " << bolls.h_X[i].z
-             << "\n";
+    file << "\nPOINTS " << n_points << " float\n";
+    for (auto i = 0; i < n_points; i++)
+        file << points.h_X[i].x << " " << points.h_X[i].y << " "
+             << points.h_X[i].z << "\n";
 
-    file << "\nVERTICES " << n_bolls << " " << 2 * n_bolls << "\n";
-    for (auto i = 0; i < n_bolls; i++) file << "1 " << i << "\n";
+    file << "\nVERTICES " << n_points << " " << 2 * n_points << "\n";
+    for (auto i = 0; i < n_points; i++) file << "1 " << i << "\n";
 
     point_data_started = false;
     time_step += 1;
     if (!verbose) return;
 
     std::cout << "Integrating " << base_name << ", ";
-    std::cout << time_step << " steps done (" << n_bolls << " bolls)        \r";
+    std::cout << time_step << " steps done (" << n_points
+              << " points)        \r";
     std::cout.flush();
 }
 
-template<int n_links>
-void Vtk_output::write_links(Links<n_links>& links)
+void Vtk_output::write_links(Links& links)
 {
     std::ofstream file(current_path, std::ios_base::app);
     assert(file.is_open());
@@ -126,52 +122,52 @@ void Vtk_output::write_links(Links<n_links>& links)
         file << "2 " << links.h_link[i].a << " " << links.h_link[i].b << "\n";
 }
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
+template<typename Pt, template<typename> class Solver>
 void Vtk_output::write_field(
-    Solution<Pt, n_max, Solver>& bolls, const char* data_name, float Pt::*field)
+    Solution<Pt, Solver>& points, const char* data_name, float Pt::*field)
 {
     std::ofstream file(current_path, std::ios_base::app);
     assert(file.is_open());
 
     if (!point_data_started) {
-        file << "\nPOINT_DATA " << n_bolls << "\n";
+        file << "\nPOINT_DATA " << n_points << "\n";
         point_data_started = true;
     }
     file << "SCALARS " << data_name << " float\n";
     file << "LOOKUP_TABLE default\n";
-    for (auto i = 0; i < n_bolls; i++) file << bolls.h_X[i].*field << "\n";
+    for (auto i = 0; i < n_points; i++) file << points.h_X[i].*field << "\n";
 }
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
-void Vtk_output::write_polarity(Solution<Pt, n_max, Solver>& bolls)
+template<typename Pt, template<typename> class Solver>
+void Vtk_output::write_polarity(Solution<Pt, Solver>& points)
 {
     std::ofstream file(current_path, std::ios_base::app);
     assert(file.is_open());
 
     if (!point_data_started) {
-        file << "\nPOINT_DATA " << n_bolls << "\n";
+        file << "\nPOINT_DATA " << n_points << "\n";
         point_data_started = true;
     }
     file << "NORMALS polarity float\n";
-    for (auto i = 0; i < n_bolls; i++) {
+    for (auto i = 0; i < n_points; i++) {
         float3 n{0};
-        if ((bolls.h_X[i].phi != 0) or (bolls.h_X[i].theta != 0)) {
-            n.x = sinf(bolls.h_X[i].theta) * cosf(bolls.h_X[i].phi);
-            n.y = sinf(bolls.h_X[i].theta) * sinf(bolls.h_X[i].phi);
-            n.z = cosf(bolls.h_X[i].theta);
+        if ((points.h_X[i].phi != 0) or (points.h_X[i].theta != 0)) {
+            n.x = sinf(points.h_X[i].theta) * cosf(points.h_X[i].phi);
+            n.y = sinf(points.h_X[i].theta) * sinf(points.h_X[i].phi);
+            n.z = cosf(points.h_X[i].theta);
         }
         file << n.x << " " << n.y << " " << n.z << "\n";
     }
 }
 
-template<int n_max, typename Prop>
-void Vtk_output::write_property(Property<n_max, Prop>& property)
+template<typename Prop>
+void Vtk_output::write_property(Property<Prop>& property)
 {
     std::ofstream file(current_path, std::ios_base::app);
     assert(file.is_open());
 
     if (!point_data_started) {
-        file << "\nPOINT_DATA " << n_bolls << "\n";
+        file << "\nPOINT_DATA " << n_points << "\n";
         point_data_started = true;
     }
 
@@ -181,9 +177,10 @@ void Vtk_output::write_property(Property<n_max, Prop>& property)
     else
         ptype = "int";
 
+    assert(n_points <= property.n_max);
     file << "SCALARS " << property.name << " " << ptype << "\n";
     file << "LOOKUP_TABLE default\n";
-    for (auto i = 0; i < n_bolls; i++) file << property.h_prop[i] << "\n";
+    for (auto i = 0; i < n_points; i++) file << property.h_prop[i] << "\n";
 }
 
 
@@ -193,19 +190,19 @@ class Vtk_input {
 public:
     Vtk_input(std::string file_name);
     std::streampos find_entry(std::string, std::string);
-    template<typename Pt, int n_max, template<typename, int> class Solver>
-    void read_positions(Solution<Pt, n_max, Solver>& bolls);
+    template<typename Pt, template<typename> class Solver>
+    void read_positions(Solution<Pt, Solver>& points);
     // Read polarity of Pt, see polarity.cuh
-    template<typename Pt, int n_max, template<typename, int> class Solver>
-    void read_polarity(Solution<Pt, n_max, Solver>& bolls);
+    template<typename Pt, template<typename> class Solver>
+    void read_polarity(Solution<Pt, Solver>& points);
     // Read further field of Pt
-    template<typename Pt, int n_max, template<typename, int> class Solver>
-    void read_field(Solution<Pt, n_max, Solver>& bolls,
-        const char* data_name = "w", float Pt::*field = &Pt::w);
+    template<typename Pt, template<typename> class Solver>
+    void read_field(Solution<Pt, Solver>& points, const char* data_name = "w",
+        float Pt::*field = &Pt::w);
     // Read property, see property.cuh
-    template<int n_max, typename Prop>
-    void read_property(Property<n_max, Prop>& property, std::string prop_name);
-    int n_bolls;
+    template<typename Prop>
+    void read_property(Property<Prop>& property, std::string prop_name);
+    int n_points;
 };
 
 Vtk_input::Vtk_input(std::string file_name) : file_name{file_name}
@@ -219,7 +216,7 @@ Vtk_input::Vtk_input(std::string file_name) : file_name{file_name}
 
     for (auto i = 0; i < 6; i++) getline(input_file, line);
     items = split(line);
-    n_bolls = stoi(items[1]);
+    n_points = stoi(items[1]);
     items.clear();
 }
 
@@ -252,30 +249,30 @@ std::streampos Vtk_input::find_entry(std::string keyword1, std::string keyword2)
     return input_file.tellg();
 }
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
-void Vtk_input::read_positions(Solution<Pt, n_max, Solver>& bolls)
+template<typename Pt, template<typename> class Solver>
+void Vtk_input::read_positions(Solution<Pt, Solver>& points)
 {
     std::ifstream input_file(file_name);
     assert(input_file.is_open());
 
     // Set the read position to the last line read
-    input_file.seekg(find_entry("POINTS", std::to_string(n_bolls)));
+    input_file.seekg(find_entry("POINTS", std::to_string(n_points)));
     std::string line;
     std::vector<std::string> items;
 
     // Read coordinates
-    for (int i = 0; i < n_bolls; i++) {
+    for (int i = 0; i < n_points; i++) {
         getline(input_file, line);
         items = split(line);
-        bolls.h_X[i].x = stof(items[0]);
-        bolls.h_X[i].y = stof(items[1]);
-        bolls.h_X[i].z = stof(items[2]);
+        points.h_X[i].x = stof(items[0]);
+        points.h_X[i].y = stof(items[1]);
+        points.h_X[i].z = stof(items[2]);
         items.clear();
     }
 }
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
-void Vtk_input::read_polarity(Solution<Pt, n_max, Solver>& bolls)
+template<typename Pt, template<typename> class Solver>
+void Vtk_input::read_polarity(Solution<Pt, Solver>& points)
 {
     std::ifstream input_file(file_name);
     assert(input_file.is_open());
@@ -286,7 +283,7 @@ void Vtk_input::read_polarity(Solution<Pt, n_max, Solver>& bolls)
     std::vector<std::string> items;
 
     // Read normals
-    for (auto i = 0; i < n_bolls; i++) {
+    for (auto i = 0; i < n_points; i++) {
         getline(input_file, line);
         items = split(line);
         items.clear();
@@ -295,18 +292,18 @@ void Vtk_input::read_polarity(Solution<Pt, n_max, Solver>& bolls)
         auto z = stof(items[2]);
         auto dist = sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
         if (dist == 0) {
-            bolls.h_X[i].phi = 0.0f;
-            bolls.h_X[i].theta = 0.0f;
+            points.h_X[i].phi = 0.0f;
+            points.h_X[i].theta = 0.0f;
         } else {
-            bolls.h_X[i].phi = atan2(y, x);
-            bolls.h_X[i].theta = acos(z);  // The normals are unit vectors
+            points.h_X[i].phi = atan2(y, x);
+            points.h_X[i].theta = acos(z);  // The normals are unit vectors
         }
     }
 }
 
-template<typename Pt, int n_max, template<typename, int> class Solver>
+template<typename Pt, template<typename> class Solver>
 void Vtk_input::read_field(
-    Solution<Pt, n_max, Solver>& bolls, const char* data_name, float Pt::*field)
+    Solution<Pt, Solver>& points, const char* data_name, float Pt::*field)
 {
     std::ifstream input_file(file_name);
     assert(input_file.is_open());
@@ -318,15 +315,14 @@ void Vtk_input::read_field(
 
     getline(input_file, line);  // LOOKUP_TABLE line
 
-    for (int i = 0; i < n_bolls; i++) {
+    for (int i = 0; i < n_points; i++) {
         getline(input_file, line);
-        std::istringstream(line) >> bolls.h_X[i].*field;
+        std::istringstream(line) >> points.h_X[i].*field;
     }
 }
 
-template<int n_max, typename Prop>
-void Vtk_input::read_property(
-    Property<n_max, Prop>& property, std::string prop_name)
+template<typename Prop>
+void Vtk_input::read_property(Property<Prop>& property, std::string prop_name)
 {
     std::ifstream input_file(file_name);
     assert(input_file.is_open());
@@ -338,7 +334,8 @@ void Vtk_input::read_property(
 
     getline(input_file, line);  // LOOKUP_TABLE line
 
-    for (int i = 0; i < n_bolls; i++) {
+    assert(n_points <= property.n_max);
+    for (int i = 0; i < n_points; i++) {
         getline(input_file, line);
         std::istringstream(line) >> property.h_prop[i];
     }

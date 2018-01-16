@@ -33,19 +33,19 @@ __device__ Po_cell relu_w_migration(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Tile_solver> bolls;
-    relaxed_cuboid(0.75, float3{-1.5, -1.5, 0}, float3{1.5, 1.5, 10}, bolls);
-    bolls.h_X[*bolls.h_n].phi = 0.01;
-    *bolls.h_n += 1;
-    bolls.copy_to_device();
+    Solution<Po_cell, Tile_solver> cells{n_cells};
+    relaxed_cuboid(0.75, float3{-1.5, -1.5, 0}, float3{1.5, 1.5, 10}, cells);
+    cells.h_X[*cells.h_n].phi = 0.01;
+    *cells.h_n += 1;
+    cells.copy_to_device();
 
     // Integrate cell positions
-    Vtk_output output("amoeboid_migration");
+    Vtk_output output{"migration"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
-        bolls.take_step<relu_w_migration>(dt);
-        output.write_positions(bolls);
-        output.write_polarity(bolls);
+        cells.copy_to_host();
+        cells.take_step<relu_w_migration>(dt);
+        output.write_positions(cells);
+        output.write_polarity(cells);
     }
 
     return 0;

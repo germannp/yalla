@@ -2,7 +2,7 @@
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
 #include "../include/links.cuh"
-#include "../include/meix.cuh"
+#include "../include/mesh.cuh"
 #include "../include/polarity.cuh"
 #include "../include/property.cuh"
 #include "../include/solvers.cuh"
@@ -114,7 +114,7 @@ __global__ void proliferate(float mean_rate, float mean_distance, Cell* d_X,
 
 
 __global__ void update_protrusions(const int n_cells,
-    const Grid<n_max>* __restrict__ d_grid, const Cell* __restrict d_X,
+    const Grid* __restrict__ d_grid, const Cell* __restrict d_X,
     curandState* d_state, Link* d_link)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -173,75 +173,75 @@ __global__ void update_protrusions(const int n_cells,
 int main(int argc, char const* argv[])
 {
     // Load the initial conditions
-    Vtk_input input("examples/sphere_ic.vtk");
-    int n_0 = input.n_bolls;
-    Solution<Cell, n_max, Grid_solver> bolls(n_0);
+    Vtk_input input{"examples/sphere_ic.vtk"};
+    int n_0 = input.n_points;
+    Solution<Cell, Grid_solver> cells{n_max};
+    *cells.h_n = n_0;
 
-    input.read_positions(bolls);
-    input.read_polarity(bolls);
+    input.read_positions(cells);
+    input.read_polarity(cells);
 
-    Property<n_max, int> intype;
+    Property<int> intype{n_max};
     input.read_property(intype, "cell_type");  // read as int, then
-    Property<n_max, Cell_types> type;          // translate to Cell_types
+    Property<Cell_types> type{n_max};          // translate to Cell_types
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
 
     for (int i = 0; i < n_0; i++) {
-        bolls.h_X[i].w = 0.0f;
+        cells.h_X[i].w = 0.0f;
         if (intype.h_prop[i] == 0) {
             type.h_prop[i] = mesenchyme;
         } else if (intype.h_prop[i] == 1) {
             type.h_prop[i] = epithelium;
-            if (bolls.h_X[i].z > 0.0f) {
-                bolls.h_X[i].w = 1.0f;
-                if (bolls.h_X[i].x > 0.0f and abs(bolls.h_X[i].y) < 2.5f and
-                    bolls.h_X[i].z < 3.0f)
-                    bolls.h_X[i].f = 1.0f;
+            if (cells.h_X[i].z > 0.0f) {
+                cells.h_X[i].w = 1.0f;
+                if (cells.h_X[i].x > 0.0f and abs(cells.h_X[i].y) < 2.5f and
+                    cells.h_X[i].z < 3.0f)
+                    cells.h_X[i].f = 1.0f;
             }
         }
     }
-    bolls.copy_to_device();
+    cells.copy_to_device();
     type.copy_to_device();
 
-    Property<n_max, int> n_mes_nbs("n_mes_nbs");
-    Property<n_max, int> n_epi_nbs("n_epi_nbs");
+    Property<int> n_mes_nbs{n_max, "n_mes_nbs"};
+    Property<int> n_epi_nbs{n_max, "n_epi_nbs"};
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
 
-    Links<static_cast<int>(n_max * prots_per_cell)> protrusions(
-        protrusion_strength, n_0 * prots_per_cell);
-    auto intercalation =
-        std::bind(link_forces<static_cast<int>(n_max * prots_per_cell), Cell>,
-            protrusions, std::placeholders::_1, std::placeholders::_2);
-    Grid<n_max> grid;
+    Links protrusions{n_max * prots_per_cell, protrusion_strength};
+    protrusions.set_d_n(n_0 * prots_per_cell);
+    auto intercalation = std::bind(link_forces<Cell>, protrusions,
+        std::placeholders::_1, std::placeholders::_2);
+    Grid grid{n_max};
 
-    Vtk_output output("intercalation_w_gradient");
+    Vtk_output output{"intercalation_w_gradient"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
+        cells.copy_to_host();
         protrusions.copy_to_host();
         type.copy_to_host();
 
         thrust::fill(thrust::device, n_mes_nbs.d_prop,
-            n_mes_nbs.d_prop + bolls.get_d_n(), 0);
+            n_mes_nbs.d_prop + cells.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop,
-            n_epi_nbs.d_prop + bolls.get_d_n(), 0);
+            n_epi_nbs.d_prop + cells.get_d_n(), 0);
 
-        protrusions.set_d_n(bolls.get_d_n() * prots_per_cell);
-        grid.build(bolls, r_protrusion);
+        protrusions.set_d_n(cells.get_d_n() * prots_per_cell);
+        grid.build(cells, r_protrusion);
         update_protrusions<<<(protrusions.get_d_n() + 32 - 1) / 32, 32>>>(
-            bolls.get_d_n(), grid.d_grid, bolls.d_X, protrusions.d_state,
+            cells.get_d_n(), grid.d_grid, cells.d_X, protrusions.d_state,
             protrusions.d_link);
 
-        bolls.take_step<force>(dt, intercalation);
+        cells.take_step<force>(dt, intercalation);
 
-        proliferate<<<(bolls.get_d_n() + 128 - 1) / 128, 128>>>(
-            mean_proliferation_rate, r_min, bolls.d_X, bolls.d_n,
+        proliferate<<<(cells.get_d_n() + 128 - 1) / 128, 128>>>(
+            mean_proliferation_rate, r_min, cells.d_X, cells.d_n,
             protrusions.d_state);
 
-        output.write_positions(bolls);
+        output.write_positions(cells);
         output.write_links(protrusions);
         output.write_property(type);
-        output.write_field(bolls);
-        output.write_field(bolls, "f", &Cell::f);
+        output.write_field(cells);
+        output.write_field(cells, "f", &Cell::f);
     }
 
     return 0;

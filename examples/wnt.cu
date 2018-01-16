@@ -27,7 +27,7 @@ __device__ Po_cell4 diffusion(Po_cell4 Xi, Po_cell4 r, float dist, int i, int j)
 
     // U_WNT = - ΣXj.w*(n_i . r_ij/r)^2/2 to bias along w
     Polarity rhat{acosf(-r.z / dist), atan2(-r.y, -r.x)};
-    dF += (Xi.w - r.w) * pcp_force(Xi, rhat);
+    dF += (Xi.w - r.w) * polarization_force(Xi, rhat);
 
     return dF;
 }
@@ -36,27 +36,27 @@ __device__ Po_cell4 diffusion(Po_cell4 Xi, Po_cell4 r, float dist, int i, int j)
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell4, n_cells, Tile_solver> bolls;
-    regular_hexagon(0.75, bolls);
+    Solution<Po_cell4, Tile_solver> cells{n_cells};
+    regular_hexagon(0.75, cells);
     for (auto i = 0; i < n_cells; i++) {
         if (i == 11) {
-            bolls.h_X[i].w = 50;
+            cells.h_X[i].w = 50;
         } else {
-            auto r = bolls.h_X[i] - bolls.h_X[11];  // Tilt polarities towards
-            bolls.h_X[i].theta = 0.01;              // source to end w/ all
-            bolls.h_X[i].phi = atan2(-r.y, -r.x);   // pointing the same way.
+            auto r = cells.h_X[i] - cells.h_X[11];  // Tilt polarities towards
+            cells.h_X[i].theta = 0.01;              // source to end w/ all
+            cells.h_X[i].phi = atan2(-r.y, -r.x);   // pointing the same way.
         }
     }
-    bolls.copy_to_device();
+    cells.copy_to_device();
 
     // Integrate cell positions
-    Vtk_output output("wnt");
+    Vtk_output output{"wnt"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
-        bolls.take_step<diffusion>(dt);
-        output.write_positions(bolls);
-        output.write_polarity(bolls);
-        output.write_field(bolls);
+        cells.copy_to_host();
+        cells.take_step<diffusion>(dt);
+        output.write_positions(cells);
+        output.write_polarity(cells);
+        output.write_field(cells);
     }
 
     return 0;

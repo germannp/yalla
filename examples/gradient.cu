@@ -27,19 +27,19 @@ __device__ float4 diffusion(float4 Xi, float4 r, float dist, int i, int j)
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<float4, n_cells, Tile_solver> bolls;
+    Solution<float4, Tile_solver> cells{n_cells};
     for (auto i = 0; i < n_cells; i++) {
-        bolls.h_X[i].w = i == 11 ? 1 : 0;
+        cells.h_X[i].w = i == 11 ? 1 : 0;
     }
-    regular_hexagon(0.75, bolls);
+    regular_hexagon(0.75, cells);
 
     // Integrate cell positions
-    Vtk_output output("gradient");
+    Vtk_output output{"gradient"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
-        bolls.take_step<diffusion>(dt);
-        output.write_positions(bolls);
-        output.write_field(bolls);
+        cells.copy_to_host();
+        cells.take_step<diffusion>(dt);
+        output.write_positions(cells);
+        output.write_field(cells);
     }
 
     return 0;

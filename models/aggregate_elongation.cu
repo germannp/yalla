@@ -50,17 +50,17 @@ __device__ void protrusion_force(const Po_cell* __restrict__ d_X, const int a,
     atomicAdd(&d_dX[b].z, strength * r.z / dist);
 
     Polarity r_hat{acosf(-r.z / dist), atan2(-r.y, -r.x)};
-    auto Fa = pcp_force(d_X[a], r_hat);
+    auto Fa = polarization_force(d_X[a], r_hat);
     atomicAdd(&d_dX[a].theta, strength * Fa.theta);
     atomicAdd(&d_dX[a].phi, strength * Fa.phi);
 
-    auto Fb = pcp_force(d_X[b], r_hat);
+    auto Fb = polarization_force(d_X[b], r_hat);
     atomicAdd(&d_dX[b].theta, strength * Fb.theta);
     atomicAdd(&d_dX[b].phi, strength * Fb.phi);
 }
 
 
-__global__ void update_protrusions(const Grid<n_cells>* __restrict__ d_grid,
+__global__ void update_protrusions(const Grid* __restrict__ d_grid,
     const Po_cell* __restrict d_X, curandState* d_state, Link* d_link)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -103,38 +103,36 @@ __global__ void update_protrusions(const Grid<n_cells>* __restrict__ d_grid,
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Po_cell, n_cells, Grid_solver> bolls;
-    random_disk(0.733333, bolls);
+    Solution<Po_cell, Grid_solver> cells{n_cells};
+    random_disk(0.733333, cells);
     for (auto i = 0; i < n_cells; i++) {
-        bolls.h_X[i].x = bolls.h_X[i].z;
-        bolls.h_X[i].z = rand() / (RAND_MAX + 1.) / 2;
-        bolls.h_X[i].theta = M_PI / 2 + (rand() / (RAND_MAX + 1.) - 0.5) / 2;
-        // bolls.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
-        auto phi = atan2(-bolls.h_X[i].y, -bolls.h_X[i].x);
-        bolls.h_X[i].phi = phi + M_PI / 2;
+        cells.h_X[i].x = cells.h_X[i].z;
+        cells.h_X[i].z = rand() / (RAND_MAX + 1.) / 2;
+        cells.h_X[i].theta = M_PI / 2 + (rand() / (RAND_MAX + 1.) - 0.5) / 2;
+        // cells.h_X[i].phi = 2.*M_PI*rand()/(RAND_MAX + 1.);
+        auto phi = atan2(-cells.h_X[i].y, -cells.h_X[i].x);
+        cells.h_X[i].phi = phi + M_PI / 2;
     }
-    bolls.copy_to_device();
-    Links<static_cast<int>(n_cells * prots_per_cell)> protrusions;
-    auto intercalation =
-        std::bind(link_forces<static_cast<int>(n_cells * prots_per_cell),
-                      Po_cell, protrusion_force>,
-            protrusions, std::placeholders::_1, std::placeholders::_2);
+    cells.copy_to_device();
+    Links protrusions{n_cells * prots_per_cell};
+    auto intercalation = std::bind(link_forces<Po_cell, protrusion_force>,
+        protrusions, std::placeholders::_1, std::placeholders::_2);
 
     // Simulate elongation
-    Vtk_output output("aggregate");
-    Grid<n_cells> grid;
+    Vtk_output output{"aggregate"};
+    Grid grid{n_cells};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
+        cells.copy_to_host();
         protrusions.copy_to_host();
 
-        grid.build(bolls, r_protrusion);
+        grid.build(cells, r_protrusion);
         update_protrusions<<<(protrusions.get_d_n() + 32 - 1) / 32, 32>>>(
-            grid.d_grid, bolls.d_X, protrusions.d_state, protrusions.d_link);
-        bolls.take_step<lb_force>(dt, intercalation);
+            grid.d_grid, cells.d_X, protrusions.d_state, protrusions.d_link);
+        cells.take_step<lb_force>(dt, intercalation);
 
-        output.write_positions(bolls);
+        output.write_positions(cells);
         output.write_links(protrusions);
-        output.write_polarity(bolls);
+        output.write_polarity(cells);
     }
 
     return 0;

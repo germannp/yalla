@@ -1,4 +1,4 @@
-// Simulate Meinhard equations within a 2D epithelium
+// Simulate Meinhard equations within an epithelium
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
 #include "../include/polarity.cuh"
@@ -23,7 +23,6 @@ const auto s_u = 0.05;
 const auto D_u = 0.1;
 
 const auto dt = 0.05 * r_min * r_min / D_v;
-
 
 MAKE_PT(Epi_cell, theta, phi, u, v);
 
@@ -61,24 +60,24 @@ __device__ Epi_cell epithelium_w_turing(
 int main(int argc, const char* argv[])
 {
     // Prepare initial state
-    Solution<Epi_cell, n_cells, Grid_solver> bolls;
+    Solution<Epi_cell, Grid_solver> cells{n_cells};
     for (int i = 0; i < n_cells; i++) {
-        bolls.h_X[i].theta = M_PI / 2;
-        bolls.h_X[i].u = rand() / (RAND_MAX + 1.) / 5 - 0.1;
-        bolls.h_X[i].v = rand() / (RAND_MAX + 1.) / 5 - 0.1;
+        cells.h_X[i].theta = M_PI / 2;
+        cells.h_X[i].u = rand() / (RAND_MAX + 1.) / 5 - 0.1;
+        cells.h_X[i].v = rand() / (RAND_MAX + 1.) / 5 - 0.1;
     }
-    random_disk(0.5, bolls);
+    random_disk(0.5, cells);
 
     // Integrate positions
-    Vtk_output output("turing2D");
+    Vtk_output output{"turing"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
-        bolls.copy_to_host();
-        bolls.take_step<epithelium_w_turing>(dt);
+        cells.copy_to_host();
+        cells.take_step<epithelium_w_turing>(dt);
         if (time_step % skip_steps == 0) {
-            output.write_positions(bolls);
-            output.write_polarity(bolls);
-            output.write_field(bolls, "u", &Epi_cell::u);
-            output.write_field(bolls, "v", &Epi_cell::v);
+            output.write_positions(cells);
+            output.write_polarity(cells);
+            output.write_field(cells, "u", &Epi_cell::u);
+            output.write_field(cells, "v", &Epi_cell::v);
         }
     }
 
