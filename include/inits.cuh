@@ -58,8 +58,8 @@ void random_cuboid(float dist_to_nb, float3 minimum, float3 maximum,
 
     auto dimension = maximum - minimum;
     auto cube_volume = dimension.x * dimension.y * dimension.z;
-    auto boll_volume = 4. / 3 * M_PI * pow(dist_to_nb / 2, 3);
-    auto n = cube_volume / boll_volume * 0.64;  // Sphere packing
+    auto sphere_volume = 4. / 3 * M_PI * pow(dist_to_nb / 2, 3);
+    auto n = cube_volume / spher_volume * 0.64;  // Sphere packing
 
     assert(n_0 + n < *points.h_n);
     *points.h_n = n_0 + n;
@@ -163,7 +163,7 @@ void regular_hexagon(
 
     auto beta = M_PI / 3.f;
 
-    // Boll in center
+    // Point in center
     auto cell_counter = n_0;
     points.h_X[cell_counter].x = 0.f;
     points.h_X[cell_counter].y = 0.f;
@@ -176,7 +176,7 @@ void regular_hexagon(
     auto i = 1;
     while (true) {
         for (auto j = 0; j < 6; j++) {
-            // Main axis boll
+            // Main axis point
             auto angle = beta * j;
             float3 p{-dist_to_nb * i * sinf(angle),
                 dist_to_nb * i * cosf(angle), 0.f};

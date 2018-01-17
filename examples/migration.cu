@@ -1,4 +1,4 @@
-// Simulate mono-polar, amoeboid migration
+// Simulate mono-polar migration
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
 #include "../include/polarity.cuh"

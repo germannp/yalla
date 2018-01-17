@@ -1,4 +1,4 @@
-// Forces for polarization, rigid single-boll-layer, and amoeboid migration
+// Forces for polarization, rigid single-point-layer, and migration
 #pragma once
 
 #include "utils.cuh"
@@ -69,7 +69,7 @@ __device__ __host__ Pt rigidity_force(Pt Xi, Pt r, float dist)
 }
 
 
-// Calculate mono-polar, amoeboid force, after
+// Calculate mono-polar migration force, after
 // https://doi.org/10.1016/B978-0-12-405926-9.00016-2
 template<typename Pt>
 __device__ __host__ float3 orthonormal(Pt r, float3 p)
