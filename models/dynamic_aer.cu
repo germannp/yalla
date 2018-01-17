@@ -26,13 +26,17 @@ const auto r_max = 1.0;
 const auto r_min = 0.8;
 const auto dt = 0.05f;
 const auto n_max = 1200000;
+const auto grid_size = 120;
 const auto prots_per_cell = 1;
 const auto protrusion_strength = 0.06f; // 0.2
-const auto distal_strength = 0.20f; // 0.2
-const auto proximal_strength = 0.40f; // 0.2
+const auto distal_strength = 0.20f; // 0.20
+const auto proximal_strength = 0.40f; // 0.40
 const auto r_protrusion = 2.0f;
-const auto distal_threshold = 0.080f; // 0.008f;
-const auto skip_step = 1000;
+const auto distal_threshold = 0.08f; // 0.08f;
+const auto skip_step = 100;
+
+const auto max_proliferation_rate = 0.0035f;
+const auto n_time_steps = 1000;
 
 enum Cell_types { mesenchyme, epithelium, aer };
 
@@ -124,7 +128,8 @@ __device__ void link_force(const Cell* __restrict__ d_X, const int a,
     atomicAdd(&d_dX[b].z, pd_strength * r.z / dist);
 }
 
-__global__ void update_protrusions(const int n_cells,
+__global__ void update_protrusions(float dist_x_ratio, float dist_y_ratio,
+    float prox_x_ratio, float prox_y_ratio, const int n_cells,
     const Grid* __restrict__ d_grid, const Cell* __restrict d_X,
     curandState* d_state, Link* d_link)
 {
@@ -168,15 +173,15 @@ __global__ void update_protrusions(const int n_cells,
     // auto random = (d_X[a].f + d_X[b].f) > 0.8f;
     auto distal = (d_X[a].f + d_X[b].f) > 2 * distal_threshold;// distal_threshold;//0.025f;//0.20f; //0.025
 
-    auto x_ratio = 0.5f;//0.25f;
-    auto y_ratio = 0.75f;//0.50f;
+    auto x_ratio = 0.5f; //0.25f;
+    auto y_ratio = 0.75f; //0.50f;
     if(d_is_limb[a]){
         if(distal){
-            x_ratio = 0.10f; // 0.10
-            y_ratio = 0.10f;
+            x_ratio = dist_x_ratio; // 0.10
+            y_ratio = dist_y_ratio; // 0.10
         }else{
-            x_ratio = 0.0f;
-            y_ratio = 0.50f;
+            x_ratio = prox_x_ratio; // 0.0f
+            y_ratio = prox_y_ratio; // 0.50f
         }
     }
 
@@ -362,16 +367,30 @@ void link_forces_w_n_init(Links& links, const Pt* __restrict__ d_X, Pt* d_dX)
 int main(int argc, char const* argv[])
 {
     std::string file_name = argv[1];
-    std::string output_tag = argv[2];
-    float max_proliferation_rate = std::stof(argv[3]);
-    int n_time_steps = std::stoi(argv[4]);
+    std::string codename = argv[2];
+    std::string param1 = argv[3];
+    std::string param2 = argv[4];
+    std::string param3 = argv[5];
+    std::string param4 = argv[6];
+
+    std::string output_tag = codename + "_dt_" +
+        std::to_string(distal_threshold) +
+        "_drx_" + param1 + "_dry_" + param2 +
+        "_prx_" + param3 + "_pry_" + param4;
+    float dist_x_ratio = std::stof(param1);
+    float dist_y_ratio = std::stof(param2);
+    float prox_x_ratio = std::stof(param3);
+    float prox_y_ratio = std::stof(param4);
+
+    // float max_proliferation_rate = std::stof(argv[3]);
+    // int n_time_steps = std::stoi(argv[4]);
     // int prolif_dist = std::stoi(argv[5]);
 
     // Load the initial conditions
     Vtk_input input(file_name);
-    int n_0 = input.n_points;
-    Solution<Cell, Grid_solver> limb{n_max};
-    *limb.h_n = n_0;
+    int n0 = input.n_points;
+    Solution<Cell, Grid_solver> limb{n_max, grid_size};
+    *limb.h_n = n0;
     input.read_positions(limb);
     input.read_polarity(limb);
     Property<Cell_types> type{n_max};
@@ -389,13 +408,13 @@ int main(int argc, char const* argv[])
 
     type.copy_to_device();
 
-    std::cout << "initial ncells " << n_0 << " nmax " << n_max << std::endl;
+    std::cout << "initial ncells " << n0 << " nmax " << n_max << std::endl;
 
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
 
     // mark what is limb and what is flank
-    Property<n_max, bool> is_limb("is_limb");
+    Property<bool> is_limb{n_max, "is_limb"};
     cudaMemcpyToSymbol(
         d_is_limb, &is_limb.d_prop, sizeof(d_is_limb));
     for (int i = 0; i < n0; i++) {
@@ -412,7 +431,7 @@ int main(int argc, char const* argv[])
 
     float maximum = limb.h_X[0].x;
     int fixed;
-    for (auto i = 1; i < n_0; i++) {
+    for (auto i = 1; i < n0; i++) {
         if (maximum < limb.h_X[i].x) {
             maximum = limb.h_X[i].x;
             fixed = i;
@@ -428,17 +447,17 @@ int main(int argc, char const* argv[])
     float3 X_fixed{limb.h_X[fixed].x, limb.h_X[fixed].y, limb.h_X[fixed].z};
 
     Links protrusions{n_max * prots_per_cell, protrusion_strength};
-    protrusions.set_d_n(n_0 * prots_per_cell);
+    protrusions.set_d_n(n0 * prots_per_cell);
     auto intercalation = std::bind(link_forces_w_n_init<Cell, link_force>,
         protrusions, std::placeholders::_1, std::placeholders::_2);
 
-    Grid grid{n_max};
+    Grid grid{n_max, grid_size};
 
     // determine cell-specific proliferation rates
     Property<float> prolif_rate{n_max, "prolif_rate"};
     cudaMemcpyToSymbol(
         d_prolif_rate, &prolif_rate.d_prop, sizeof(d_prolif_rate));
-    Property<n_max, bool> is_distal("is_distal");
+    Property<bool> is_distal{n_max, "is_distal"};
     cudaMemcpyToSymbol(
         d_is_distal, &is_distal.d_prop, sizeof(d_is_distal));
         for (int i = 0; i < n0; i++) {
@@ -447,7 +466,7 @@ int main(int argc, char const* argv[])
     prolif_rate.copy_to_device();
 
     //set up clone-like tracking in the PD axis
-    Property<n_max, float> pd_clone("pd_clone");
+    Property<float> pd_clone{n_max, "pd_clone"};
     cudaMemcpyToSymbol(
         d_pd_clone, &pd_clone.d_prop, sizeof(d_pd_clone));
         for (int i = 0; i < n0; i++) {
@@ -459,7 +478,7 @@ int main(int argc, char const* argv[])
     pd_clone.copy_to_device();
 
     //set up clone-like tracking in the AP axis
-    Property<n_max, float> ap_clone("ap_clone");
+    Property<float> ap_clone{n_max, "ap_clone"};
     cudaMemcpyToSymbol(
         d_ap_clone, &ap_clone.d_prop, sizeof(d_ap_clone));
         for (int i = 0; i < n0; i++) {
@@ -471,7 +490,7 @@ int main(int argc, char const* argv[])
     ap_clone.copy_to_device();
 
     //set up clone-like tracking in the DV axis
-    Property<n_max, float> dv_clone("dv_clone");
+    Property<float> dv_clone{n_max, "dv_clone"};
     cudaMemcpyToSymbol(
         d_dv_clone, &dv_clone.d_prop, sizeof(d_dv_clone));
         for (int i = 0; i < n0; i++) {
@@ -482,8 +501,6 @@ int main(int argc, char const* argv[])
         }
     dv_clone.copy_to_device();
 
-
-
     // State for proliferations
     curandState* d_state;
     cudaMalloc(&d_state, n_max * sizeof(curandState));
@@ -492,12 +509,12 @@ int main(int argc, char const* argv[])
 
     // Calculate centroid (needed to dynamically control AER)
     // float3 centroid {0};
-    // for (auto i = 0; i <= n_0; i++) {
+    // for (auto i = 0; i <= n0; i++) {
     //     centroid.x += limb.h_X[i].x;
     //     centroid.y += limb.h_X[i].y;
     //     centroid.z += limb.h_X[i].z;
     // }
-    // centroid *= 1.f / float(n_0);
+    // centroid *= 1.f / float(n0);
     // std::cout<<"centroid pre "<<centroid.x<<" "<<centroid.y<<"
     // "<<centroid.z<<std::endl;
 
@@ -528,11 +545,6 @@ int main(int argc, char const* argv[])
             dv_clone.copy_to_host();
         }
 
-        // //restricts aer cells to a geometric rule
-        // float pd_extension = 8.f + 0.02 * float(time_step);
-        // dynamic_aer<<<(limb.get_d_n() + 128 - 1) / 128, 128>>>(
-        //     X_fixed, pd_extension, limb.d_X, limb.d_n);
-
         contain_aer<<<(limb.get_d_n() + 128 - 1) / 128, 128>>>(X_fixed, limb.d_X, limb.d_n);
 
         proliferate<<<(limb.get_d_n() + 128 - 1) / 128, 128>>>(
@@ -540,6 +552,7 @@ int main(int argc, char const* argv[])
         protrusions.set_d_n(limb.get_d_n() * prots_per_cell);
         grid.build(limb, r_protrusion);
         update_protrusions<<<(protrusions.get_d_n() + 32 - 1) / 32, 32>>>(
+            dist_x_ratio, dist_y_ratio, prox_x_ratio, prox_y_ratio,
             limb.get_d_n(), grid.d_grid, limb.d_X, protrusions.d_state,
             protrusions.d_link);
 
@@ -568,17 +581,19 @@ int main(int argc, char const* argv[])
     // centroid.x = 0.f;
     // centroid.y = 0.f;
     // centroid.z = 0.f;
-    // for (auto i = 0; i <= n_0; i++) {
+    // for (auto i = 0; i <= n0; i++) {
     //     centroid.x += limb.h_X[i].x;
     //     centroid.y += limb.h_X[i].y;
     //     centroid.z += limb.h_X[i].z;
     // }
-    // centroid *= 1.f / float(n_0);
+    // centroid *= 1.f / float(n0);
     // std::cout<<"centroid post "<<centroid.x<<" "<<centroid.y<<"
     // "<<centroid.z<<std::endl;
 
     // write down the limb epithelium for later shape comparison
-
+    limb.copy_to_host();
+    protrusions.copy_to_host();
+    type.copy_to_host();
     Solution<Cell, Grid_solver> epi_Tf{n_max};
     int j = 0;
     for (int i = 0; i < *limb.h_n; i++) {
