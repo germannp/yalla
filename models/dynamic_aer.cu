@@ -29,8 +29,8 @@ const auto n_max = 1200000;
 const auto grid_size = 120;
 const auto prots_per_cell = 1;
 const auto protrusion_strength = 0.06f; // 0.2
-const auto distal_strength = 0.20f; // 0.20
-const auto proximal_strength = 0.40f; // 0.40
+const auto distal_strength = 0.20f; // 0.20 half that for ace of spades
+const auto proximal_strength = 0.40f; // 0.40 half that for ace of spades
 const auto r_protrusion = 2.0f;
 const auto distal_threshold = 0.08f; // 0.08f;
 const auto skip_step = 100;
@@ -85,8 +85,15 @@ __device__ Cell force(Cell Xi, Cell r, float dist, int i, int j)
     dF.y = r.y * F / dist;
     dF.z = r.z * F / dist;
 
-    dF.w = -r.w * (d_type[i] == mesenchyme) * 0.5f;
-    dF.f = -r.f * (d_type[i] == mesenchyme) * 0.5f;
+    dF.w = -r.w * (d_type[i] == mesenchyme) * 0.5f; //0.5
+    dF.f = -r.f * (d_type[i] == mesenchyme) * 0.5f; //0.5
+
+    //"diffusion" of spatial cues (intended to reduce noise)
+    if(d_is_limb[i] == true and d_is_limb[j] == true){
+        d_pd_clone[i] += (d_pd_clone[j] - d_pd_clone[i]) * 0.0005;
+        d_ap_clone[i] += (d_ap_clone[j] - d_ap_clone[i]) * 0.0005;
+        d_dv_clone[i] += (d_dv_clone[j] - d_dv_clone[i]) * 0.0005;
+    }
 
     if (d_type[i] >= epithelium && d_type[j] >= epithelium)
         dF += rigidity_force(Xi, r, dist) * 0.1f;
@@ -96,6 +103,31 @@ __device__ Cell force(Cell Xi, Cell r, float dist, int i, int j)
         atomicAdd(&d_epi_nbs[i], 1);
     else
         atomicAdd(&d_mes_nbs[i], 1);
+
+    if (Xi.w < 0.f) Xi.w = 0.f;
+    if (Xi.f < 0.f) Xi.f = 0.f;
+
+    return dF;
+}
+
+__device__ Cell only_diffusion(Cell Xi, Cell r, float dist, int i, int j)
+{
+    Cell dF{0};
+
+    if (i == j) {
+        // D_ASSERT(Xi.w >= 0);
+        dF.w = -0.01 * (d_type[i] == mesenchyme) * Xi.w;
+        dF.f = -0.01 * (d_type[i] == mesenchyme) * Xi.f;
+        if (Xi.w < 0.f) dF.w = 0.f;
+        if (Xi.f < 0.f) dF.f = 0.f;
+        return dF;
+    }
+
+    if (dist > r_max) return dF;
+
+    dF.w = -r.w * (d_type[i] == mesenchyme) * 0.5f;
+    dF.f = -r.f * (d_type[i] == mesenchyme) * 0.5f;
+
 
     if (Xi.w < 0.f) Xi.w = 0.f;
     if (Xi.f < 0.f) Xi.f = 0.f;
@@ -212,23 +244,44 @@ __global__ void update_protrusions(float dist_x_ratio, float dist_y_ratio,
     more_along_y = fabs(new_r.y / new_dist) > fabs(old_r.y / old_dist) * (1.f - noise);
     more_along_z = fabs(new_r.z / new_dist) > fabs(old_r.z / old_dist) * (1.f - noise);
     normal_to_z = fabs(new_r.z / new_dist) < fabs(old_r.z / old_dist) * (1.f - noise);
+
+
+    // auto old_pd = d_pd_clone[link->a] - d_pd_clone[link->b];
+    // auto old_ap = d_ap_clone[link->a] - d_ap_clone[link->b];
+    // auto old_dv = d_dv_clone[link->a] - d_dv_clone[link->b];
+    // auto new_pd = d_pd_clone[a] - d_pd_clone[b];
+    // auto new_ap = d_ap_clone[a] - d_ap_clone[b];
+    // auto new_dv = d_dv_clone[a] - d_dv_clone[b];
+    //
+    // auto more_along_pd_clone = false;
+    // auto more_along_ap_clone = false;
+    // auto more_along_dv_clone = false;
+    // more_along_pd_clone = fabs(new_pd / new_dist) < fabs(old_pd / old_dist) * (1.f - noise);
+    // more_along_ap_clone = fabs(new_ap / new_dist) < fabs(old_ap / old_dist) * (1.f - noise);
+    // more_along_dv_clone = fabs(new_dv / new_dist) < fabs(old_dv / old_dist) * (1.f - noise);
+
     auto normal_to_f =
         fabs(new_r.f / new_dist) < fabs(old_r.f / old_dist) * (1.f - noise);
     auto more_along_f =
         fabs(new_r.f / new_dist) > fabs(old_r.f / old_dist) * (1.f - noise);
-    auto more_along_w =
-        fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
+    // auto more_along_w =
+    //     fabs(new_r.w / new_dist) > fabs(old_r.w / old_dist) * (1.f - noise);
 
     if (distal){
         more_along_y = normal_to_z and normal_to_f;
         more_along_x = normal_to_z and more_along_f;
-    // }else if(d_is_limb[a]){
-    //     more_along_z = more_along_w;
+        // more_along_x = (new_r.f / new_dist) < (old_r.f / old_dist) * (1.f - noise);
+        // more_along_pd_clone = normal_to_f;
+        // more_along_ap_clone = more_along_f;
     }
+
 
     if (not_initialized or (x_y_or_z == 0 and more_along_x)
         or (x_y_or_z == 1 and more_along_y) or
         (x_y_or_z == 2 and more_along_z)) {
+    // if (not_initialized or (x_y_or_z == 0 and more_along_ap_clone and more_along_dv_clone)
+    //     or (x_y_or_z == 1 and more_along_pd_clone and more_along_dv_clone) or
+    //     (x_y_or_z == 2 and more_along_pd_clone and more_along_ap_clone)) {
         link->a = a;
         link->b = b;
     }
@@ -284,6 +337,8 @@ __global__ void proliferate(float max_rate, float mean_distance, Cell* d_X,
         d_X[i].w = d_X[i].w / 2;
         d_X[n].f = d_X[i].f / 2;
         d_X[i].f = d_X[i].f / 2;
+        // d_X[n].w = d_X[i].w;
+        // d_X[n].f = d_X[i].f;
     } else {
         d_X[n].w = d_X[i].w;
         d_X[n].f = d_X[i].f;
@@ -418,7 +473,8 @@ int main(int argc, char const* argv[])
     cudaMemcpyToSymbol(
         d_is_limb, &is_limb.d_prop, sizeof(d_is_limb));
     for (int i = 0; i < n0; i++) {
-        limb.h_X[i].w = 1.0f;
+        if(type.h_prop[i] == epithelium and limb.h_X[i].x > -5.f)
+            limb.h_X[i].w = 1.0f;
         limb.h_X[i].f = 0.0f;
         if(limb.h_X[i].x > -2.0f and limb.h_X[i].y < 15.f){
             is_limb.h_prop[i] = true;
@@ -473,7 +529,8 @@ int main(int argc, char const* argv[])
             if(is_limb.h_prop[i])
                 pd_clone.h_prop[i] = limb.h_X[i].x;
             else
-                pd_clone.h_prop[i] = 52.f;
+                pd_clone.h_prop[i] = 0.5 * limb.h_X[i].x;
+                // pd_clone.h_prop[i] = 52.f;
         }
     pd_clone.copy_to_device();
 
@@ -483,9 +540,10 @@ int main(int argc, char const* argv[])
         d_ap_clone, &ap_clone.d_prop, sizeof(d_ap_clone));
         for (int i = 0; i < n0; i++) {
             if(is_limb.h_prop[i])
-                ap_clone.h_prop[i] = limb.h_X[i].y;
+                ap_clone.h_prop[i] = limb.h_X[i].y + 20.f;
             else
-                ap_clone.h_prop[i] = 20.f;
+                ap_clone.h_prop[i] = 0.5 * (limb.h_X[i].y + 20.f);
+                // ap_clone.h_prop[i] = 40.f;
         }
     ap_clone.copy_to_device();
 
@@ -495,9 +553,10 @@ int main(int argc, char const* argv[])
         d_dv_clone, &dv_clone.d_prop, sizeof(d_dv_clone));
         for (int i = 0; i < n0; i++) {
             if(is_limb.h_prop[i])
-                dv_clone.h_prop[i] = limb.h_X[i].z;
+                dv_clone.h_prop[i] = limb.h_X[i].z + 20.f;
             else
-                dv_clone.h_prop[i] = 8.f;
+                dv_clone.h_prop[i] = 0.5 * (limb.h_X[i].z + 20.f);
+                // dv_clone.h_prop[i] = 30.f;
         }
     dv_clone.copy_to_device();
 
@@ -522,14 +581,17 @@ int main(int argc, char const* argv[])
     std::cout << "n_time_steps " << n_time_steps << " write interval "
               << skip_step << std::endl;
 
-    Vtk_output limb_output{output_tag};
 
     //restricts aer cells to a geometric rule
-    float pd_extension = 5.0;//8.f;//+ 0.02 * float(time_step);
+    float pd_extension = 5.0;//5//8.f;//+ 0.02 * float(time_step);
     set_aer<<<(limb.get_d_n() + 128 - 1) / 128, 128>>>(
         X_fixed, pd_extension, limb.d_X, limb.d_n);
 
+    for (auto time_step = 0; time_step <= 500; time_step++) {
+        limb.take_step<only_diffusion, friction>(dt);
+    }
 
+    Vtk_output limb_output{output_tag};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         if (time_step % skip_step == 0 || time_step == n_time_steps) {
             limb.copy_to_host();
@@ -555,6 +617,7 @@ int main(int argc, char const* argv[])
             dist_x_ratio, dist_y_ratio, prox_x_ratio, prox_y_ratio,
             limb.get_d_n(), grid.d_grid, limb.d_X, protrusions.d_state,
             protrusions.d_link);
+
 
         limb.take_step<force, friction>(dt, intercalation);
 
