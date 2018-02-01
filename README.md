@@ -1,7 +1,7 @@
-bolls
+ya||a
 =====
 
-Center-dynamics (aka spheroid) models like the following branching model:
+ya||a is yet another parallel agent-based model for morphogenesis, like the following branching process:
 
 ![Branching Model](branching.gif)
 
