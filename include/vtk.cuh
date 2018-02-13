@@ -151,7 +151,7 @@ void Vtk_output::write_polarity(Solution<Pt, Solver>& points)
     file << "NORMALS polarity float\n";
     for (auto i = 0; i < n_points; i++) {
         float3 n{0};
-        if ((points.h_X[i].phi != 0) or (points.h_X[i].theta != 0)) {
+        if ((points.h_X[i].theta != 0) or (points.h_X[i].phi != 0)) {
             n.x = sinf(points.h_X[i].theta) * cosf(points.h_X[i].phi);
             n.y = sinf(points.h_X[i].theta) * sinf(points.h_X[i].phi);
             n.z = cosf(points.h_X[i].theta);
