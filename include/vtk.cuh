@@ -47,7 +47,7 @@ public:
     template<typename Pt, template<typename> class Solver>
     void write_field(Solution<Pt, Solver>& points, const char* data_name = "w",
         float Pt::*field = &Pt::w);
-    // Write polarity from phi and theta of Pt, see polarity.cuh
+    // Write polarity from theta and phi of Pt, see polarity.cuh
     template<typename Pt, template<typename> class Solver>
     void write_polarity(Solution<Pt, Solver>& points);
     // Write not integrated property, see property.cuh

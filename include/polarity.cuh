@@ -17,8 +17,8 @@ __device__ __host__ float pol_dot_product(Pol_a a, Pol_b b)
 
 
 // Calculate force from the potential U_Pol = - Σ(p_i . p_j)^2/2 for points
-// Pt with polarity, i.e. a unit vector p specified by -pi <= Pt.phi <= pi
-// and 0 <= Pt.theta < pi.
+// Pt with polarity, i.e. a unit vector p specified by 0 <= Pt.theta < pi
+// and -pi <= Pt.phi <= pi.
 template<typename Pt, typename Pol>
 __device__ __host__ Pt polarization_force(Pt Xi, Pol pj)
 {
