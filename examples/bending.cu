@@ -13,7 +13,7 @@ const auto dt = 0.1;
 
 
 // ReLU forces plus k*(n_i . r_ij/r)^2/2 for all r_ij <= r_max
-__device__ Po_cell rigid_relu_force(
+__device__ Po_cell layer_force(
     Po_cell Xi, Po_cell r, float dist, int i, int j)
 {
     Po_cell dF{0};
@@ -26,7 +26,7 @@ __device__ Po_cell rigid_relu_force(
     dF.y = r.y * F / dist;
     dF.z = r.z * F / dist;
 
-    dF += rigidity_force(Xi, r, dist) * 0.5;
+    dF += bending_force(Xi, r, dist) * 0.5;
     return dF;
 }
 
@@ -57,7 +57,7 @@ int main(int argc, const char* argv[])
     Vtk_output output{"epithelium"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();
-        cells.take_step<rigid_relu_force>(dt);
+        cells.take_step<layer_force>(dt);
         output.write_positions(cells);
         output.write_polarity(cells);
     }

@@ -83,7 +83,7 @@ __device__ Cell epi_turing_mes_noturing(
         if (-dF.u > Xi.u) dF.u = 0.0f;
         if (-dF.v > Xi.v) dF.v = 0.0f;
 
-        dF += rigidity_force(Xi, r, dist) * 0.2;
+        dF += bending_force(Xi, r, dist) * 0.2;
     } else {
         dF.v = -D_v * r.v;  // Diffuses into mesenchyme to induce proliferation
     }

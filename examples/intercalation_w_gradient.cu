@@ -67,7 +67,7 @@ __device__ Cell force(Cell Xi, Cell r, float dist, int i, int j)
     if (Xi.f < 0.f) Xi.f = 0.f;
     if (d_type[i] == mesenchyme or d_type[j] == mesenchyme) return dF;
 
-    dF += rigidity_force(Xi, r, dist) * 0.15;
+    dF += bending_force(Xi, r, dist) * 0.15;
     return dF;
 }
 

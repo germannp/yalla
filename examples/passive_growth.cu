@@ -52,7 +52,7 @@ __device__ Po_cell relu_w_epithelium(
 
     if (d_type[i] == mesenchyme or d_type[j] == mesenchyme) return dF;
 
-    dF += rigidity_force(Xi, r, dist) * 0.2;
+    dF += bending_force(Xi, r, dist) * 0.2;
     return dF;
 }
 

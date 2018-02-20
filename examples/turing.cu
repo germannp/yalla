@@ -52,7 +52,7 @@ __device__ Epi_cell epithelium_w_turing(
     dF.y = r.y * F / dist;
     dF.z = r.z * F / dist;
 
-    dF += rigidity_force(Xi, r, dist) * 3;
+    dF += bending_force(Xi, r, dist) * 3;
     return dF;
 }
 

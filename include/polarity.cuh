@@ -1,4 +1,4 @@
-// Forces for polarization, rigid single-point-layer, and migration
+// Forces for polarization, single-point-layer, and migration
 #pragma once
 
 #include "utils.cuh"
@@ -16,7 +16,7 @@ __device__ __host__ float pol_dot_product(Pol_a a, Pol_b b)
 }
 
 
-// Calculate force from the potential U_Pol = - Σ(p_i . p_j)^2/2 for points
+// Aligning force from the potential U_Pol = - Σ(p_i . p_j)^2/2 for points
 // Pt with polarity, i.e. a unit vector p specified by 0 <= Pt.theta < pi
 // and -pi <= Pt.phi <= pi.
 template<typename Pt, typename Pol>
@@ -34,9 +34,9 @@ __device__ __host__ Pt polarization_force(Pt Xi, Pol pj)
 }
 
 
-// Calculate force from the potential U_Epi = Σ(p_i . r_ij/r)^2/2.
+// Resistance to bending from the potential U_Epi = Σ(p_i . r_ij/r)^2/2.
 template<typename Pt>
-__device__ __host__ Pt rigidity_force(Pt Xi, Pt r, float dist)
+__device__ __host__ Pt bending_force(Pt Xi, Pt r, float dist)
 {
     Pt dF{0};
     float3 pi{sinf(Xi.theta) * cosf(Xi.phi), sinf(Xi.theta) * sinf(Xi.phi),
@@ -69,7 +69,7 @@ __device__ __host__ Pt rigidity_force(Pt Xi, Pt r, float dist)
 }
 
 
-// Calculate mono-polar migration force, after
+// Mono-polar migration force, after 
 // https://doi.org/10.1016/B978-0-12-405926-9.00016-2
 template<typename Pt>
 __device__ __host__ float3 orthonormal(Pt r, float3 p)

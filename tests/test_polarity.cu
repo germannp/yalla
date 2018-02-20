@@ -64,26 +64,26 @@ const char* test_polarization()
 }
 
 
-const char* test_rigidity_force()
+const char* test_bending_force()
 {
     Po_cell i{0.935, 0.675, 0.649, 0.793, 0.073};
     Po_cell j{0.566, 0.809, 0.533, 0.297, 0.658};
 
     auto r = i - j;
     auto dist = sqrtf(r.x * r.x + r.y * r.y + r.z * r.z);
-    auto dF = rigidity_force(i, r, dist);
+    auto dF = bending_force(i, r, dist);
 
-    MU_ASSERT("Rigidity force wrong in x", isclose(dF.x, 0.214));
-    MU_ASSERT("Rigidity force wrong in y", isclose(dF.y, -0.971));
-    MU_ASSERT("Rigidity force wrong in z", isclose(dF.z, -1.802));
-    MU_ASSERT("Rigidity force wrong in theta", isclose(dF.theta, -0.339));
-    MU_ASSERT("Rigidity force wrong in phi", isclose(dF.phi, 0.453));
+    MU_ASSERT("Bending force wrong in x", isclose(dF.x, 0.214));
+    MU_ASSERT("Bending force wrong in y", isclose(dF.y, -0.971));
+    MU_ASSERT("Bending force wrong in z", isclose(dF.z, -1.802));
+    MU_ASSERT("Bending force wrong in theta", isclose(dF.theta, -0.339));
+    MU_ASSERT("Bending force wrong in phi", isclose(dF.phi, 0.453));
 
     return NULL;
 }
 
 
-__device__ Po_cell rigid_cubic_force(
+__device__ Po_cell bending_force(
     Po_cell Xi, Po_cell r, float dist, int i, int j)
 {
     Po_cell dF{0};
@@ -96,7 +96,7 @@ __device__ Po_cell rigid_cubic_force(
     dF.y = r.y * F / dist;
     dF.z = r.z * F / dist;
 
-    dF += rigidity_force(Xi, r, dist) * 0.2;
+    dF += bending_force(Xi, r, dist) * 0.2;
     return dF;
 }
 
@@ -114,7 +114,7 @@ const char* test_line_of_four()
     points.copy_to_device();
     auto com_i = center_of_mass(points);
     for (auto i = 0; i < 500; i++) {
-        points.take_step<rigid_cubic_force>(0.5);
+        points.take_step<bending_force>(0.5);
     }
 
     points.copy_to_host();
@@ -188,7 +188,7 @@ const char* all_tests()
 {
     MU_RUN_TEST(test_polarization_force);
     MU_RUN_TEST(test_polarization);
-    MU_RUN_TEST(test_rigidity_force);
+    MU_RUN_TEST(test_bending_force);
     MU_RUN_TEST(test_line_of_four);
     MU_RUN_TEST(test_orthonormal);
     MU_RUN_TEST(test_migration_force);
