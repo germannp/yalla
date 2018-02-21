@@ -28,7 +28,7 @@ int main(int argc, const char* argv[])
     random_sphere(L_0, bodies);
 
     // Integrate positions
-    Vtk_output output{"springs"};  // Writes to output/springs_###.vtk
+    Vtk_output output{"springs"};  // Writes to output/springs_#.vtk
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bodies.copy_to_host();
         bodies.take_step<spring>(dt);    // Ordered to write during calculation,

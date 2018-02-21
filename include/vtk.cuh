@@ -35,7 +35,7 @@ class Vtk_output {
     time_t t_0;
 
 public:
-    // Files are stored as output/base_name_###.vtk
+    // Files are stored as output/base_name_#.vtk
     Vtk_output(std::string base_name, bool verbose = true);
     ~Vtk_output(void);
     // Write x, y, and z component of Pt; has to be written first
