@@ -2,11 +2,11 @@
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
 #include "../include/solvers.cuh"
-#include "../include/vtk.cuh"
+// #include "../include/vtk.cuh"
 
 
-const auto L_0 = 0.5f;  // Relaxed spring length
-const auto n_bodies = 800u;
+#define L_0 0.5f
+const auto n_bodies = 800;
 const auto n_time_steps = 100u;
 const auto dt = 0.001f;
 
@@ -28,11 +28,11 @@ int main(int argc, const char* argv[])
     random_sphere(L_0, bodies);
 
     // Integrate positions
-    Vtk_output output{"springs"};  // Writes to output/springs_#.vtk
+    // Vtk_output output{"springs"};  // Writes to output/springs_#.vtk
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bodies.copy_to_host();
         bodies.take_step<spring>(dt);    // Ordered to write during calculation,
-        output.write_positions(bodies);  // use thread for full concurency.
+        // output.write_positions(bodies);  // use thread for full concurency.
     }
 
     return 0;

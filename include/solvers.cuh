@@ -262,11 +262,11 @@ __global__ void compute_tile(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
 
         for (auto k = 0; k < TILE_SIZE; k++) {
             auto j = tile_start + k;
-            if ((i < n) and (j < n)) {
+            if ((i < n) && (j < n)) {
                 auto r = Xi - shX[k];
                 auto dist = norm3df(r.x, r.y, r.z);
                 F += pw_int(Xi, r, dist, i, j);
-                auto friction = pw_friction(Xi, r, dist, i, j);
+                auto friction = pw_friction(Xi, r, dist, i, j);  // This is the bad guy ... 
                 sum_friction += friction;
                 sum_v += friction * d_old_v[j];
             }
@@ -400,10 +400,10 @@ __global__ void compute_cube(const int n, const Pt* __restrict__ d_X,
 
             F += pw_int(
                 Xi, r, dist, d_grid->d_point_id[i], d_grid->d_point_id[k]);
-            auto friction = pw_friction(
-                Xi, r, dist, d_grid->d_point_id[i], d_grid->d_point_id[k]);
-            sum_friction += friction;
-            sum_v += friction * d_old_v[d_grid->d_point_id[k]];
+            // auto friction = pw_friction(
+            //     Xi, r, dist, d_grid->d_point_id[i], d_grid->d_point_id[k]);
+            // sum_friction += friction;
+            // sum_v += friction * d_old_v[d_grid->d_point_id[k]];
         }
     }
     d_dX[d_grid->d_point_id[i]] += F;
