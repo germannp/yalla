@@ -3,6 +3,8 @@
 
 #include <type_traits>
 
+#define M_PI 3.1415926
+
 
 template<typename Pt>
 struct Is_vector : public std::false_type {};
@@ -77,22 +79,23 @@ struct Is_vector<float4> : public std::true_type {};
 // ... where MAP(MACRO, ...) maps MACRO onto __VA_ARGS__, inspired by
 // http://stackoverflow.com/questions/11761703/
 // clang-format off
+#define EXPAND(x) x
 #define _MAP0(MACRO, x) MACRO(x);
-#define _MAP1(MACRO, x, ...) MACRO(x); _MAP0(MACRO, __VA_ARGS__)
-#define _MAP2(MACRO, x, ...) MACRO(x); _MAP1(MACRO, __VA_ARGS__)
-#define _MAP3(MACRO, x, ...) MACRO(x); _MAP2(MACRO, __VA_ARGS__)
-#define _MAP4(MACRO, x, ...) MACRO(x); _MAP3(MACRO, __VA_ARGS__)
-#define _MAP5(MACRO, x, ...) MACRO(x); _MAP4(MACRO, __VA_ARGS__)
-#define _MAP6(MACRO, x, ...) MACRO(x); _MAP5(MACRO, __VA_ARGS__)
-#define _MAP7(MACRO, x, ...) MACRO(x); _MAP6(MACRO, __VA_ARGS__)
-#define _MAP8(MACRO, x, ...) MACRO(x); _MAP7(MACRO, __VA_ARGS__)
-#define _MAP9(MACRO, x, ...) MACRO(x); _MAP8(MACRO, __VA_ARGS__)
+#define _MAP1(MACRO, x, ...) MACRO(x); EXPAND(_MAP0(MACRO, __VA_ARGS__))
+#define _MAP2(MACRO, x, ...) MACRO(x); EXPAND(_MAP1(MACRO, __VA_ARGS__))
+#define _MAP3(MACRO, x, ...) MACRO(x); EXPAND(_MAP2(MACRO, __VA_ARGS__))
+#define _MAP4(MACRO, x, ...) MACRO(x); EXPAND(_MAP3(MACRO, __VA_ARGS__))
+#define _MAP5(MACRO, x, ...) MACRO(x); EXPAND(_MAP4(MACRO, __VA_ARGS__))
+#define _MAP6(MACRO, x, ...) MACRO(x); EXPAND(_MAP5(MACRO, __VA_ARGS__))
+#define _MAP7(MACRO, x, ...) MACRO(x); EXPAND(_MAP6(MACRO, __VA_ARGS__))
+#define _MAP8(MACRO, x, ...) MACRO(x); EXPAND(_MAP7(MACRO, __VA_ARGS__))
+#define _MAP9(MACRO, x, ...) MACRO(x); EXPAND(_MAP8(MACRO, __VA_ARGS__))
 // clang-format on
 
 #define _GET_10th(_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, ...) _10
 #define MAP(MACRO, ...)                                                     \
-    _GET_10th(__VA_ARGS__, _MAP9, _MAP8, _MAP7, _MAP6, _MAP5, _MAP4, _MAP3, \
-        _MAP2, _MAP1, _MAP0)(MACRO, __VA_ARGS__)
+    EXPAND(_GET_10th(__VA_ARGS__, _MAP9, _MAP8, _MAP7, _MAP6, _MAP5, _MAP4, _MAP3, \
+        _MAP2, _MAP1, _MAP0)(MACRO, __VA_ARGS__))
 
 // Polarized cell
 MAKE_PT(Po_cell, theta, phi);
