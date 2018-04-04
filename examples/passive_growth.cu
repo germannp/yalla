@@ -68,6 +68,8 @@ __global__ void proliferate(
         case mesenchyme: {
             auto rnd = curand_uniform(&d_state[i]);
             if (rnd > rate) return;
+
+            break;
         }
         case epithelium: {
             if (d_epi_nbs[i] > d_mes_nbs[i]) return;

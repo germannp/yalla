@@ -82,11 +82,13 @@ __global__ void proliferate(float mean_rate, float mean_distance, Cell* d_X,
 
     switch (d_type[i]) {
         case mesenchyme: {
-            return;
+            return;  // When changing this, one should use break;
         }
         case epithelium: {
             if (d_epi_nbs[i] > 14) return;
+
             if (d_mes_nbs[i] < 1) return;
+
             auto rnd = curand_uniform(&d_state[i]);
             if (rnd > mean_rate) return;
         }
