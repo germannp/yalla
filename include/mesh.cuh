@@ -3,6 +3,8 @@
 
 #include <assert.h>
 #include <math.h>
+#include <thrust/execution_policy.h>
+#include <thrust/reduce.h>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -78,11 +80,8 @@ public:
     void write_vtk(std::string);
     void copy_to_device();
     template<typename Pt, template<typename> class Solver>
-    float shape_comparison_distance_mesh_to_points(
+    float shape_comparison_mesh_to_points(
         Solution<Pt, Solver>& points);
-    template<typename Pt, template<typename> class Solver>
-    float shape_comparison_distance_points_to_points(
-        Solution<Pt, Solver>& points1, Solution<Pt, Solver>& points2);
     ~Mesh();
 };
 
@@ -462,7 +461,7 @@ void Mesh::copy_to_device()
 // points at a time, after http://http.developer.nvidia.com/GPUGems3/
 // gpugems3_ch31.html.
 template<typename Pt1, typename Pt2>
-__global__ void calculate_minimum_distance(const int n1, const int n2,
+__global__ void compute_minimum_distance(const int n1, const int n2,
     const Pt1* __restrict__ d_X1, Pt2* d_X2, float* d_min_dist)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -494,67 +493,29 @@ __global__ void calculate_minimum_distance(const int n1, const int n2,
 }
 
 template<typename Pt, template<typename> class Solver>
-float Mesh::shape_comparison_distance_mesh_to_points(
+float Mesh::shape_comparison_mesh_to_points(
     Solution<Pt, Solver>& points)
 {
     auto n_points = points.get_d_n();
 
     float* d_mesh_dist;
     cudaMalloc(&d_mesh_dist, n_vertices * sizeof(float));
-    float* h_mesh_dist = (float*)malloc(n_vertices * sizeof(float));
-
-    calculate_minimum_distance<<<(n_vertices + TILE_SIZE - 1) / TILE_SIZE,
+    compute_minimum_distance<<<(n_vertices + TILE_SIZE - 1) / TILE_SIZE,
         TILE_SIZE>>>(n_points, n_vertices, points.d_X, d_vertices, d_mesh_dist);
-    cudaMemcpy(h_mesh_dist, d_mesh_dist, n_vertices * sizeof(float),
-        cudaMemcpyDeviceToHost);
-
-    auto distance = 0.0f;
-    for (int i = 0; i < n_vertices; i++) distance += h_mesh_dist[i];
+    auto mean_dist_pts2verts = thrust::reduce(thrust::device, d_mesh_dist, 
+                                   d_mesh_dist + n_vertices, 0.0f) / 
+                               n_vertices;
 
     float* d_points_dist;
     cudaMalloc(&d_points_dist, *points.h_n * sizeof(float));
-    float* h_points_dist = (float*)malloc(n_points * sizeof(float));
-    calculate_minimum_distance<<<(n_points + TILE_SIZE - 1) / TILE_SIZE,
+    compute_minimum_distance<<<(n_points + TILE_SIZE - 1) / TILE_SIZE,
         TILE_SIZE>>>(
         n_points, n_vertices, points.d_X, d_vertices, d_points_dist);
-    cudaMemcpy(h_points_dist, d_points_dist, n_points * sizeof(float),
-        cudaMemcpyDeviceToHost);
+    auto mean_dist_verts2pts = thrust::reduce(thrust::device, d_points_dist, 
+                                   d_points_dist + n_points, 0.0f) / 
+                               n_points;
 
-    for (int i = 0; i < n_points; i++) distance += h_points_dist[i];
-
-    return distance / (n_vertices + n_points);
-}
-
-template<typename Pt, template<typename> class Solver>
-float Mesh::shape_comparison_distance_points_to_points(
-    Solution<Pt, Solver>& points1, Solution<Pt, Solver>& points2)
-{
-    auto n_points1 = points1.get_d_n();
-    auto n_points2 = points2.get_d_n();
-
-    float* d_12_dist;
-    cudaMalloc(&d_12_dist, n_points1 * sizeof(float));
-    float* h_12_dist = (float*)malloc(n_points1 * sizeof(float));
-
-    calculate_minimum_distance<<<(n_points1 + TILE_SIZE - 1) / TILE_SIZE,
-        TILE_SIZE>>>(n_points1, n_points2, points1.d_X, points2.d_X, d_12_dist);
-    cudaMemcpy(h_12_dist, d_12_dist, n_points1 * sizeof(float),
-        cudaMemcpyDeviceToHost);
-
-    auto distance = 0.0f;
-    for (int i = 0; i < n_points1; i++) distance += h_12_dist[i];
-
-    float* d_21_dist;
-    cudaMalloc(&d_21_dist, n_points2 * sizeof(float));
-    float* h_21_dist = (float*)malloc(n_points2 * sizeof(float));
-    calculate_minimum_distance<<<(n_points2 + TILE_SIZE - 1) / TILE_SIZE,
-        TILE_SIZE>>>(n_points2, n_points1, points2.d_X, points1.d_X, d_21_dist);
-    cudaMemcpy(h_21_dist, d_21_dist, n_points2 * sizeof(float),
-        cudaMemcpyDeviceToHost);
-
-    for (int i = 0; i < n_points2; i++) distance += h_21_dist[i];
-
-    return distance / (n_points1 + n_points2);
+    return (mean_dist_pts2verts + mean_dist_verts2pts) / 2;
 }
 
 Mesh::~Mesh()
@@ -573,4 +534,32 @@ Mesh::~Mesh()
         vertex_to_triangles[i].clear();
 
     vertex_to_triangles.clear();
+}
+
+
+template<typename Pt1, typename Pt2, template<typename> class Solver1, 
+    template<typename> class Solver2>
+float shape_comparison_points_to_points(
+    Solution<Pt1, Solver1>& points1, Solution<Pt2, Solver2>& points2)
+{
+    auto n_points1 = points1.get_d_n();
+    auto n_points2 = points2.get_d_n();
+
+    float* d_12_dist;
+    cudaMalloc(&d_12_dist, n_points1 * sizeof(float));
+    compute_minimum_distance<<<(n_points1 + TILE_SIZE - 1) / TILE_SIZE,
+        TILE_SIZE>>>(n_points1, n_points2, points1.d_X, points2.d_X, d_12_dist);
+    auto mean_12_dist = thrust::reduce(thrust::device, d_12_dist, 
+                            d_12_dist + n_points1, 0.0f) / 
+                        n_points1;
+
+    float* d_21_dist;
+    cudaMalloc(&d_21_dist, n_points2 * sizeof(float));
+    compute_minimum_distance<<<(n_points2 + TILE_SIZE - 1) / TILE_SIZE,
+        TILE_SIZE>>>(n_points2, n_points1, points2.d_X, points1.d_X, d_21_dist);
+    auto mean_21_dist = thrust::reduce(thrust::device, d_21_dist, 
+                            d_21_dist + n_points2, 0.0f) / 
+                        n_points2;
+
+    return (mean_12_dist + mean_21_dist) / 2;
 }

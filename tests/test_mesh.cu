@@ -93,8 +93,8 @@ const char* test_shape_comparison()
 {
     Mesh mesh("tests/torus.vtk");
     mesh.copy_to_device();
-    Solution<float3, Grid_solver> points{987};
-    for (auto i = 0; i < 987; i++) {
+    Solution<float3, Grid_solver> points{mesh.n_vertices};
+    for (auto i = 0; i < mesh.n_vertices; i++) {
         points.h_X[i].x = mesh.vertices[i].x;
         points.h_X[i].y = mesh.vertices[i].y;
         points.h_X[i].z = mesh.vertices[i].z;
@@ -102,12 +102,12 @@ const char* test_shape_comparison()
     points.copy_to_device();
 
     MU_ASSERT("Shape comparison wrong",
-        isclose(mesh.shape_comparison_distance_mesh_to_points(points), 0.0));
+        isclose(mesh.shape_comparison_mesh_to_points(points), 0.0));
 
     mesh.grow_normally(0.1);
     mesh.copy_to_device();
     MU_ASSERT("Grown shape comparison wrong",
-        isclose(mesh.shape_comparison_distance_mesh_to_points(points), 0.1));
+        isclose(mesh.shape_comparison_mesh_to_points(points), 0.1));
 
     return NULL;
 }
