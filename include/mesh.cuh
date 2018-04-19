@@ -16,6 +16,77 @@
 #include "utils.cuh"
 
 
+// To compare the shape of a solution A with another solution or with a mesh B, 
+// we calculate the mean distance from each point in A to the nearest point in B  
+// and vice versa.
+
+// The kernel finds the minimal distance one thread per point, to TILE_SIZE
+// points at a time, after http://http.developer.nvidia.com/GPUGems3/
+// gpugems3_ch31.html.
+template<typename Pt1, typename Pt2>
+__global__ void compute_minimum_distance(const int n1, const int n2,
+    const Pt1* __restrict__ d_X1, const Pt2* __restrict__ d_X2, float* d_min_dist)
+{
+    auto i = blockIdx.x * blockDim.x + threadIdx.x;
+
+    __shared__ Pt2 shX[TILE_SIZE];
+    Pt1 Xi{0};
+    if (i < n1) Xi = d_X1[i];
+    float min_dist;
+    for (auto tile_start = 0; tile_start < n2; tile_start += TILE_SIZE) {
+        auto j = tile_start + threadIdx.x;
+        if (j < n2) {
+            shX[threadIdx.x] = d_X2[j];
+        }
+        __syncthreads();
+
+        for (auto k = 0; k < TILE_SIZE; k++) {
+            auto j = tile_start + k;
+            if ((i < n1) and (j < n2)) {
+                float3 r{Xi.x - shX[k].x, Xi.y - shX[k].y, Xi.z - shX[k].z};
+                auto dist = norm3df(r.x, r.y, r.z);
+                if (j == 0)
+                    min_dist = dist;
+                else
+                    min_dist = min(dist, min_dist);
+            }
+        }
+    }
+    if (i < n1) d_min_dist[i] = min_dist;
+}
+
+template<typename Pt1, typename Pt2>
+float shape_comparison(const int n1, const int n2, const Pt1* __restrict__ d_X1, 
+    const Pt2* __restrict__ d_X2)
+{
+    float* d_12_dist;
+    cudaMalloc(&d_12_dist, n1 * sizeof(float));
+    compute_minimum_distance<<<(n1 + TILE_SIZE - 1) / TILE_SIZE,
+        TILE_SIZE>>>(n1, n2, d_X1, d_X2, d_12_dist);
+    auto mean_12_dist = 
+        thrust::reduce(thrust::device, d_12_dist, d_12_dist + n1, 0.0f) / n1;
+
+    float* d_21_dist;
+    cudaMalloc(&d_21_dist, n2 * sizeof(float));
+    compute_minimum_distance<<<(n2 + TILE_SIZE - 1) / TILE_SIZE,
+        TILE_SIZE>>>(n2, n1, d_X2, d_X1, d_21_dist);
+    auto mean_21_dist = 
+        thrust::reduce(thrust::device, d_21_dist, d_21_dist + n2, 0.0f) / n2;
+
+    return (mean_12_dist + mean_21_dist) / 2;
+}
+
+template<typename Pt1, typename Pt2, template<typename> class Solver1, 
+    template<typename> class Solver2>
+float shape_comparison_points_to_points(
+    Solution<Pt1, Solver1>& points1, Solution<Pt2, Solver2>& points2)
+{
+    return shape_comparison(
+        points1.get_d_n(), points2.get_d_n(), points1.d_X, points2.d_X);
+}
+
+
+// Read, transform, and write meshes
 struct Ray {
     float3 P0;
     float3 P1;
@@ -25,7 +96,6 @@ struct Ray {
         P1 = b;
     }
 };
-
 
 struct Triangle {
     float3 V0;
@@ -52,7 +122,6 @@ struct Triangle {
         n /= sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
     }
 };
-
 
 class Mesh {
 public:
@@ -457,65 +526,12 @@ void Mesh::copy_to_device()
         cudaMemcpyHostToDevice);
 }
 
-// Compute pairwise minimum distance one thread per point, to TILE_SIZE
-// points at a time, after http://http.developer.nvidia.com/GPUGems3/
-// gpugems3_ch31.html.
-template<typename Pt1, typename Pt2>
-__global__ void compute_minimum_distance(const int n1, const int n2,
-    const Pt1* __restrict__ d_X1, Pt2* d_X2, float* d_min_dist)
-{
-    auto i = blockIdx.x * blockDim.x + threadIdx.x;
-
-    __shared__ Pt2 shX[TILE_SIZE];
-    Pt1 Xi{0};
-    if (i < n1) Xi = d_X1[i];
-    float min_dist;
-    for (auto tile_start = 0; tile_start < n2; tile_start += TILE_SIZE) {
-        auto j = tile_start + threadIdx.x;
-        if (j < n2) {
-            shX[threadIdx.x] = d_X2[j];
-        }
-        __syncthreads();
-
-        for (auto k = 0; k < TILE_SIZE; k++) {
-            auto j = tile_start + k;
-            if ((i < n1) and (j < n2)) {
-                float3 r{Xi.x - shX[k].x, Xi.y - shX[k].y, Xi.z - shX[k].z};
-                auto dist = norm3df(r.x, r.y, r.z);
-                if (j == 0)
-                    min_dist = dist;
-                else
-                    min_dist = min(dist, min_dist);
-            }
-        }
-    }
-    if (i < n1) d_min_dist[i] = min_dist;
-}
-
 template<typename Pt, template<typename> class Solver>
 float Mesh::shape_comparison_mesh_to_points(
     Solution<Pt, Solver>& points)
 {
-    auto n_points = points.get_d_n();
-
-    float* d_mesh_dist;
-    cudaMalloc(&d_mesh_dist, n_vertices * sizeof(float));
-    compute_minimum_distance<<<(n_vertices + TILE_SIZE - 1) / TILE_SIZE,
-        TILE_SIZE>>>(n_points, n_vertices, points.d_X, d_vertices, d_mesh_dist);
-    auto mean_dist_pts2verts = thrust::reduce(thrust::device, d_mesh_dist, 
-                                   d_mesh_dist + n_vertices, 0.0f) / 
-                               n_vertices;
-
-    float* d_points_dist;
-    cudaMalloc(&d_points_dist, *points.h_n * sizeof(float));
-    compute_minimum_distance<<<(n_points + TILE_SIZE - 1) / TILE_SIZE,
-        TILE_SIZE>>>(
-        n_points, n_vertices, points.d_X, d_vertices, d_points_dist);
-    auto mean_dist_verts2pts = thrust::reduce(thrust::device, d_points_dist, 
-                                   d_points_dist + n_points, 0.0f) / 
-                               n_points;
-
-    return (mean_dist_pts2verts + mean_dist_verts2pts) / 2;
+    return shape_comparison(
+        n_vertices, points.get_d_n(), d_vertices, points.d_X);
 }
 
 Mesh::~Mesh()
@@ -534,32 +550,4 @@ Mesh::~Mesh()
         vertex_to_triangles[i].clear();
 
     vertex_to_triangles.clear();
-}
-
-
-template<typename Pt1, typename Pt2, template<typename> class Solver1, 
-    template<typename> class Solver2>
-float shape_comparison_points_to_points(
-    Solution<Pt1, Solver1>& points1, Solution<Pt2, Solver2>& points2)
-{
-    auto n_points1 = points1.get_d_n();
-    auto n_points2 = points2.get_d_n();
-
-    float* d_12_dist;
-    cudaMalloc(&d_12_dist, n_points1 * sizeof(float));
-    compute_minimum_distance<<<(n_points1 + TILE_SIZE - 1) / TILE_SIZE,
-        TILE_SIZE>>>(n_points1, n_points2, points1.d_X, points2.d_X, d_12_dist);
-    auto mean_12_dist = thrust::reduce(thrust::device, d_12_dist, 
-                            d_12_dist + n_points1, 0.0f) / 
-                        n_points1;
-
-    float* d_21_dist;
-    cudaMalloc(&d_21_dist, n_points2 * sizeof(float));
-    compute_minimum_distance<<<(n_points2 + TILE_SIZE - 1) / TILE_SIZE,
-        TILE_SIZE>>>(n_points2, n_points1, points2.d_X, points1.d_X, d_21_dist);
-    auto mean_21_dist = thrust::reduce(thrust::device, d_21_dist, 
-                            d_21_dist + n_points2, 0.0f) / 
-                        n_points2;
-
-    return (mean_12_dist + mean_21_dist) / 2;
 }
