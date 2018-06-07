@@ -26,7 +26,7 @@ __device__ Po_cell polarization(Po_cell Xi, Po_cell r, float dist, int i, int j)
     dF.z = r.z * F / dist;
 
     // U_Pol = - Σ(n_i . n_j)^2/2
-    dF += polarization_force(Xi, Xi - r);
+    dF += bidirectional_polarization_force(Xi, Xi - r);
     return dF;
 }
 

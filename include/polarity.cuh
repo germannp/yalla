@@ -4,6 +4,8 @@
 #include "utils.cuh"
 
 
+// We describe polarity (in and outside Pt) using a unit vector p specified
+// by 0 <= Pt.theta < pi and -pi <= Pt.phi <= pi.
 struct Polarity {
     float theta, phi;
 };
@@ -16,21 +18,27 @@ __device__ __host__ float pol_dot_product(Pol_a a, Pol_b b)
 }
 
 
-// Aligning force from the potential U_Pol = - Σ(p_i . p_j)^2/2 for points
-// Pt with polarity, i.e. a unit vector p specified by 0 <= Pt.theta < pi
-// and -pi <= Pt.phi <= pi.
+// Aligning force from the potential U = - Σ(p_i . p_j), such that all
+// polarities point in the same direction.
 template<typename Pt, typename Pol>
-__device__ __host__ Pt polarization_force(Pt Xi, Pol pj)
+__device__ __host__ Pt unidirectional_polarization_force(Pt Xi, Pol p)
 {
     Pt dF{0};
-    auto prod = pol_dot_product(Xi, pj);
-    dF.theta = prod * (cosf(Xi.theta) * sinf(pj.theta) * cosf(Xi.phi - pj.phi) -
-                          sinf(Xi.theta) * cosf(pj.theta));
+    dF.theta = cosf(Xi.theta) * sinf(p.theta) * cosf(Xi.phi - p.phi) -
+               sinf(Xi.theta) * cosf(p.theta);
     auto sin_Xi_theta = sinf(Xi.theta);
     if (fabs(sin_Xi_theta) > 1e-10)
-        dF.phi = -prod * sinf(pj.theta) * sinf(Xi.phi - pj.phi) / sin_Xi_theta;
-
+        dF.phi = -sinf(p.theta) * sinf(Xi.phi - p.phi) / sin_Xi_theta;
     return dF;
+}
+
+// Aligning force from the potential U_Pol = - Σ(p_i . p_j)^2/2, such
+// that all polarities are oriented the same way.
+template<typename Pt, typename Pol>
+__device__ __host__ Pt bidirectional_polarization_force(Pt Xi, Pol p)
+{
+    auto prod = pol_dot_product(Xi, p);
+    return prod * unidirectional_polarization_force(Xi, p);
 }
 
 
@@ -38,19 +46,11 @@ __device__ __host__ Pt polarization_force(Pt Xi, Pol pj)
 template<typename Pt>
 __device__ __host__ Pt bending_force(Pt Xi, Pt r, float dist)
 {
-    Pt dF{0};
     float3 pi{sinf(Xi.theta) * cosf(Xi.phi), sinf(Xi.theta) * sinf(Xi.phi),
         cosf(Xi.theta)};
     auto prodi = (pi.x * r.x + pi.y * r.y + pi.z * r.z) / dist;
-
     Polarity r_hat{acosf(r.z / dist), atan2(r.y, r.x)};
-    dF.theta = -prodi *
-               (cosf(Xi.theta) * sinf(r_hat.theta) * cosf(Xi.phi - r_hat.phi) -
-                   sinf(Xi.theta) * cosf(r_hat.theta));
-    auto sin_Xi_theta = sinf(Xi.theta);
-    if (fabs(sin_Xi_theta) > 1e-10)
-        dF.phi =
-            prodi * sinf(r_hat.theta) * sinf(Xi.phi - r_hat.phi) / sin_Xi_theta;
+    auto dF = -prodi * unidirectional_polarization_force(Xi, r_hat);
 
     dF.x = -prodi / dist * pi.x + powf(prodi, 2) / powf(dist, 2) * r.x;
     dF.y = -prodi / dist * pi.y + powf(prodi, 2) / powf(dist, 2) * r.y;
@@ -69,7 +69,7 @@ __device__ __host__ Pt bending_force(Pt Xi, Pt r, float dist)
 }
 
 
-// Mono-polar migration force, after 
+// Mono-polar migration force, after
 // https://doi.org/10.1016/B978-0-12-405926-9.00016-2
 template<typename Pt>
 __device__ __host__ float3 orthonormal(Pt r, float3 p)

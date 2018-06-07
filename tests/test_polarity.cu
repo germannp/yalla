@@ -11,7 +11,7 @@ const char* test_polarization_force()
     Po_cell i{0.601, 0.305, 0.320, 0.209, 0.295};
     Po_cell j{0.762, 0.403, 0.121, 0.340, 0.431};
 
-    auto dF = polarization_force(i, j);
+    auto dF = bidirectional_polarization_force(i, j);
 
     MU_ASSERT("Polarization force wrong in x", isclose(dF.x, 0));
     MU_ASSERT("Polarization force wrong in y", isclose(dF.y, 0));
@@ -23,13 +23,13 @@ const char* test_polarization_force()
 }
 
 
-__device__ Po_cell polarization_force(
+__device__ Po_cell bidirectional_polarization_force(
     Po_cell Xi, Po_cell r, float dist, int i, int j)
 {
     Po_cell dF{0};
     if (i == j or i == 1) return dF;
 
-    dF += polarization_force(Xi, Xi - r);
+    dF += bidirectional_polarization_force(Xi, Xi - r);
     return dF;
 }
 
@@ -50,7 +50,7 @@ const char* test_polarization()
 
     for (auto i = 0; i < 5000; i++) {
         points.copy_to_host();
-        points.take_step<polarization_force>(0.01);
+        points.take_step<bidirectional_polarization_force>(0.01);
         auto arc_i0 = acosf(pol_dot_product(p_i, points.h_X[0]));
         auto arc_0f = acosf(pol_dot_product(points.h_X[0], p_f));
         MU_ASSERT(
@@ -113,9 +113,7 @@ const char* test_line_of_four()
     }
     points.copy_to_device();
     auto com_i = center_of_mass(points);
-    for (auto i = 0; i < 500; i++) {
-        points.take_step<bending_force>(0.5);
-    }
+    for (auto i = 0; i < 500; i++) { points.take_step<bending_force>(0.5); }
 
     points.copy_to_host();
     for (auto i = 1; i < 4; i++) {
