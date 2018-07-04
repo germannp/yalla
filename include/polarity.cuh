@@ -5,10 +5,38 @@
 
 
 // We describe polarity (in and outside Pt) using a unit vector p specified
-// by 0 <= Pt.theta < pi and -pi <= Pt.phi <= pi.
+// by 0 <= p.theta < pi and -pi <= p.phi <= pi.
 struct Polarity {
     float theta, phi;
 };
+
+template<typename Pol>
+__device__ __host__ float3 pol_to_float3(Pol p)
+{
+    float3 vec;
+    vec.x = sinf(p.theta) * cosf(p.phi);
+    vec.y = sinf(p.theta) * sinf(p.phi);
+    vec.z = cosf(p.theta);
+    return vec;
+}
+
+template<typename Pt>
+__device__ __host__ Polarity pt_to_pol(Pt r, float dist)
+{
+    Polarity pol{acosf(r.z / dist), atan2(r.y, r.x)};
+    return pol;
+}
+
+template<typename Pt>
+__device__ __host__ Polarity pt_to_pol(Pt r)
+{
+#ifdef __CUDA_ARCH__
+    auto dist = norm3df(r.x, r.y, r.z);
+#else
+    auto dist = sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
+#endif
+    return pt_to_pol(r, dist);
+}
 
 template<typename Pol_a, typename Pol_b>
 __device__ __host__ float pol_dot_product(Pol_a a, Pol_b b)
@@ -46,10 +74,9 @@ __device__ __host__ Pt bidirectional_polarization_force(Pt Xi, Pol p)
 template<typename Pt>
 __device__ __host__ Pt bending_force(Pt Xi, Pt r, float dist)
 {
-    float3 pi{sinf(Xi.theta) * cosf(Xi.phi), sinf(Xi.theta) * sinf(Xi.phi),
-        cosf(Xi.theta)};
+    auto pi = pol_to_float3(Xi);
     auto prodi = (pi.x * r.x + pi.y * r.y + pi.z * r.z) / dist;
-    Polarity r_hat{acosf(r.z / dist), atan2(r.y, r.x)};
+    auto r_hat = pt_to_pol(r, dist);
     auto dF = -prodi * unidirectional_polarization_force(Xi, r_hat);
 
     dF.x = -prodi / dist * pi.x + powf(prodi, 2) / powf(dist, 2) * r.x;
@@ -58,8 +85,7 @@ __device__ __host__ Pt bending_force(Pt Xi, Pt r, float dist)
 
     // Contribution from (p_j . r_ji/r)^2/2
     Polarity Xj{Xi.theta - r.theta, Xi.phi - r.phi};
-    float3 pj{sinf(Xj.theta) * cosf(Xj.phi), sinf(Xj.theta) * sinf(Xj.phi),
-        cosf(Xj.theta)};
+    auto pj = pol_to_float3(Xj);
     auto prodj = (pj.x * r.x + pj.y * r.y + pj.z * r.z) / dist;
     dF.x += -prodj / dist * pj.x + powf(prodj, 2) / powf(dist, 2) * r.x;
     dF.y += -prodj / dist * pj.y + powf(prodj, 2) / powf(dist, 2) * r.y;
@@ -85,11 +111,10 @@ __device__ __host__ Pt migration_force(Pt Xi, Pt r, float dist)
     Pt dF{0};
 
     // Pulling around j
-    Polarity r_hat{acosf(r.z / dist), atan2(r.y, r.x)};
+    auto r_hat = pt_to_pol(r, dist);
     if ((Xi.phi != 0) or (Xi.theta != 0)) {
         if (pol_dot_product(Xi, r_hat) <= -0.15) {
-            float3 pi{sinf(Xi.theta) * cosf(Xi.phi),
-                sinf(Xi.theta) * sinf(Xi.phi), cosf(Xi.theta)};
+            auto pi = pol_to_float3(Xi);
             auto pi_T = orthonormal(r, pi);
             dF.x = 0.6 * pi.x + 0.8 * pi_T.x;
             dF.y = 0.6 * pi.y + 0.8 * pi_T.y;
@@ -101,8 +126,7 @@ __device__ __host__ Pt migration_force(Pt Xi, Pt r, float dist)
     Polarity Xj{Xi.theta - r.theta, Xi.phi - r.phi};
     if ((Xj.phi > 1e-10) or (Xj.theta > 1e-10)) {
         if (pol_dot_product(Xj, r_hat) >= 0.15) {
-            float3 pj{sinf(Xj.theta) * cosf(Xj.phi),
-                sinf(Xj.theta) * sinf(Xj.phi), cosf(Xj.theta)};
+            auto pj = pol_to_float3(Xj);
             auto pj_T = orthonormal(-r, pj);
             dF.x -= 0.6 * pj.x + 0.8 * pj_T.x;
             dF.y -= 0.6 * pj.y + 0.8 * pj_T.y;

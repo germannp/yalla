@@ -6,6 +6,17 @@
 #include "minunit.cuh"
 
 
+const char* test_transformations()
+{
+    Polarity pol{static_cast<float>(acos(2. * rand() / (RAND_MAX + 1.) - 1)),
+        static_cast<float>(rand() / (RAND_MAX + 1.) * 2 * M_PI)};
+    auto inverse = pt_to_pol(pol_to_float3(pol));
+    MU_ASSERT("Inverse wrong in theta", isclose(pol.theta, inverse.theta));
+    MU_ASSERT("Inverse wrong in theta", isclose(pol.phi, inverse.phi));
+    return NULL;
+}
+
+
 const char* test_polarization_force()
 {
     Po_cell i{0.601, 0.305, 0.320, 0.209, 0.295};
@@ -184,6 +195,7 @@ const char* test_migration_force()
 
 const char* all_tests()
 {
+    MU_RUN_TEST(test_transformations);
     MU_RUN_TEST(test_polarization_force);
     MU_RUN_TEST(test_polarization);
     MU_RUN_TEST(test_bending_force);
