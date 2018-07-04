@@ -1,5 +1,3 @@
-#include <functional>
-
 #include "../include/dtypes.cuh"
 #include "../include/links.cuh"
 #include "../include/solvers.cuh"
@@ -17,8 +15,9 @@ const char* square_of_four()
 {
     Solution<float3, Tile_solver> points{4};
     Links links{4};
-    auto forces = std::bind(
-        link_forces<>, links, std::placeholders::_1, std::placeholders::_2);
+    auto forces = [&links](const float3* __restrict__ d_X, float3* d_dX) {
+        return link_forces(links, d_X, d_dX);
+    };
 
     // clang-format off
     points.h_X[0].x = 1;  points.h_X[0].y = 1;  points.h_X[0].z = 0;
@@ -34,9 +33,7 @@ const char* square_of_four()
     links.copy_to_device();
 
     auto com_i = center_of_mass(points);
-    for (auto i = 0; i < 500; i++) {
-        points.take_step<no_pw_int>(0.1, forces);
-    }
+    for (auto i = 0; i < 500; i++) { points.take_step<no_pw_int>(0.1, forces); }
 
     points.copy_to_host();
     auto com_f = center_of_mass(points);

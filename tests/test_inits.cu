@@ -1,7 +1,6 @@
 #include <math.h>
 #include <thrust/transform_reduce.h>
 #include <array>
-#include <functional>
 
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
@@ -13,9 +12,7 @@ template<int n_max>
 std::array<float3, n_max> store(Solution<float3, Grid_solver>& points)
 {
     std::array<float3, n_max> position;
-    for (auto i = 0; i < n_max; i++) {
-        position[i] = points.h_X[i];
-    }
+    for (auto i = 0; i < n_max; i++) { position[i] = points.h_X[i]; }
     return position;
 }
 

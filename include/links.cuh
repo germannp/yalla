@@ -114,9 +114,6 @@ __global__ void link(const Pt* __restrict__ d_X, Pt* d_dX,
     force(d_X, a, b, strength, d_dX);
 }
 
-// Passing pointers to non-static members needs some std::bind (or
-// std::mem_func), see http://stackoverflow.com/questions/37924781/.
-// I prefer binding a seperate function.
 template<typename Pt = float3, Link_force<Pt> force = linear_force<Pt>>
 void link_forces(Links& links, const Pt* __restrict__ d_X, Pt* d_dX)
 {

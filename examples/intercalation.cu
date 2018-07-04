@@ -1,6 +1,5 @@
 // Simulate intercalating cells
 #include <curand_kernel.h>
-#include <functional>
 
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
@@ -63,8 +62,10 @@ int main(int argc, const char* argv[])
     Solution<float3, Grid_solver> cells{n_cells};
     random_sphere(r_min, cells);
     Links protrusions{n_cells * prots_per_cell};
-    auto intercalation = std::bind(link_forces<>, protrusions,
-        std::placeholders::_1, std::placeholders::_2);
+    auto intercalation = [&protrusions](
+                             const float3* __restrict__ d_X, float3* d_dX) {
+        return link_forces(protrusions, d_X, d_dX);
+    };
 
     // Integrate cell positions
     Vtk_output output{"intercalation"};

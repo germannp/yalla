@@ -212,8 +212,10 @@ int main(int argc, char const* argv[])
 
     Links protrusions{n_max * prots_per_cell, protrusion_strength};
     protrusions.set_d_n(n_0 * prots_per_cell);
-    auto intercalation = std::bind(link_forces<Cell>, protrusions,
-        std::placeholders::_1, std::placeholders::_2);
+    auto intercalation = [&protrusions](
+                             const Cell* __restrict__ d_X, Cell* d_dX) {
+        return link_forces(protrusions, d_X, d_dX);
+    };
     Grid grid{n_max};
 
     Vtk_output output{"intercalation_w_gradient"};
