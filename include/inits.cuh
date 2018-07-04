@@ -41,8 +41,8 @@ void random_sphere(
     auto r_max = pow((*points.h_n - n_0) / 0.64, 1. / 3) * dist_to_nb / 2;
     for (auto i = n_0; i < *points.h_n; i++) {
         auto r = r_max * pow(rand() / (RAND_MAX + 1.), 1. / 3);
-        auto phi = rand() / (RAND_MAX + 1.) * 2 * M_PI;
         auto theta = acos(2. * rand() / (RAND_MAX + 1.) - 1);
+        auto phi = rand() / (RAND_MAX + 1.) * 2 * M_PI;
         points.h_X[i].x = r * sin(theta) * cos(phi);
         points.h_X[i].y = r * sin(theta) * sin(phi);
         points.h_X[i].z = r * cos(theta);
