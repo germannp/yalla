@@ -131,7 +131,7 @@ int main(int argc, const char* argv[])
     type.copy_to_device();
 
     // Simulate growth
-    Vtk_output sim_output{"passive_growth"};
+    Vtk_output output{"passive_growth"};
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();
         type.copy_to_host();
@@ -143,9 +143,9 @@ int main(int argc, const char* argv[])
         proliferate<<<(cells.get_d_n() + 128 - 1) / 128, 128>>>(
             prolif_rate * (time_step > 100), cells.get_d_n(), d_state,
             cells.d_X, cells.d_n);
-        sim_output.write_positions(cells);
-        sim_output.write_property(type);
-        sim_output.write_polarity(cells);
+        output.write_positions(cells);
+        output.write_property(type);
+        output.write_polarity(cells);
     }
 
     return 0;
