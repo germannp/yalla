@@ -26,7 +26,7 @@ const char* test_io()
     output.write_positions(points_to_write);
     output.write_polarity(points_to_write);
     output.write_field(points_to_write, "w", &Po_cell4::w);
-    Vtk_input input{"output/test_vtk_1.vtk"};
+    Vtk_input input{"output/test_vtk_0.vtk"};
     input.read_field(points_to_read, "w", &Po_cell4::w);
     input.read_polarity(points_to_read);
     input.read_positions(points_to_read);
