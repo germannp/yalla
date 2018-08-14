@@ -26,5 +26,7 @@ BraceWrapping: {
     BeforeCatch : 'false'
     BeforeElse : 'false'
     IndentBraces : 'false'
-    # SplitEmptyFunctionBody : 'false'  # clang-format 6
+    SplitEmptyFunction : 'false'
+    SplitEmptyRecord : 'false'
+    SplitEmptyNamespace : 'false'
 }

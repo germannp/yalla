@@ -46,8 +46,7 @@ using Generic_forces =
 
 template<typename Pt>
 void no_gen_forces(const Pt* __restrict__ d_X, Pt* d_dX)
-{
-}
+{}
 
 // Generic forces are computed before the pairwise interactions, e.g. to reset
 // the number of neighbours between computations of the derivatives.
@@ -255,9 +254,7 @@ __global__ void compute_tile(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
     float sum_friction = 0;
     for (auto tile_start = 0; tile_start < n; tile_start += TILE_SIZE) {
         auto j = tile_start + threadIdx.x;
-        if (j < n) {
-            shX[threadIdx.x] = d_X[j];
-        }
+        if (j < n) { shX[threadIdx.x] = d_X[j]; }
         __syncthreads();
 
         for (auto k = 0; k < TILE_SIZE; k++) {
