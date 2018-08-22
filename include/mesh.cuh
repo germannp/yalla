@@ -528,15 +528,9 @@ void Mesh::write_vtk(std::string output_tag)
 
 void Mesh::copy_to_device()
 {
-    // Is this conversion required?
-    float3* h_vert = (float3*)malloc(n_vertices * sizeof(float3));
-    for (int i = 0; i < n_vertices; i++) h_vert[i] = vertices[i];
-
     cudaMemcpy(d_n_vertices, &n_vertices, sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_vertices, h_vert, n_vertices * sizeof(float3),
+    cudaMemcpy(d_vertices, &vertices[0], n_vertices * sizeof(float3),
         cudaMemcpyHostToDevice);
-
-    free(h_vert);
 }
 
 template<typename Pt, template<typename> class Solver>
