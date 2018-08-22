@@ -64,6 +64,7 @@ float shape_comparison(const int n1, const int n2, const Pt1* __restrict__ d_X1,
         n1, n2, d_X1, d_X2, d_12_dist);
     auto mean_12_dist =
         thrust::reduce(thrust::device, d_12_dist, d_12_dist + n1, 0.0f) / n1;
+    cudaFree(d_12_dist);
 
     float* d_21_dist;
     cudaMalloc(&d_21_dist, n2 * sizeof(float));
@@ -71,6 +72,7 @@ float shape_comparison(const int n1, const int n2, const Pt1* __restrict__ d_X1,
         n2, n1, d_X2, d_X1, d_21_dist);
     auto mean_21_dist =
         thrust::reduce(thrust::device, d_21_dist, d_21_dist + n2, 0.0f) / n2;
+    cudaFree(d_21_dist);
 
     return (mean_12_dist + mean_21_dist) / 2;
 }
@@ -131,11 +133,12 @@ public:
     std::vector<Triangle> facets;
     int* d_n_vertices;
     float3* d_vertices;
-    int** triangle_to_vertices;
+    int** triangle_to_vertices;  // Why not another vector<vector<int>> ?
     std::vector<std::vector<int>> vertex_to_triangles;
     Mesh();
     Mesh(std::string file_name);
     Mesh(const Mesh& copy);
+    ~Mesh();
     Mesh& operator=(const Mesh& other);
     float3 get_minimum();
     float3 get_maximum();
@@ -149,16 +152,7 @@ public:
     void copy_to_device();
     template<typename Pt, template<typename> class Solver>
     float shape_comparison_mesh_to_points(Solution<Pt, Solver>& points);
-    ~Mesh();
 };
-
-Mesh::Mesh()
-{
-    surf_area = 0.f;
-    n_vertices = 0;
-    n_facets = 0;
-    triangle_to_vertices = NULL;
-}
 
 Mesh::Mesh(std::string file_name)
 {
@@ -178,6 +172,9 @@ Mesh::Mesh(std::string file_name)
         if (items.size() > 0) points_start = items[0] == "POINTS";
     } while (!points_start);
     n_vertices = stoi(items[1]);
+
+    cudaMalloc(&d_n_vertices, sizeof(int));
+    cudaMalloc(&d_vertices, n_vertices * sizeof(float3));
 
     // Read vertices
     auto count = 0;
@@ -246,6 +243,9 @@ Mesh::Mesh(const Mesh& copy)
     vertices = copy.vertices;
     facets = copy.facets;
 
+    cudaMalloc(&d_n_vertices, sizeof(int));
+    cudaMalloc(&d_vertices, n_vertices * sizeof(float3));
+
     triangle_to_vertices = (int**)malloc(n_facets * sizeof(int*));
     for (int i = 0; i < n_facets; i++) {
         triangle_to_vertices[i] = (int*)malloc(3 * sizeof(int));
@@ -260,6 +260,17 @@ Mesh::Mesh(const Mesh& copy)
         vertex_to_triangles[i] = copy.vertex_to_triangles[i];
 }
 
+Mesh::~Mesh()
+{
+    cudaFree(d_n_vertices);
+    cudaFree(d_vertices);
+
+    if (triangle_to_vertices != NULL) {
+        for (int i = 0; i < n_facets; i++) { free(triangle_to_vertices[i]); }
+        free(triangle_to_vertices);
+    }
+}
+
 Mesh& Mesh::operator=(const Mesh& other)
 {
     surf_area = 0.f;
@@ -267,6 +278,14 @@ Mesh& Mesh::operator=(const Mesh& other)
     n_facets = other.n_facets;
     vertices = other.vertices;
     facets = other.facets;
+
+    cudaFree(d_vertices);
+    cudaMalloc(&d_vertices, n_vertices * sizeof(float3));
+
+    if (triangle_to_vertices != NULL) {
+        for (int i = 0; i < n_facets; i++) { free(triangle_to_vertices[i]); }
+        free(triangle_to_vertices);
+    }
     triangle_to_vertices = (int**)malloc(n_facets * sizeof(int*));
     for (int i = 0; i < n_facets; i++) {
         triangle_to_vertices[i] = (int*)malloc(3 * sizeof(int));
@@ -509,15 +528,15 @@ void Mesh::write_vtk(std::string output_tag)
 
 void Mesh::copy_to_device()
 {
-    cudaMalloc(&d_n_vertices, sizeof(int));
-    cudaMalloc(&d_vertices, n_vertices * sizeof(float3));
-
+    // Is this conversion required?
     float3* h_vert = (float3*)malloc(n_vertices * sizeof(float3));
     for (int i = 0; i < n_vertices; i++) h_vert[i] = vertices[i];
 
     cudaMemcpy(d_n_vertices, &n_vertices, sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(d_vertices, h_vert, n_vertices * sizeof(float3),
         cudaMemcpyHostToDevice);
+
+    free(h_vert);
 }
 
 template<typename Pt, template<typename> class Solver>
@@ -525,20 +544,4 @@ float Mesh::shape_comparison_mesh_to_points(Solution<Pt, Solver>& points)
 {
     return shape_comparison(
         n_vertices, points.get_d_n(), d_vertices, points.d_X);
-}
-
-Mesh::~Mesh()
-{
-    vertices.clear();
-    facets.clear();
-
-    if (triangle_to_vertices != NULL) {
-        for (int i = 0; i < n_facets; i++) { free(triangle_to_vertices[i]); }
-        free(triangle_to_vertices);
-    }
-
-    for (int i = 0; i < vertex_to_triangles.size(); i++)
-        vertex_to_triangles[i].clear();
-
-    vertex_to_triangles.clear();
 }

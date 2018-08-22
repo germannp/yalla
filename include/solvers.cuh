@@ -70,6 +70,11 @@ public:
         *h_n = n_max;
         h_X = (Pt*)malloc(n_max * sizeof(Pt));
     }
+    ~Solution()
+    {
+        free(h_X);
+        free(h_n);
+    }
     void copy_to_device()
     {
         assert(*h_n <= n_max);
@@ -165,6 +170,19 @@ public:
 
         cudaMalloc(&d_n, sizeof(int));
         cudaMalloc(&d_sum_friction, n_max * sizeof(int));
+    }
+    ~Heun_solver()
+    {
+        cudaFree(d_X);
+        cudaFree(d_dX);
+        cudaFree(d_X1);
+        cudaFree(d_dX1);
+
+        cudaFree(d_old_v);
+        cudaFree(d_sum_v);
+
+        cudaFree(d_n);
+        cudaFree(d_sum_friction);
     }
     void set_fixed() { fix_com = true; }
     void set_fixed(int point_id)
@@ -347,6 +365,15 @@ public:
 
         cudaMalloc(&d_grid, sizeof(Grid));
         cudaMemcpy(d_grid, this, sizeof(Grid), cudaMemcpyHostToDevice);
+    }
+    ~Grid()
+    {
+        cudaFree(d_cube_id);
+        cudaFree(d_point_id);
+        cudaFree(d_cube_start);
+        cudaFree(d_cube_end);
+
+        cudaFree(d_grid);
     }
     template<typename Pt>
     void build(

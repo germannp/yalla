@@ -16,6 +16,11 @@ struct Property {
         cudaMalloc(&d_prop, n_max * sizeof(Prop));
         name = init_name;
     }
+    ~Property()
+    {
+        free(h_prop);
+        cudaFree(d_prop);
+    }
     void copy_to_device()
     {
         cudaMemcpy(

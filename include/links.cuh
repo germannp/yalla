@@ -41,6 +41,14 @@ public:
             n_links, seed, d_state);
         strength = s;
     }
+    ~Links()
+    {
+        free(h_n);
+        free(h_link);
+        cudaFree(d_link);
+        cudaFree(d_n);
+        cudaFree(d_state);
+    }
     void set_d_n(int n)
     {
         assert(n <= n_links);

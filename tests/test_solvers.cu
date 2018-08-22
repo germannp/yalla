@@ -56,9 +56,7 @@ const char* test_tile_tetrahedron()
     Solution<float3, Tile_solver> tile{4};
     random_sphere(L_0, tile);
     auto com_i = center_of_mass(tile);
-    for (auto i = 0; i < 500; i++) {
-        tile.take_step<clipped_spring>(0.1);
-    }
+    for (auto i = 0; i < 500; i++) { tile.take_step<clipped_spring>(0.1); }
 
     tile.copy_to_host();
     for (auto i = 1; i < 4; i++) {
@@ -80,9 +78,7 @@ const char* test_grid_tetrahedron()
     Solution<float3, Grid_solver> grid{4};
     random_sphere(L_0, grid);
     auto com_i = center_of_mass(grid);
-    for (auto i = 0; i < 500; i++) {
-        grid.take_step<clipped_spring>(0.1);
-    }
+    for (auto i = 0; i < 500; i++) { grid.take_step<clipped_spring>(0.1); }
 
     grid.copy_to_host();
     for (auto i = 1; i < 4; i++) {
@@ -321,7 +317,8 @@ const char* test_grid_spacing()
 const char* test_cube_size()
 {
     Solution<float3, Grid_solver> points{2};
-    points.h_X[1].x = 0.75;
+    points.h_X[0] = float3{0};
+    points.h_X[1] = float3{0.75, 0, 0};
     points.copy_to_device();
 
     points.cube_size = 0.5;
