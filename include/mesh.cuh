@@ -5,6 +5,7 @@
 #include <math.h>
 #include <thrust/execution_policy.h>
 #include <thrust/reduce.h>
+#include <array>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -133,7 +134,7 @@ public:
     std::vector<Triangle> facets;
     int* d_n_vertices;
     float3* d_vertices;
-    int** triangle_to_vertices;  // Why not another vector<vector<int>> ?
+    std::vector<std::array<int, 3>> triangle_to_vertices;
     std::vector<std::vector<int>> vertex_to_triangles;
     Mesh();
     Mesh(std::string file_name);
@@ -204,18 +205,14 @@ Mesh::Mesh(std::string file_name)
     n_facets = stoi(items[1]);
     assert(n_facets % 2 == 0);  // Otherwise mesh cannot be closed
 
-    triangle_to_vertices = (int**)malloc(n_facets * sizeof(int*));
-    for (auto i = 0; i < n_facets; i++)
-        triangle_to_vertices[i] = (int*)malloc(3 * sizeof(int));
-
     for (auto i = 0; i < n_facets; i++) {
         getline(input_file, line);
         items = split(line);
-        triangle_to_vertices[i][0] = stoi(items[1]);
-        triangle_to_vertices[i][1] = stoi(items[2]);
-        triangle_to_vertices[i][2] = stoi(items[3]);
-        Triangle T(vertices[stoi(items[1])], vertices[stoi(items[2])],
-            vertices[stoi(items[3])]);
+        std::array<int, 3> triangle_verts{
+            stoi(items[1]), stoi(items[2]), stoi(items[3])};
+        triangle_to_vertices.push_back(triangle_verts);
+        Triangle T(vertices[triangle_verts[0]], vertices[triangle_verts[1]],
+            vertices[triangle_verts[2]]);
         facets.push_back(T);
     }
 
@@ -224,7 +221,7 @@ Mesh::Mesh(std::string file_name)
     std::vector<std::vector<int>> dummy(n_vertices, empty);
     vertex_to_triangles = dummy;
 
-    int vertex;
+    int vertex;  // Should work in upper loop
     for (auto i = 0; i < n_facets; i++) {
         vertex = triangle_to_vertices[i][0];
         vertex_to_triangles[vertex].push_back(i);
@@ -242,18 +239,12 @@ Mesh::Mesh(const Mesh& copy)
     n_facets = copy.n_facets;
     vertices = copy.vertices;
     facets = copy.facets;
+    triangle_to_vertices = copy.triangle_to_vertices;
 
     cudaMalloc(&d_n_vertices, sizeof(int));
     cudaMalloc(&d_vertices, n_vertices * sizeof(float3));
 
-    triangle_to_vertices = (int**)malloc(n_facets * sizeof(int*));
-    for (int i = 0; i < n_facets; i++) {
-        triangle_to_vertices[i] = (int*)malloc(3 * sizeof(int));
-        memcpy(triangle_to_vertices[i], copy.triangle_to_vertices[i],
-            sizeof(int) * 3);
-    }
-
-    std::vector<int> empty;
+    std::vector<int> empty;  // Copying should be enough?
     std::vector<std::vector<int>> dummy(n_vertices, empty);
     vertex_to_triangles = dummy;
     for (int i = 0; i < n_vertices; i++)
@@ -264,11 +255,6 @@ Mesh::~Mesh()
 {
     cudaFree(d_n_vertices);
     cudaFree(d_vertices);
-
-    if (triangle_to_vertices != NULL) {
-        for (int i = 0; i < n_facets; i++) { free(triangle_to_vertices[i]); }
-        free(triangle_to_vertices);
-    }
 }
 
 Mesh& Mesh::operator=(const Mesh& other)
@@ -278,20 +264,12 @@ Mesh& Mesh::operator=(const Mesh& other)
     n_facets = other.n_facets;
     vertices = other.vertices;
     facets = other.facets;
+    triangle_to_vertices = other.triangle_to_vertices;
 
     cudaFree(d_vertices);
     cudaMalloc(&d_vertices, n_vertices * sizeof(float3));
 
-    if (triangle_to_vertices != NULL) {
-        for (int i = 0; i < n_facets; i++) { free(triangle_to_vertices[i]); }
-        free(triangle_to_vertices);
-    }
-    triangle_to_vertices = (int**)malloc(n_facets * sizeof(int*));
-    for (int i = 0; i < n_facets; i++) {
-        triangle_to_vertices[i] = (int*)malloc(3 * sizeof(int));
-        memcpy(triangle_to_vertices[i], other.triangle_to_vertices[i],
-            sizeof(int) * 3);
-    }
+    // Shouldn't copy be enough?
     std::vector<int> empty;
     std::vector<std::vector<int>> dummy(n_vertices, empty);
     vertex_to_triangles = dummy;
