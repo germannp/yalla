@@ -16,8 +16,8 @@
 #include "utils.cuh"
 
 
-// To compare the shape of a solution A with another solution or with a mesh B, 
-// we calculate the mean distance from each point in A to the nearest point in B  
+// To compare the shape of a solution A with another solution or with a mesh B,
+// we calculate the mean distance from each point in A to the nearest point in B
 // and vice versa.
 
 // The kernel finds the minimal distance one thread per point, to TILE_SIZE
@@ -25,7 +25,8 @@
 // gpugems3_ch31.html.
 template<typename Pt1, typename Pt2>
 __global__ void compute_minimum_distance(const int n1, const int n2,
-    const Pt1* __restrict__ d_X1, const Pt2* __restrict__ d_X2, float* d_min_dist)
+    const Pt1* __restrict__ d_X1, const Pt2* __restrict__ d_X2,
+    float* d_min_dist)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -35,9 +36,7 @@ __global__ void compute_minimum_distance(const int n1, const int n2,
     float min_dist;
     for (auto tile_start = 0; tile_start < n2; tile_start += TILE_SIZE) {
         auto j = tile_start + threadIdx.x;
-        if (j < n2) {
-            shX[threadIdx.x] = d_X2[j];
-        }
+        if (j < n2) { shX[threadIdx.x] = d_X2[j]; }
         __syncthreads();
 
         for (auto k = 0; k < TILE_SIZE; k++) {
@@ -56,27 +55,27 @@ __global__ void compute_minimum_distance(const int n1, const int n2,
 }
 
 template<typename Pt1, typename Pt2>
-float shape_comparison(const int n1, const int n2, const Pt1* __restrict__ d_X1, 
+float shape_comparison(const int n1, const int n2, const Pt1* __restrict__ d_X1,
     const Pt2* __restrict__ d_X2)
 {
     float* d_12_dist;
     cudaMalloc(&d_12_dist, n1 * sizeof(float));
-    compute_minimum_distance<<<(n1 + TILE_SIZE - 1) / TILE_SIZE,
-        TILE_SIZE>>>(n1, n2, d_X1, d_X2, d_12_dist);
-    auto mean_12_dist = 
+    compute_minimum_distance<<<(n1 + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
+        n1, n2, d_X1, d_X2, d_12_dist);
+    auto mean_12_dist =
         thrust::reduce(thrust::device, d_12_dist, d_12_dist + n1, 0.0f) / n1;
 
     float* d_21_dist;
     cudaMalloc(&d_21_dist, n2 * sizeof(float));
-    compute_minimum_distance<<<(n2 + TILE_SIZE - 1) / TILE_SIZE,
-        TILE_SIZE>>>(n2, n1, d_X2, d_X1, d_21_dist);
-    auto mean_21_dist = 
+    compute_minimum_distance<<<(n2 + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
+        n2, n1, d_X2, d_X1, d_21_dist);
+    auto mean_21_dist =
         thrust::reduce(thrust::device, d_21_dist, d_21_dist + n2, 0.0f) / n2;
 
     return (mean_12_dist + mean_21_dist) / 2;
 }
 
-template<typename Pt1, typename Pt2, template<typename> class Solver1, 
+template<typename Pt1, typename Pt2, template<typename> class Solver1,
     template<typename> class Solver2>
 float shape_comparison_points_to_points(
     Solution<Pt1, Solver1>& points1, Solution<Pt2, Solver2>& points2)
@@ -149,8 +148,7 @@ public:
     void write_vtk(std::string);
     void copy_to_device();
     template<typename Pt, template<typename> class Solver>
-    float shape_comparison_mesh_to_points(
-        Solution<Pt, Solver>& points);
+    float shape_comparison_mesh_to_points(Solution<Pt, Solver>& points);
     ~Mesh();
 };
 
@@ -308,9 +306,7 @@ float3 Mesh::get_maximum()
 
 void Mesh::translate(float3 offset)
 {
-    for (int i = 0; i < n_vertices; i++) {
-        vertices[i] = vertices[i] + offset;
-    }
+    for (int i = 0; i < n_vertices; i++) { vertices[i] = vertices[i] + offset; }
 
     for (int i = 0; i < n_facets; i++) {
         facets[i].V0 = facets[i].V0 + offset;
@@ -400,9 +396,7 @@ void Mesh::rotate(float around_z, float around_y, float around_x)
 
 void Mesh::rescale(float factor)
 {
-    for (int i = 0; i < n_vertices; i++) {
-        vertices[i] = vertices[i] * factor;
-    }
+    for (int i = 0; i < n_vertices; i++) { vertices[i] = vertices[i] * factor; }
 
     for (int i = 0; i < n_facets; i++) {
         facets[i].V0 = facets[i].V0 * factor;
@@ -527,8 +521,7 @@ void Mesh::copy_to_device()
 }
 
 template<typename Pt, template<typename> class Solver>
-float Mesh::shape_comparison_mesh_to_points(
-    Solution<Pt, Solver>& points)
+float Mesh::shape_comparison_mesh_to_points(Solution<Pt, Solver>& points)
 {
     return shape_comparison(
         n_vertices, points.get_d_n(), d_vertices, points.d_X);
@@ -540,9 +533,7 @@ Mesh::~Mesh()
     facets.clear();
 
     if (triangle_to_vertices != NULL) {
-        for (int i = 0; i < n_facets; i++) {
-            free(triangle_to_vertices[i]);
-        }
+        for (int i = 0; i < n_facets; i++) { free(triangle_to_vertices[i]); }
         free(triangle_to_vertices);
     }
 
