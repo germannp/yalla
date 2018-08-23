@@ -127,12 +127,8 @@ struct Triangle {
 
 class Mesh {
 public:
-    float surf_area;
-    int n_vertices;
-    int n_facets;
     std::vector<float3> vertices;
     std::vector<Triangle> facets;
-    int* d_n_vertices;
     float3* d_vertices;
     std::vector<std::array<int, 3>> triangle_to_vertices;
     std::vector<std::vector<int>> vertex_to_triangles;
@@ -157,8 +153,6 @@ public:
 
 Mesh::Mesh(std::string file_name)
 {
-    surf_area = 0.f;  // initialise
-
     std::string line;
     std::ifstream input_file;
     std::vector<std::string> items;
@@ -172,24 +166,21 @@ Mesh::Mesh(std::string file_name)
         items = split(line);
         if (items.size() > 0) points_start = items[0] == "POINTS";
     } while (!points_start);
-    n_vertices = stoi(items[1]);
+    auto n_vertices = stoi(items[1]);
 
-    cudaMalloc(&d_n_vertices, sizeof(int));
     cudaMalloc(&d_vertices, n_vertices * sizeof(float3));
 
     // Read vertices
     auto count = 0;
-    while (count < n_vertices) {
+    while (count < n_vertices) {  // Woot??
         getline(input_file, line);
         items = split(line);
 
         auto n_points = items.size() / 3;
         for (auto i = 0; i < n_points; i++) {
-            float3 P;
-            P.x = stof(items[i * 3]);
-            P.y = stof(items[i * 3 + 1]);
-            P.z = stof(items[i * 3 + 2]);
-            vertices.push_back(P);
+            float3 p{stof(items[i * 3]), stof(items[i * 3 + 1]),
+                stof(items[i * 3 + 2])};
+            vertices.push_back(p);
             count++;
         }
     }
@@ -202,9 +193,12 @@ Mesh::Mesh(std::string file_name)
         if (items.size() > 0)
             polygon_start = items[0] == "POLYGONS" or items[0] == "CELLS";
     } while (!polygon_start);
-    n_facets = stoi(items[1]);
+    auto n_facets = stoi(items[1]);
     assert(n_facets % 2 == 0);  // Otherwise mesh cannot be closed
 
+    std::vector<int> empty;
+    std::vector<std::vector<int>> dummy(n_vertices, empty);
+    vertex_to_triangles = dummy;
     for (auto i = 0; i < n_facets; i++) {
         getline(input_file, line);
         items = split(line);
@@ -214,75 +208,29 @@ Mesh::Mesh(std::string file_name)
         Triangle T(vertices[triangle_verts[0]], vertices[triangle_verts[1]],
             vertices[triangle_verts[2]]);
         facets.push_back(T);
-    }
-
-    // Construct the vector of triangles adjacent to each vertex
-    std::vector<int> empty;
-    std::vector<std::vector<int>> dummy(n_vertices, empty);
-    vertex_to_triangles = dummy;
-
-    int vertex;  // Should work in upper loop
-    for (auto i = 0; i < n_facets; i++) {
-        vertex = triangle_to_vertices[i][0];
-        vertex_to_triangles[vertex].push_back(i);
-        vertex = triangle_to_vertices[i][1];
-        vertex_to_triangles[vertex].push_back(i);
-        vertex = triangle_to_vertices[i][2];
-        vertex_to_triangles[vertex].push_back(i);
+        vertex_to_triangles[triangle_verts[0]].push_back(i);
+        vertex_to_triangles[triangle_verts[1]].push_back(i);
+        vertex_to_triangles[triangle_verts[2]].push_back(i);
     }
 }
 
 Mesh::Mesh(const Mesh& copy)
 {
-    surf_area = 0.f;
-    n_vertices = copy.n_vertices;
-    n_facets = copy.n_facets;
     vertices = copy.vertices;
     facets = copy.facets;
     triangle_to_vertices = copy.triangle_to_vertices;
+    vertex_to_triangles = copy.vertex_to_triangles;
 
-    cudaMalloc(&d_n_vertices, sizeof(int));
-    cudaMalloc(&d_vertices, n_vertices * sizeof(float3));
-
-    std::vector<int> empty;  // Copying should be enough?
-    std::vector<std::vector<int>> dummy(n_vertices, empty);
-    vertex_to_triangles = dummy;
-    for (int i = 0; i < n_vertices; i++)
-        vertex_to_triangles[i] = copy.vertex_to_triangles[i];
+    cudaMalloc(&d_vertices, vertices.size() * sizeof(float3));
 }
 
-Mesh::~Mesh()
-{
-    cudaFree(d_n_vertices);
-    cudaFree(d_vertices);
-}
+Mesh::~Mesh() { cudaFree(d_vertices); }
 
-Mesh& Mesh::operator=(const Mesh& other)
-{
-    surf_area = 0.f;
-    n_vertices = other.n_vertices;
-    n_facets = other.n_facets;
-    vertices = other.vertices;
-    facets = other.facets;
-    triangle_to_vertices = other.triangle_to_vertices;
-
-    cudaFree(d_vertices);
-    cudaMalloc(&d_vertices, n_vertices * sizeof(float3));
-
-    // Shouldn't copy be enough?
-    std::vector<int> empty;
-    std::vector<std::vector<int>> dummy(n_vertices, empty);
-    vertex_to_triangles = dummy;
-    for (int i = 0; i < n_vertices; i++)
-        vertex_to_triangles[i] = other.vertex_to_triangles[i];
-
-    return *this;
-}
 
 float3 Mesh::get_minimum()
 {
     float3 minimum{vertices[0].x, vertices[0].y, vertices[0].z};
-    for (auto i = 1; i < n_vertices; i++) {
+    for (auto i = 1; i < vertices.size(); i++) {
         minimum.x = min(minimum.x, vertices[i].x);
         minimum.y = min(minimum.y, vertices[i].y);
         minimum.z = min(minimum.z, vertices[i].z);
@@ -293,7 +241,7 @@ float3 Mesh::get_minimum()
 float3 Mesh::get_maximum()
 {
     float3 maximum{vertices[0].x, vertices[0].y, vertices[0].z};
-    for (auto i = 1; i < n_vertices; i++) {
+    for (auto i = 1; i < vertices.size(); i++) {
         maximum.x = max(maximum.x, vertices[i].x);
         maximum.y = max(maximum.y, vertices[i].y);
         maximum.z = max(maximum.z, vertices[i].z);
@@ -303,9 +251,11 @@ float3 Mesh::get_maximum()
 
 void Mesh::translate(float3 offset)
 {
-    for (int i = 0; i < n_vertices; i++) { vertices[i] = vertices[i] + offset; }
+    for (int i = 0; i < vertices.size(); i++) {
+        vertices[i] = vertices[i] + offset;
+    }
 
-    for (int i = 0; i < n_facets; i++) {
+    for (int i = 0; i < facets.size(); i++) {
         facets[i].V0 = facets[i].V0 + offset;
         facets[i].V1 = facets[i].V1 + offset;
         facets[i].V2 = facets[i].V2 + offset;
@@ -315,7 +265,7 @@ void Mesh::translate(float3 offset)
 
 void Mesh::rotate(float around_z, float around_y, float around_x)
 {
-    for (int i = 0; i < n_facets; i++) {
+    for (int i = 0; i < facets.size(); i++) {
         float3 old = facets[i].V0;
         facets[i].V0.x = old.x * cos(around_z) - old.y * sin(around_z);
         facets[i].V0.y = old.x * sin(around_z) + old.y * cos(around_z);
@@ -334,13 +284,13 @@ void Mesh::rotate(float around_z, float around_y, float around_x)
 
         facets[i].calculate_normal();
     }
-    for (int i = 0; i < n_vertices; i++) {
+    for (int i = 0; i < vertices.size(); i++) {
         float3 old = vertices[i];
         vertices[i].x = old.x * cos(around_z) - old.y * sin(around_z);
         vertices[i].y = old.x * sin(around_z) + old.y * cos(around_z);
     }
 
-    for (int i = 0; i < n_facets; i++) {
+    for (int i = 0; i < facets.size(); i++) {
         float3 old = facets[i].V0;
         facets[i].V0.x = old.x * cos(around_y) - old.z * sin(around_y);
         facets[i].V0.z = old.x * sin(around_y) + old.z * cos(around_y);
@@ -359,13 +309,13 @@ void Mesh::rotate(float around_z, float around_y, float around_x)
 
         facets[i].calculate_normal();
     }
-    for (int i = 0; i < n_vertices; i++) {
+    for (int i = 0; i < vertices.size(); i++) {
         float3 old = vertices[i];
         vertices[i].x = old.x * cos(around_y) - old.z * sin(around_y);
         vertices[i].z = old.x * sin(around_y) + old.z * cos(around_y);
     }
 
-    for (int i = 0; i < n_facets; i++) {
+    for (int i = 0; i < facets.size(); i++) {
         float3 old = facets[i].V0;
         facets[i].V0.y = old.y * cos(around_x) - old.z * sin(around_x);
         facets[i].V0.z = old.y * sin(around_x) + old.z * cos(around_x);
@@ -384,7 +334,7 @@ void Mesh::rotate(float around_z, float around_y, float around_x)
 
         facets[i].calculate_normal();
     }
-    for (int i = 0; i < n_vertices; i++) {
+    for (int i = 0; i < vertices.size(); i++) {
         float3 old = vertices[i];
         vertices[i].y = old.y * cos(around_x) - old.z * sin(around_x);
         vertices[i].z = old.y * sin(around_x) + old.z * cos(around_x);
@@ -393,9 +343,11 @@ void Mesh::rotate(float around_z, float around_y, float around_x)
 
 void Mesh::rescale(float factor)
 {
-    for (int i = 0; i < n_vertices; i++) { vertices[i] = vertices[i] * factor; }
+    for (int i = 0; i < vertices.size(); i++) {
+        vertices[i] = vertices[i] * factor;
+    }
 
-    for (int i = 0; i < n_facets; i++) {
+    for (int i = 0; i < facets.size(); i++) {
         facets[i].V0 = facets[i].V0 * factor;
         facets[i].V1 = facets[i].V1 * factor;
         facets[i].V2 = facets[i].V2 * factor;
@@ -405,7 +357,7 @@ void Mesh::rescale(float factor)
 
 void Mesh::grow_normally(float amount, bool boundary = false)
 {
-    for (int i = 0; i < n_vertices; i++) {
+    for (int i = 0; i < vertices.size(); i++) {
         if (boundary && vertices[i].x == 0.f) continue;
 
         float3 average_normal{0};
@@ -421,7 +373,7 @@ void Mesh::grow_normally(float amount, bool boundary = false)
         vertices[i] = vertices[i] + average_normal;
     }
 
-    for (int i = 0; i < n_facets; i++) {
+    for (int i = 0; i < facets.size(); i++) {
         int V0 = triangle_to_vertices[i][0];
         int V1 = triangle_to_vertices[i][1];
         int V2 = triangle_to_vertices[i][2];
@@ -469,7 +421,7 @@ bool Mesh::test_exclusion(const Pt point)
     auto p_1 = p_0 + float3{0.22788, 0.38849, 0.81499};
     Ray R(p_0, p_1);
     int n_intersections = 0;
-    for (int j = 0; j < n_facets; j++) {
+    for (int j = 0; j < facets.size(); j++) {
         n_intersections += intersect(R, facets[j]);
     }
     return (n_intersections % 2 == 0);
@@ -487,8 +439,8 @@ void Mesh::write_vtk(std::string output_tag)
     mesh_file << "ASCII\n";
     mesh_file << "DATASET POLYDATA\n";
 
-    mesh_file << "\nPOINTS " << 3 * n_facets << " float\n";
-    for (auto i = 0; i < n_facets; i++) {
+    mesh_file << "\nPOINTS " << 3 * facets.size() << " float\n";
+    for (auto i = 0; i < facets.size(); i++) {
         mesh_file << facets[i].V0.x << " " << facets[i].V0.y << " "
                   << facets[i].V0.z << "\n";
         mesh_file << facets[i].V1.x << " " << facets[i].V1.y << " "
@@ -497,8 +449,9 @@ void Mesh::write_vtk(std::string output_tag)
                   << facets[i].V2.z << "\n";
     }
 
-    mesh_file << "\nPOLYGONS " << n_facets << " " << 4 * n_facets << "\n";
-    for (auto i = 0; i < 3 * n_facets; i += 3) {
+    mesh_file << "\nPOLYGONS " << facets.size() << " " << 4 * facets.size()
+              << "\n";
+    for (auto i = 0; i < 3 * facets.size(); i += 3) {
         mesh_file << "3 " << i << " " << i + 1 << " " << i + 2 << "\n";
     }
     mesh_file.close();
@@ -506,8 +459,7 @@ void Mesh::write_vtk(std::string output_tag)
 
 void Mesh::copy_to_device()
 {
-    cudaMemcpy(d_n_vertices, &n_vertices, sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_vertices, &vertices[0], n_vertices * sizeof(float3),
+    cudaMemcpy(d_vertices, &vertices[0], vertices.size() * sizeof(float3),
         cudaMemcpyHostToDevice);
 }
 
@@ -515,5 +467,5 @@ template<typename Pt, template<typename> class Solver>
 float Mesh::shape_comparison_mesh_to_points(Solution<Pt, Solver>& points)
 {
     return shape_comparison(
-        n_vertices, points.get_d_n(), d_vertices, points.d_X);
+        vertices.size(), points.get_d_n(), d_vertices, points.d_X);
 }

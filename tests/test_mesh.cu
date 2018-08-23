@@ -9,7 +9,7 @@
 
 const char* test_transformations()
 {
-    Mesh mesh("tests/torus.vtk");
+    Mesh mesh{"tests/torus.vtk"};
     auto minimum = mesh.get_minimum();
     auto maximum = mesh.get_maximum();
     MU_ASSERT("Min wrong in x", isclose(minimum.x, -1.5));
@@ -73,7 +73,7 @@ const char* test_exclusion()
     random_cuboid(
         0.25, float3{-1.5, -1.5, -0.5}, float3{1.5, 1.5, 0.5}, points);
 
-    Mesh mesh("tests/torus.vtk");
+    Mesh mesh{"tests/torus.vtk"};
     for (auto i = 0; i < n_points; i++) {
         auto dist_from_ring = sqrt(
             pow(1 - sqrt(pow(points.h_X[i].x, 2) + pow(points.h_X[i].y, 2)),
@@ -91,10 +91,11 @@ const char* test_exclusion()
 
 const char* test_shape_comparison()
 {
-    Mesh mesh("tests/torus.vtk");
+    Mesh mesh{"tests/torus.vtk"};
     mesh.copy_to_device();
-    Solution<float3, Grid_solver> points{mesh.n_vertices};
-    for (auto i = 0; i < mesh.n_vertices; i++) {
+    Solution<float3, Grid_solver> points{
+        static_cast<int>(mesh.vertices.size())};
+    for (auto i = 0; i < mesh.vertices.size(); i++) {
         points.h_X[i].x = mesh.vertices[i].x;
         points.h_X[i].y = mesh.vertices[i].y;
         points.h_X[i].z = mesh.vertices[i].z;
@@ -113,11 +114,42 @@ const char* test_shape_comparison()
 }
 
 
+__device__ __host__ bool operator==(const float3& a, const float3& b)
+{
+    return (a.x == b.x and a.y == b.y and a.z == b.z);
+}
+
+__device__ __host__ bool operator==(const Triangle& a, const Triangle& b)
+{
+    return (a.V0 == b.V0 and a.V1 == b.V1 and a.V2 == b.V2 and a.C == b.C and
+            a.n == b.n);
+}
+
+const char* test_copy()
+{
+    Mesh orig{"tests/torus.vtk"};
+    Mesh copy{orig};
+
+    MU_ASSERT("Different vertices in copy", orig.vertices == copy.vertices);
+    MU_ASSERT("Different facets in copy", orig.facets == copy.facets);
+    MU_ASSERT("Different triangle_to_vertices in copy",
+        orig.triangle_to_vertices == copy.triangle_to_vertices);
+    MU_ASSERT("Different vertex_to_triangles in copy",
+        orig.vertex_to_triangles == copy.vertex_to_triangles);
+
+    copy.vertices.clear();
+    MU_ASSERT("Removed vertices still in copy", orig.vertices != copy.vertices);
+
+    return NULL;
+}
+
+
 const char* all_tests()
 {
     MU_RUN_TEST(test_transformations);
     MU_RUN_TEST(test_exclusion);
     MU_RUN_TEST(test_shape_comparison);
+    MU_RUN_TEST(test_copy);
     return NULL;
 }
 
