@@ -172,7 +172,7 @@ Mesh::Mesh(std::string file_name)
 
     // Read vertices
     auto count = 0;
-    while (count < n_vertices) {  // Woot??
+    while (count < n_vertices) {
         getline(input_file, line);
         items = split(line);
 
@@ -196,9 +196,7 @@ Mesh::Mesh(std::string file_name)
     auto n_facets = stoi(items[1]);
     assert(n_facets % 2 == 0);  // Otherwise mesh cannot be closed
 
-    std::vector<int> empty;
-    std::vector<std::vector<int>> dummy(n_vertices, empty);
-    vertex_to_triangles = dummy;
+    vertex_to_triangles = std::vector<std::vector<int>>(n_vertices);
     for (auto i = 0; i < n_facets; i++) {
         getline(input_file, line);
         items = split(line);
