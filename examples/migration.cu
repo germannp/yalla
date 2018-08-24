@@ -7,8 +7,8 @@
 
 
 const auto r_max = 1;
-const auto n_cells = 464;
-const auto n_time_steps = 150;
+const auto n_cells = 261;
+const auto n_time_steps = 100;
 const auto dt = 0.05;
 
 
@@ -35,6 +35,7 @@ int main(int argc, const char* argv[])
     // Prepare initial state
     Solution<Po_cell, Tile_solver> cells{n_cells};
     relaxed_cuboid(0.75, float3{-1.5, -1.5, 0}, float3{1.5, 1.5, 10}, cells);
+    cells.h_X[*cells.h_n] = Po_cell{0};
     cells.h_X[*cells.h_n].phi = 0.01;
     *cells.h_n += 1;
     cells.copy_to_device();
