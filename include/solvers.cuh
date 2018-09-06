@@ -65,7 +65,7 @@ public:
     int* const d_n = Solver<Pt>::d_n;
     const int n_max;
     template<typename... Args>
-    Solution(int n, Args... args) : n_max{n}, Solver<Pt>{n, args...}
+    Solution(int n_max, Args... args) : n_max{n_max}, Solver<Pt>{n_max, args...}
     {
         *h_n = n_max;
         h_X = (Pt*)malloc(n_max * sizeof(Pt));
@@ -157,7 +157,8 @@ template<typename Pt, template<typename> class Computer>
 class Heun_solver : public Computer<Pt> {
 public:
     template<typename... Args>
-    Heun_solver(int n, Args... args) : n_max{n}, Computer<Pt>{n, args...}
+    Heun_solver(int n_max, Args... args)
+        : n_max{n_max}, Computer<Pt>{n_max, args...}
     {
         cudaMalloc(&d_X, n_max * sizeof(Pt));
         cudaMalloc(&d_dX, n_max * sizeof(Pt));
@@ -356,7 +357,8 @@ public:
     int *d_cube_id, *d_point_id, *d_cube_start, *d_cube_end;
     Grid* d_grid;
     const int n_max, grid_size, n_cubes;
-    Grid(int n, int gs = 50) : n_max{n}, grid_size{gs}, n_cubes{gs * gs * gs}
+    Grid(int n_max, int gs = 50)
+        : n_max{n_max}, grid_size{gs}, n_cubes{gs * gs * gs}
     {
         cudaMalloc(&d_cube_id, n_max * sizeof(int));
         cudaMalloc(&d_point_id, n_max * sizeof(int));
@@ -439,10 +441,9 @@ template<typename Pt>
 class Grid_computer {
 public:
     float cube_size;
-    Grid_computer(int n_max, int grid_size = 50, float cs = 1)
-        : grid{n_max, grid_size}
+    Grid_computer(int n_max, int grid_size = 50, float cube_size = 1)
+        : grid{n_max, grid_size}, cube_size{cube_size}
     {
-        cube_size = cs;
         int h_nhood[27];
         h_nhood[0] = -1;
         h_nhood[1] = 0;

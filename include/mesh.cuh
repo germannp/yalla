@@ -92,11 +92,7 @@ float shape_comparison_points_to_points(
 struct Ray {
     float3 P0;
     float3 P1;
-    Ray(float3 a, float3 b)
-    {
-        P0 = a;
-        P1 = b;
-    }
+    Ray(float3 P0, float3 P1) : P0{P0}, P1{P1} {}
 };
 
 struct Triangle {
@@ -106,11 +102,8 @@ struct Triangle {
     float3 C;
     float3 n;
     Triangle() : Triangle(float3{0}, float3{0}, float3{0}) {}
-    Triangle(float3 a, float3 b, float3 c)
+    Triangle(float3 V0, float3 V1, float3 V2) : V0{V0}, V1{V1}, V2{V2}
     {
-        V0 = a;
-        V1 = b;
-        V2 = c;
         calculate_centroid();
         calculate_normal();
     }

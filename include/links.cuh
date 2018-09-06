@@ -24,22 +24,21 @@ public:
     Link* d_link;
     int* h_n = (int*)malloc(sizeof(int));
     int* d_n;
-    const int n_links;
+    const int n_max;
     curandState* d_state;
     float strength;
-    Links(int n, float s = 1.f / 5) : n_links{n}
+    Links(int n_max, float strength = 1.f / 5)
+        : n_max{n_max}, strength{strength}
     {
-        h_link = (Link*)malloc(n_links * sizeof(Link));
-        cudaMalloc(&d_link, n_links * sizeof(Link));
+        h_link = (Link*)malloc(n_max * sizeof(Link));
+        cudaMalloc(&d_link, n_max * sizeof(Link));
         cudaMalloc(&d_n, sizeof(int));
-        cudaMalloc(&d_state, n_links * sizeof(curandState));
-        *h_n = n_links;
-        set_d_n(n_links);
+        cudaMalloc(&d_state, n_max * sizeof(curandState));
+        *h_n = n_max;
+        set_d_n(n_max);
         reset();
         auto seed = time(NULL);
-        setup_rand_states<<<(n_links + 32 - 1) / 32, 32>>>(
-            n_links, seed, d_state);
-        strength = s;
+        setup_rand_states<<<(n_max + 32 - 1) / 32, 32>>>(n_max, seed, d_state);
     }
     ~Links()
     {
@@ -51,20 +50,20 @@ public:
     }
     void set_d_n(int n)
     {
-        assert(n <= n_links);
+        assert(n <= n_max);
         cudaMemcpy(d_n, &n, sizeof(int), cudaMemcpyHostToDevice);
     }
     int get_d_n()
     {
         int n;
         cudaMemcpy(&n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
-        assert(n <= n_links);
+        assert(n <= n_max);
         return n;
     }
     void reset(Check_link check = every_link)
     {
         copy_to_host();
-        for (auto i = 0; i < n_links; i++) {
+        for (auto i = 0; i < n_max; i++) {
             if (!check(h_link[i].a, h_link[i].b)) continue;
 
             h_link[i].a = 0;
@@ -74,17 +73,17 @@ public:
     }
     void copy_to_device()
     {
-        assert(*h_n <= n_links);
+        assert(*h_n <= n_max);
         cudaMemcpy(
-            d_link, h_link, n_links * sizeof(Link), cudaMemcpyHostToDevice);
+            d_link, h_link, n_max * sizeof(Link), cudaMemcpyHostToDevice);
         cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice);
     }
     void copy_to_host()
     {
         cudaMemcpy(
-            h_link, d_link, n_links * sizeof(Link), cudaMemcpyDeviceToHost);
+            h_link, d_link, n_max * sizeof(Link), cudaMemcpyDeviceToHost);
         cudaMemcpy(h_n, d_n, sizeof(int), cudaMemcpyDeviceToHost);
-        assert(*h_n <= n_links);
+        assert(*h_n <= n_max);
     }
 };
 
@@ -110,10 +109,10 @@ __device__ void linear_force(const Pt* __restrict__ d_X, const int a,
 
 template<typename Pt, Link_force<Pt> force>
 __global__ void link(const Pt* __restrict__ d_X, Pt* d_dX,
-    const Link* __restrict__ d_link, int n_links, float strength)
+    const Link* __restrict__ d_link, int n_max, float strength)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= n_links) return;
+    if (i >= n_max) return;
 
     auto a = d_link[i].a;
     auto b = d_link[i].b;
