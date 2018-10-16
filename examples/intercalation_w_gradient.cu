@@ -85,7 +85,7 @@ __global__ void proliferate(float mean_rate, float mean_distance, Cell* d_X,
             return;  // When changing this, one should use break;
         }
         case epithelium: {
-            if (d_epi_nbs[i] > 14) return;
+            if (d_epi_nbs[i] > 7) return;
 
             if (d_mes_nbs[i] < 1) return;
 
@@ -212,8 +212,11 @@ int main(int argc, char const* argv[])
 
     Links protrusions{n_max * prots_per_cell, protrusion_strength};
     protrusions.set_d_n(n_0 * prots_per_cell);
-    auto intercalation = [&protrusions](
-                             const Cell* __restrict__ d_X, Cell* d_dX) {
+    auto intercalation = [&](const Cell* __restrict__ d_X, Cell* d_dX) {
+        thrust::fill(thrust::device, n_mes_nbs.d_prop,
+            n_mes_nbs.d_prop + cells.get_d_n(), 0);
+        thrust::fill(thrust::device, n_epi_nbs.d_prop,
+            n_epi_nbs.d_prop + cells.get_d_n(), 0);
         return link_forces(protrusions, d_X, d_dX);
     };
     Grid grid{n_max};
@@ -223,11 +226,6 @@ int main(int argc, char const* argv[])
         cells.copy_to_host();
         protrusions.copy_to_host();
         type.copy_to_host();
-
-        thrust::fill(thrust::device, n_mes_nbs.d_prop,
-            n_mes_nbs.d_prop + cells.get_d_n(), 0);
-        thrust::fill(thrust::device, n_epi_nbs.d_prop,
-            n_epi_nbs.d_prop + cells.get_d_n(), 0);
 
         protrusions.set_d_n(cells.get_d_n() * prots_per_cell);
         grid.build(cells, r_protrusion);

@@ -115,7 +115,7 @@ __global__ void proliferate(
             break;
         }
         case epithelium: {
-            if (d_epi_nbs[i] > 10) return;
+            if (d_epi_nbs[i] > 5) return;
 
             if (d_mes_nbs[i] <= 0) return;
 
@@ -147,15 +147,19 @@ int main(int argc, const char* argv[])
     relaxed_sphere(0.75, cells);
     Property<Cell_types> type{n_max, "type"};
     cudaMemcpyToSymbol(d_type, &type.d_prop, sizeof(d_type));
-    for (auto i = 0; i < n_0; i++) {
-        type.h_prop[i] = mesenchyme;
-    }
+    for (auto i = 0; i < n_0; i++) { type.h_prop[i] = mesenchyme; }
     cells.copy_to_device();
     type.copy_to_device();
     Property<int> n_mes_nbs{n_max, "n_mes_nbs"};
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     Property<int> n_epi_nbs{n_max, "n_epi_nbs"};
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
+    auto reset_nbs = [&](const Cell* __restrict__ d_X, Cell* d_dX) {
+        thrust::fill(thrust::device, n_mes_nbs.d_prop,
+            n_mes_nbs.d_prop + cells.get_d_n(), 0);
+        thrust::fill(thrust::device, n_epi_nbs.d_prop,
+            n_epi_nbs.d_prop + cells.get_d_n(), 0);
+    };
     curandState* d_state;  // For proliferations
     cudaMalloc(&d_state, n_max * sizeof(curandState));
     auto seed = time(NULL);
@@ -193,11 +197,7 @@ int main(int argc, const char* argv[])
             for (auto i = 0; i <= skip_steps; i++) {
                 proliferate<<<(cells.get_d_n() + 128 - 1) / 128, 128>>>(
                     0.75, cells.d_X, cells.d_n, d_state);
-                thrust::fill(thrust::device, n_mes_nbs.d_prop,
-                    n_mes_nbs.d_prop + cells.get_d_n(), 0);
-                thrust::fill(thrust::device, n_epi_nbs.d_prop,
-                    n_epi_nbs.d_prop + cells.get_d_n(), 0);
-                cells.take_step<epi_turing_mes_noturing>(dt);
+                cells.take_step<epi_turing_mes_noturing>(dt, reset_nbs);
             }
         });
 

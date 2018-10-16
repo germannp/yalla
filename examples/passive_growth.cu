@@ -104,6 +104,12 @@ int main(int argc, const char* argv[])
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     Property<int> n_epi_nbs{n_max};
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
+    auto reset_nbs = [&](const Po_cell* __restrict__ d_X, Po_cell* d_dX) {
+        thrust::fill(thrust::device, n_mes_nbs.d_prop,
+            n_mes_nbs.d_prop + cells.get_d_n(), 0);
+        thrust::fill(thrust::device, n_epi_nbs.d_prop,
+            n_epi_nbs.d_prop + cells.get_d_n(), 0);
+    };
     curandState* d_state;
     cudaMalloc(&d_state, n_max * sizeof(curandState));
     auto seed = time(NULL);
@@ -135,11 +141,7 @@ int main(int argc, const char* argv[])
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         cells.copy_to_host();
         type.copy_to_host();
-        thrust::fill(thrust::device, n_mes_nbs.d_prop,
-            n_mes_nbs.d_prop + cells.get_d_n(), 0);
-        thrust::fill(thrust::device, n_epi_nbs.d_prop,
-            n_epi_nbs.d_prop + cells.get_d_n(), 0);
-        cells.take_step<relu_w_epithelium>(dt);
+        cells.take_step<relu_w_epithelium>(dt, reset_nbs);
         proliferate<<<(cells.get_d_n() + 128 - 1) / 128, 128>>>(
             prolif_rate * (time_step > 100), cells.get_d_n(), d_state,
             cells.d_X, cells.d_n);
