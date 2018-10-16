@@ -212,11 +212,11 @@ Vtk_input::Vtk_input(std::string file_name) : file_name{file_name}
     input_file.open(file_name, std::fstream::in);
     assert(input_file.is_open());
 
-    for (auto i = 0; i < 6; i++){
+    for (auto i = 0; i < 6; i++) {
         getline(input_file, line);
         items = split(line);
-        if(items.size() == 0) continue;
-        if(items[0] == "POINTS"){
+        if (items.size() == 0) continue;
+        if (items[0] == "POINTS") {
             n_points = stoi(items[1]);
             items.clear();
             break;
