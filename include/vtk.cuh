@@ -76,7 +76,7 @@ Vtk_output::~Vtk_output()
     else if (duration < 60 * 60)
         std::cout << duration / 60 << "m " << duration % 60 << "s";
     else
-        std::cout << duration / 60 / 60 << "h " << duration % 60 * 60 << "m";
+        std::cout << duration / 60 / 60 << "h " << duration % (60 * 60) << "m";
     std::cout << " taken (" << n_points
               << " points).        \n";  // Overwrite everything
 }
