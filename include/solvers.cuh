@@ -95,6 +95,14 @@ public:
         return Solver<Pt>::template take_step<pw_int, pw_friction>(
             dt, gen_forces);
     }
+    template<Pairwise_interaction<Pt> pw_int,
+        Pairwise_friction<Pt> pw_friction = friction_w_neighbour<Pt>>
+    void take_rk12_step(
+        float dt, Generic_forces<Pt> gen_forces = no_gen_forces<Pt>)
+    {
+        return Solver<Pt>::template take_rk12_step<pw_int, pw_friction>(
+            dt, gen_forces);
+    }
 };
 
 
@@ -163,7 +171,8 @@ public:
         cudaMalloc(&d_X, n_max * sizeof(Pt));
         cudaMalloc(&d_dX, n_max * sizeof(Pt));
         cudaMalloc(&d_X1, n_max * sizeof(Pt));
-        cudaMalloc(&d_dX1, n_max * sizeof(Pt));
+        cudaMalloc(&d_dX1, n_max * sizeof(Pt));  // Euler step
+        cudaMalloc(&d_dX2, n_max * sizeof(Pt));  // Heun step in rk12
 
         cudaMalloc(&d_old_v, n_max * sizeof(float3));
         thrust::fill(thrust::device, d_old_v, d_old_v + n_max, float3{0});
@@ -178,6 +187,7 @@ public:
         cudaFree(d_dX);
         cudaFree(d_X1);
         cudaFree(d_dX1);
+        cudaFree(d_dX2);
 
         cudaFree(d_old_v);
         cudaFree(d_sum_v);
@@ -193,13 +203,15 @@ public:
     }
 
 protected:
-    Pt *d_X, *d_dX, *d_X1, *d_dX1;
+    Pt *d_X, *d_dX, *d_X1, *d_dX1, *d_dX2;
     float3 *d_old_v, *d_sum_v;
     float* d_sum_friction;
     int* d_n;
     bool fix_com = true;
     int fix_point;
     const int n_max;
+    float sub_step, max_error;
+    bool sub_step_init = false;
     int get_d_n()
     {
         int n;
@@ -211,6 +223,70 @@ protected:
     void take_step(float dt, Generic_forces<Pt> gen_forces)
     {
         auto n = get_d_n();
+
+        // 1st step
+        thrust::fill(thrust::device, d_dX, d_dX + n, Pt{0});
+        thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
+        thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3{0});
+        gen_forces(d_X, d_dX);
+        Computer<Pt>::template pwints<pw_int, pw_friction>(
+            n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
+        add_rhs<<<(n + 32 - 1) / 32, 32>>>(
+            n, d_sum_v, d_sum_friction, d_dX);  // ceil int div.
+        Pt fix_dX;
+        if (fix_com) {
+            fix_dX = thrust::reduce(thrust::device, d_dX, d_dX + n, Pt{0}) / n;
+        } else {
+            cudaMemcpy(
+                &fix_dX, &d_dX[fix_point], sizeof(Pt), cudaMemcpyDeviceToHost);
+        }
+        euler_step<<<(n + 32 - 1) / 32, 32>>>(n, dt, d_X, fix_dX, d_dX, d_X1);
+
+        // 2nd step
+        thrust::fill(thrust::device, d_dX1, d_dX1 + n, Pt{0});
+        thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
+        thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3{0});
+        gen_forces(d_X1, d_dX1);
+        Computer<Pt>::template pwints<pw_int, pw_friction>(
+            n, d_X1, d_dX1, d_old_v, d_sum_v, d_sum_friction);
+        add_rhs<<<(n + 32 - 1) / 32, 32>>>(n, d_sum_v, d_sum_friction, d_dX1);
+        Pt fix_dX1;
+        if (fix_com) {
+            fix_dX1 =
+                thrust::reduce(thrust::device, d_dX1, d_dX1 + n, Pt{0}) / n;
+        } else {
+            cudaMemcpy(&fix_dX1, &d_dX1[fix_point], sizeof(Pt),
+                cudaMemcpyDeviceToHost);
+        }
+        heun_step<<<(n + 32 - 1) / 32, 32>>>(
+            n, dt, d_dX, fix_dX1, d_dX1, d_X, d_old_v);
+    }
+    template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
+    void take_rk12_step(float dt, Generic_forces<Pt> gen_forces)
+    {
+        auto n = get_d_n();
+
+        auto correction = 0.6;
+        auto tolerance = 0.02;
+        auto max_iter = 5000;
+        auto t = 0.f;
+
+        while (t < dt) {
+            do {
+                if (!sub_step_init) {
+                    sub_step = dt;
+                    sub_step_init = true;
+                } else
+                    sub_step *= correction * ...;
+
+                euler - step d_X->d_X1 with sub_step;
+                heun - step d_X->d_X2 with sub_step;
+                max_error = d_dX1 - d_dX2;
+            } while (max_error > tolerance and i < max_iter);
+
+            euler - step d_X->d_X with min(dt - t, sub_step);
+            t += sub_step;
+        }
 
         // 1st step
         thrust::fill(thrust::device, d_dX, d_dX + n, Pt{0});
