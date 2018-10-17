@@ -376,8 +376,9 @@ protected:
                 cudaMemcpy(&fix_dX, &d_dX[fix_point], sizeof(Pt),
                     cudaMemcpyDeviceToHost);
             }
+            auto max_substep = min(dt - t, sub_step);
             euler_step<<<(n + 32 - 1) / 32, 32>>>(
-                n, dt, d_X, fix_dX, d_dX, d_X);
+                n, max_substep, d_X, fix_dX, d_dX, d_X);
 
             t += sub_step;
         }
