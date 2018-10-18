@@ -4,6 +4,7 @@
 #pragma once
 
 #include <assert.h>
+#include <curand_kernel.h>
 #include <time.h>
 #include <functional>
 
