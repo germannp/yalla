@@ -198,8 +198,9 @@ __global__ void add_rhs(const int n, const float3* __restrict__ d_sum_v,
     }
 }
 
-__global__ void compute_max_error(const int n, const float3* __restrict__ d_X1,
-    const float3* __restrict__ d_X2, float* d_absmax)
+template<typename Pt>
+__global__ void compute_max_error(const int n, const Pt* __restrict__ d_X1,
+    const Pt* __restrict__ d_X2, float* d_absmax)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= n) return;
