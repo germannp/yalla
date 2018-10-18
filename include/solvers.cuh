@@ -437,8 +437,14 @@ protected:
                     cudaMemcpyDeviceToHost);
             }
             auto max_substep = min(dt - t, sub_step);
-            euler_step_updatev<<<(n + 32 - 1) / 32, 32>>>(
-                n, max_substep, d_X, fix_dX, d_dX, d_X, d_old_v);
+
+            // Beware: Don't update old velocities when mechanics are computed
+            // separately!
+            // euler_step_updatev<<<(n + 32 - 1) / 32, 32>>>(
+            //     n, max_substep, d_X, fix_dX, d_dX, d_X, d_old_v);
+            euler_step<<<(n + 32 - 1) / 32, 32>>>(
+                n, max_substep, d_X, fix_dX, d_dX, d_X);
+
             add_noise<Pt, noise>
                 <<<(n + 32 - 1) / 32, 32>>>(n, max_substep, d_state, d_X);
 
