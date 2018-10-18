@@ -24,6 +24,13 @@ __device__ __host__ float3 operator*=(float3& a, const float b)
     return a;
 }
 
+__device__ __host__ float absmax(float3 a)
+{
+    auto m = fmaxf(abs(a.x), abs(a.y));
+    m = fmaxf(m, abs(a.z));
+    return m;
+}
+
 template<>
 struct Is_vector<float3> : public std::true_type {};
 
@@ -46,6 +53,14 @@ __device__ __host__ float4 operator*=(float4& a, const float b)
     return a;
 }
 
+__device__ __host__ float absmax(float4 a)
+{
+    auto m = fmaxf(abs(a.x), abs(a.y));
+    m = fmaxf(m, abs(a.z));
+    m = fmaxf(m, abs(a.w));
+    return m;
+}
+
 template<>
 struct Is_vector<float4> : public std::true_type {};
 
@@ -54,6 +69,7 @@ struct Is_vector<float4> : public std::true_type {};
 #define MEMBER(component) float component
 #define COMP_WISE_ADD(component) a.component += b.component
 #define COMP_WISE_MULTIPLY(component) a.component *= b
+#define COMP_WISE_ABSMAX(component) m = fmaxf(m, abs(a.component))
 
 #define MAKE_PT(Pt, ...)                                               \
     struct Pt {                                                        \
@@ -70,6 +86,13 @@ struct Is_vector<float4> : public std::true_type {};
             return a;                                                  \
         }                                                              \
     };                                                                 \
+                                                                       \
+    __device__ __host__ float absmax(Pt a)                             \
+    {                                                                  \
+        auto m = fmaxf(abs(a.x), abs(a.y));                            \
+        MAP(COMP_WISE_ABSMAX, z, __VA_ARGS__)                          \
+        return m;                                                      \
+    }                                                                  \
                                                                        \
     template<>                                                         \
     struct Is_vector<Pt> : public std::true_type {}

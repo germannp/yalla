@@ -12,6 +12,7 @@
 #include <iostream>
 
 #include "cudebug.cuh"
+#include "dtypes.cuh"
 
 
 // Interactions must be specified between two points Xi and Xj, with  r = Xi -
@@ -195,13 +196,6 @@ __global__ void add_rhs(const int n, const float3* __restrict__ d_sum_v,
         d_dX[i].y += d_sum_v[i].y / d_sum_friction[i];
         d_dX[i].z += d_sum_v[i].z / d_sum_friction[i];
     }
-}
-
-__device__ __host__ float absmax(float3 a)
-{
-    auto m = fmaxf(abs(a.x), abs(a.y));
-    m = fmaxf(m, abs(a.z));
-    return m;
 }
 
 __global__ void compute_max_error(const int n, const float3* __restrict__ d_X1,
