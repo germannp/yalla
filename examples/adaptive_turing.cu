@@ -97,11 +97,8 @@ int main(int argc, const char* argv[])
         // If turing leaves x, y, and z alone, this is introducing friction on
         // the background. Therefore splitting pairwise interactions should be
         // avoided!
-
         // If this cannot be avoided, do not update the old velocities in the
         // second step and use friction_on_background.
-
-        // There is one more problem ...
         cells.take_rk12_step<turing, no_noise, friction_on_background>(dt);
         // cells.take_rk12_step<turing, additive_noise>(dt);
         if (time_step % skip_steps == 0) {

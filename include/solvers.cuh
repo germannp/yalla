@@ -57,7 +57,7 @@ void no_gen_forces(const Pt* __restrict__ d_X, Pt* d_dX)
 {}
 
 // Euler solvers can also easily include noise, which can help with Turing
-// pattern. TODO: Add reference.
+// pattern, see http://dx.doi.org/10.1103/PhysRevA.45.600
 template<typename Pt>
 using Noise = Pt(Pt Xi, float dt, curandState state);
 
