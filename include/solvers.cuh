@@ -2,6 +2,7 @@
 #pragma once
 
 #include <assert.h>
+#include <curand_kernel.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
@@ -13,6 +14,7 @@
 
 #include "cudebug.cuh"
 #include "dtypes.cuh"
+#include "utils.cuh"
 
 
 // Interactions must be specified between two points Xi and Xj, with  r = Xi -
@@ -43,7 +45,9 @@ __device__ float friction_on_background(Pt Xi, Pt r, float dist, int i, int j)
     return 0;
 }
 
-// In addition a generic force can be passed optionally:
+// In addition a generic force can be passed optionally. Generic forces are
+// computed before the pairwise interactions, e.g. to reset the number of
+// neighbours between computations of the derivatives.
 template<typename Pt>
 using Generic_forces =
     std::function<void(const Pt* __restrict__ d_X, Pt* d_dX)>;
@@ -52,8 +56,16 @@ template<typename Pt>
 void no_gen_forces(const Pt* __restrict__ d_X, Pt* d_dX)
 {}
 
-// Generic forces are computed before the pairwise interactions, e.g. to reset
-// the number of neighbours between computations of the derivatives.
+// Euler solvers can also easily include noise, which can help with Turing
+// pattern. TODO: Add reference.
+template<typename Pt>
+using Noise = Pt(Pt Xi, float dt, curandState state);
+
+template<typename Pt>
+__device__ Pt no_noise(Pt Xi, float dt, curandState state)
+{
+    return Xi;
+}
 
 
 // Solution<Pt, Solver> combines a method, Solver, with a point type, Pt. It
@@ -99,12 +111,12 @@ public:
         return Solver<Pt>::template take_step<pw_int, pw_friction>(
             dt, gen_forces);
     }
-    template<Pairwise_interaction<Pt> pw_int,
+    template<Pairwise_interaction<Pt> pw_int, Noise<Pt> noise = no_noise<Pt>,
         Pairwise_friction<Pt> pw_friction = friction_w_neighbour<Pt>>
     void take_rk12_step(
         float dt, Generic_forces<Pt> gen_forces = no_gen_forces<Pt>)
     {
-        return Solver<Pt>::template take_rk12_step<pw_int, pw_friction>(
+        return Solver<Pt>::template take_rk12_step<pw_int, noise, pw_friction>(
             dt, gen_forces);
     }
 };
@@ -208,6 +220,16 @@ __global__ void compute_max_error(const int n, const Pt* __restrict__ d_X1,
     d_absmax[i] = absmax(d_X1[i] - d_X2[i]);
 }
 
+template<typename Pt, Noise<Pt> noise>
+__global__ void add_noise(
+    const int n, const float dt, curandState* d_state, Pt* d_X)
+{
+    auto i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+
+    d_X[i] = noise(d_X[i], dt, d_state[i]);
+}
+
 // Computer specifies how pairwise interactions are computed.
 template<typename Pt, template<typename> class Computer>
 class Heun_solver : public Computer<Pt> {
@@ -229,6 +251,10 @@ public:
 
         cudaMalloc(&d_n, sizeof(int));
         cudaMalloc(&d_sum_friction, n_max * sizeof(int));
+
+        cudaMalloc(&d_state, n_max * sizeof(curandState));
+        auto seed = time(NULL);
+        setup_rand_states<<<(n_max + 32 - 1) / 32, 32>>>(n_max, seed, d_state);
     }
     ~Heun_solver()
     {
@@ -237,12 +263,15 @@ public:
         cudaFree(d_X1);
         cudaFree(d_dX1);
         cudaFree(d_X2);
+        cudaFree(d_absmax);
 
         cudaFree(d_old_v);
         cudaFree(d_sum_v);
 
         cudaFree(d_n);
         cudaFree(d_sum_friction);
+
+        cudaFree(d_state);
     }
     void set_fixed() { fix_com = true; }
     void set_fixed(int point_id)
@@ -261,6 +290,7 @@ protected:
     const int n_max;
     float sub_step, max_error, *d_absmax;
     bool sub_step_init = false;
+    curandState* d_state;
     int get_d_n()
     {
         int n;
@@ -310,7 +340,8 @@ protected:
         heun_step_updatev<<<(n + 32 - 1) / 32, 32>>>(
             n, dt, d_X, d_dX, fix_dX1, d_dX1, d_X, d_old_v);
     }
-    template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
+    template<Pairwise_interaction<Pt> pw_int, Noise<Pt> noise,
+        Pairwise_friction<Pt> pw_friction>
     void take_rk12_step(float dt, Generic_forces<Pt> gen_forces)
     {
         auto n = get_d_n();
@@ -408,6 +439,8 @@ protected:
             auto max_substep = min(dt - t, sub_step);
             euler_step_updatev<<<(n + 32 - 1) / 32, 32>>>(
                 n, max_substep, d_X, fix_dX, d_dX, d_X, d_old_v);
+            add_noise<Pt, noise>
+                <<<(n + 32 - 1) / 32, 32>>>(n, max_substep, d_state, d_X);
 
             t += sub_step;
         }
