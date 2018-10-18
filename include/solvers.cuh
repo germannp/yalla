@@ -9,6 +9,7 @@
 #include <functional>
 
 #include "cudebug.cuh"
+#include "dtypes.cuh"
 
 
 // Interactions must be specified between two points Xi and Xj, with  r = Xi -
