@@ -128,7 +128,41 @@ __global__ void euler_step(const int n, const float dt,
 }
 
 template<typename Pt>
+__global__ void euler_step_updatev(const int n, const float dt,
+    const Pt* __restrict__ d_X0, const Pt fix_dX, Pt* d_dX, Pt* d_X,
+    float3* d_old_v)
+{
+    auto i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+
+    d_dX[i].x -= fix_dX.x;
+    d_dX[i].y -= fix_dX.y;
+    d_dX[i].z -= fix_dX.z;
+
+    d_X[i] = d_X0[i] + d_dX[i] * dt;
+
+    d_old_v[i].x = d_dX[i].x;
+    d_old_v[i].y = d_dX[i].y;
+    d_old_v[i].z = d_dX[i].z;
+}
+
+template<typename Pt>
 __global__ void heun_step(const int n, const float dt,
+    const Pt* __restrict__ d_X0, const Pt* __restrict__ d_dX, const Pt fix_dX1,
+    Pt* d_dX1, Pt* d_X1)
+{
+    auto i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+
+    d_dX1[i].x -= fix_dX1.x;
+    d_dX1[i].y -= fix_dX1.y;
+    d_dX1[i].z -= fix_dX1.z;
+
+    d_X1[i] = d_X0[i] + (d_dX[i] + d_dX1[i]) * 0.5 * dt;
+}
+
+template<typename Pt>
+__global__ void heun_step_updatev(const int n, const float dt,
     const Pt* __restrict__ d_X0, const Pt* __restrict__ d_dX, const Pt fix_dX1,
     Pt* d_dX1, Pt* d_X1, float3* d_old_v)
 {
@@ -278,7 +312,7 @@ protected:
             cudaMemcpy(&fix_dX1, &d_dX1[fix_point], sizeof(Pt),
                 cudaMemcpyDeviceToHost);
         }
-        heun_step<<<(n + 32 - 1) / 32, 32>>>(
+        heun_step_updatev<<<(n + 32 - 1) / 32, 32>>>(
             n, dt, d_X, d_dX, fix_dX1, d_dX1, d_X, d_old_v);
     }
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
@@ -345,7 +379,7 @@ protected:
                         cudaMemcpyDeviceToHost);
                 }
                 heun_step<<<(n + 32 - 1) / 32, 32>>>(
-                    n, sub_step, d_X, d_dX, fix_dX1, d_dX1, d_X2, d_old_v);
+                    n, sub_step, d_X, d_dX, fix_dX1, d_dX1, d_X2);
 
                 // Compute max_error = d_dX1 - d_dX2;
                 compute_max_error<<<(n + 32 - 1) / 32, 32>>>(
@@ -377,8 +411,8 @@ protected:
                     cudaMemcpyDeviceToHost);
             }
             auto max_substep = min(dt - t, sub_step);
-            euler_step<<<(n + 32 - 1) / 32, 32>>>(
-                n, max_substep, d_X, fix_dX, d_dX, d_X);
+            euler_step_updatev<<<(n + 32 - 1) / 32, 32>>>(
+                n, max_substep, d_X, fix_dX, d_dX, d_X, d_old_v);
 
             t += sub_step;
         }
