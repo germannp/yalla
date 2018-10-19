@@ -119,6 +119,11 @@ public:
         return Solver<Pt>::template take_rk12_step<pw_int, noise, pw_friction>(
             dt, gen_forces);
     }
+    // template<Pairwise_interaction<Pt> pw_int, Noise<Pt> noise = no_noise<Pt>>
+    // void take_rk12_rd_step(float dt)
+    // {
+    //     return Solver<Pt>::template take_rk12_rd_step<pw_int, noise>(dt);
+    // }
 };
 
 
@@ -353,35 +358,37 @@ protected:
         auto i = 0;
         auto t = 0.f;
 
+        if (!sub_step_init) { sub_step = dt; }
+
         while (t < dt) {
+            // Compute derivatives at d_X
+            thrust::fill(thrust::device, d_dX, d_dX + n, Pt{0});
+            thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
+            thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3{0});
+            gen_forces(d_X, d_dX);
+            Computer<Pt>::template pwints<pw_int, pw_friction>(
+                n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
+            add_rhs<<<(n + 32 - 1) / 32, 32>>>(
+                n, d_sum_v, d_sum_friction, d_dX);
+            Pt fix_dX;
+            if (fix_com) {
+                fix_dX =
+                    thrust::reduce(thrust::device, d_dX, d_dX + n, Pt{0}) / n;
+            } else {
+                cudaMemcpy(&fix_dX, &d_dX[fix_point], sizeof(Pt),
+                    cudaMemcpyDeviceToHost);
+            }
+
             do {
                 if (!sub_step_init) {
-                    sub_step = dt;
                     sub_step_init = true;
-                } else
+                } else {
                     sub_step = min(sub_step * correction *
                                        pow((tolerance / max_error), exponent),
                         dt);
+                }
 
                 // Euler-step d_X->d_X1 with sub_step
-                thrust::fill(thrust::device, d_dX, d_dX + n, Pt{0});
-                thrust::fill(
-                    thrust::device, d_sum_friction, d_sum_friction + n, 0);
-                thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3{0});
-                gen_forces(d_X, d_dX);
-                Computer<Pt>::template pwints<pw_int, pw_friction>(
-                    n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
-                add_rhs<<<(n + 32 - 1) / 32, 32>>>(
-                    n, d_sum_v, d_sum_friction, d_dX);
-                Pt fix_dX;
-                if (fix_com) {
-                    fix_dX =
-                        thrust::reduce(thrust::device, d_dX, d_dX + n, Pt{0}) /
-                        n;
-                } else {
-                    cudaMemcpy(&fix_dX, &d_dX[fix_point], sizeof(Pt),
-                        cudaMemcpyDeviceToHost);
-                }
                 euler_step<<<(n + 32 - 1) / 32, 32>>>(
                     n, sub_step, d_X, fix_dX, d_dX, d_X1);
 
@@ -420,22 +427,6 @@ protected:
             } while (max_error > tolerance);
 
             // Euler-step d_X->d_X with min(dt - t, sub_step);
-            thrust::fill(thrust::device, d_dX, d_dX + n, Pt{0});
-            thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
-            thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3{0});
-            gen_forces(d_X, d_dX);
-            Computer<Pt>::template pwints<pw_int, pw_friction>(
-                n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
-            add_rhs<<<(n + 32 - 1) / 32, 32>>>(
-                n, d_sum_v, d_sum_friction, d_dX);
-            Pt fix_dX;
-            if (fix_com) {
-                fix_dX =
-                    thrust::reduce(thrust::device, d_dX, d_dX + n, Pt{0}) / n;
-            } else {
-                cudaMemcpy(&fix_dX, &d_dX[fix_point], sizeof(Pt),
-                    cudaMemcpyDeviceToHost);
-            }
             auto max_substep = min(dt - t, sub_step);
 
             // Beware: Don't update old velocities when mechanics are computed
