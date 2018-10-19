@@ -119,11 +119,12 @@ public:
         return Solver<Pt>::template take_rk12_step<pw_int, noise, pw_friction>(
             dt, gen_forces);
     }
-    // template<Pairwise_interaction<Pt> pw_int, Noise<Pt> noise = no_noise<Pt>>
-    // void take_rk12_rd_step(float dt)
-    // {
-    //     return Solver<Pt>::template take_rk12_rd_step<pw_int, noise>(dt);
-    // }
+    // take_rk12_rd_step does not compute friction and not reset the velocities
+    template<Pairwise_interaction<Pt> pw_int, Noise<Pt> noise = no_noise<Pt>>
+    void take_rk12_rd_step(float dt)
+    {
+        return Solver<Pt>::template take_rk12_rd_step<pw_int, noise>(dt);
+    }
 };
 
 
@@ -428,14 +429,72 @@ protected:
 
             // Euler-step d_X->d_X with min(dt - t, sub_step);
             auto max_substep = min(dt - t, sub_step);
+            euler_step_updatev<<<(n + 32 - 1) / 32, 32>>>(
+                n, max_substep, d_X, fix_dX, d_dX, d_X, d_old_v);
+            add_noise<Pt, noise>
+                <<<(n + 32 - 1) / 32, 32>>>(n, max_substep, d_state, d_X);
 
-            // Beware: Don't update old velocities when mechanics are computed
-            // separately!
-            // euler_step_updatev<<<(n + 32 - 1) / 32, 32>>>(
-            //     n, max_substep, d_X, fix_dX, d_dX, d_X, d_old_v);
+            t += sub_step;
+        }
+    }
+    template<Pairwise_interaction<Pt> pw_int, Noise<Pt> noise>
+    void take_rk12_rd_step(float dt)
+    {
+        auto n = get_d_n();
+
+        auto correction = 0.6;
+        auto tolerance = 0.02;
+        auto exponent = 1.f / 3.f;
+        auto max_iter = 500;
+        auto i = 0;
+        auto t = 0.f;
+
+        if (!sub_step_init) { sub_step = dt; }
+
+        while (t < dt) {
+            // Compute derivatives at d_X
+            thrust::fill(thrust::device, d_dX, d_dX + n, Pt{0});
+            Computer<Pt>::template pwints<pw_int, friction_on_background>(
+                n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
+            Pt fix_dX{0};
+
+            do {
+                if (!sub_step_init) {
+                    sub_step_init = true;
+                } else {
+                    sub_step = min(sub_step * correction *
+                                       pow((tolerance / max_error), exponent),
+                        dt);
+                }
+
+                // Euler-step d_X->d_X1 with sub_step
+                euler_step<<<(n + 32 - 1) / 32, 32>>>(
+                    n, sub_step, d_X, fix_dX, d_dX, d_X1);
+
+                // Heun-step d_X->d_X2 with sub_step;
+                thrust::fill(thrust::device, d_dX1, d_dX1 + n, Pt{0});
+                Computer<Pt>::template pwints<pw_int, friction_on_background>(
+                    n, d_X1, d_dX1, d_old_v, d_sum_v, d_sum_friction);
+                Pt fix_dX1{0};
+                heun_step<<<(n + 32 - 1) / 32, 32>>>(
+                    n, sub_step, d_X, d_dX, fix_dX1, d_dX1, d_X2);
+
+                // Compute max_error = d_dX1 - d_dX2;
+                compute_max_error<<<(n + 32 - 1) / 32, 32>>>(
+                    n, d_X1, d_X2, d_absmax);
+                thrust::device_ptr<float> d_ptr =
+                    thrust::device_pointer_cast(d_absmax);
+                max_error = *thrust::max_element(d_ptr, d_ptr + n);
+                i++;
+                assert(i < max_iter);
+                std::cout << max_error << " " << sub_step << " " << t
+                          << std::endl;
+            } while (max_error > tolerance);
+
+            // Euler-step d_X->d_X with min(dt - t, sub_step);
+            auto max_substep = min(dt - t, sub_step);
             euler_step<<<(n + 32 - 1) / 32, 32>>>(
                 n, max_substep, d_X, fix_dX, d_dX, d_X);
-
             add_noise<Pt, noise>
                 <<<(n + 32 - 1) / 32, 32>>>(n, max_substep, d_state, d_X);
 
@@ -510,9 +569,10 @@ template<typename Pt>
 using Tile_solver = Heun_solver<Pt, Tile_computer>;
 
 
-// Compute pairwise interactions and frictions with sorting based grid ONLY for
-// points closer than cube_size. Scales linearly in n, faster with maybe 7k
-// points. After http://developer.download.nvidia.com/compute/cuda/1.1-Beta/
+// Compute pairwise interactions and frictions with sorting based grid ONLY
+// for points closer than cube_size. Scales linearly in n, faster with maybe
+// 7k points. After
+// http://developer.download.nvidia.com/compute/cuda/1.1-Beta/
 // x86_website/projects/particles/doc/particles.pdf
 template<typename Pt>
 __global__ void compute_cube_id(const int n, const float cube_size,

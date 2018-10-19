@@ -96,11 +96,8 @@ int main(int argc, const char* argv[])
         // Beware, take_r12_step (or take_step) updates old velocities.
         // If turing leaves x, y, and z alone, this is introducing friction on
         // the background. Therefore splitting pairwise interactions should be
-        // avoided!
-        // If this cannot be avoided, do not update the old velocities in the
-        // second step and use friction_on_background.
-        cells.take_rk12_step<turing, no_noise, friction_on_background>(dt);
-        // cells.take_rk12_step<turing, additive_noise>(dt);
+        // avoided or at least take_rk12_rd_step should be used!
+        cells.take_rk12_rd_step<turing, no_noise>(dt);
         if (time_step % skip_steps == 0) {
             output.write_positions(cells);
             output.write_polarity(cells);
