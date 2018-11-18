@@ -219,7 +219,7 @@ protected:
         thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3{0});
         gen_forces(d_X, d_dX);
         Computer<Pt>::template pwints<pw_int, pw_friction>(
-            n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
+            n, d_X, d_old_v, d_dX, d_sum_v, d_sum_friction);
         add_rhs<<<(n + 32 - 1) / 32, 32>>>(
             n, d_sum_v, d_sum_friction, d_dX);  // ceil int div.
         Pt fix_dX;
@@ -237,7 +237,7 @@ protected:
         thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3{0});
         gen_forces(d_X1, d_dX1);
         Computer<Pt>::template pwints<pw_int, pw_friction>(
-            n, d_X1, d_dX1, d_old_v, d_sum_v, d_sum_friction);
+            n, d_X1, d_old_v, d_dX1, d_sum_v, d_sum_friction);
         add_rhs<<<(n + 32 - 1) / 32, 32>>>(n, d_sum_v, d_sum_friction, d_dX1);
         Pt fix_dX1;
         if (fix_com) {
@@ -260,8 +260,9 @@ const auto TILE_SIZE = 32;
 
 template<typename Pt, Pairwise_interaction<Pt> pw_int,
     Pairwise_friction<Pt> pw_friction>
-__global__ void compute_tile(const int n, const Pt* __restrict__ d_X, Pt* d_dX,
-    const float3* __restrict__ d_old_v, float3* d_sum_v, float* d_sum_friction)
+__global__ void compute_tile(const int n, const Pt* __restrict__ d_X,
+    const float3* __restrict__ d_old_v, Pt* d_dX, float3* d_sum_v, 
+    float* d_sum_friction)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -304,13 +305,13 @@ public:
 
 protected:
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
-    void pwints(const int n, Pt* d_X, Pt* d_dX,
-        const float3* __restrict__ d_old_v, float3* d_sum_v,
+    void pwints(const int n, const Pt* __restrict__ d_X,
+        const float3* __restrict__ d_old_v, Pt* d_dX, float3* d_sum_v,
         float* d_sum_friction)
     {
         compute_tile<Pt, pw_int, pw_friction>
             <<<(n + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(
-                n, d_X, d_dX, d_old_v, d_sum_v, d_sum_friction);
+                n, d_X, d_old_v, d_dX, d_sum_v, d_sum_friction);
     }
 };
 
@@ -463,8 +464,8 @@ public:
 protected:
     Grid grid;
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
-    void pwints(int n, Pt* d_X, Pt* d_dX, const float3* __restrict__ d_old_v,
-        float3* d_sum_v, float* d_sum_friction)
+    void pwints(int n, const Pt* __restrict__ d_X, const float3* __restrict__ d_old_v, 
+        Pt* d_dX, float3* d_sum_v, float* d_sum_friction)
     {
         grid.build(n, d_X, cube_size);
         compute_cube<Pt, pw_int, pw_friction>
