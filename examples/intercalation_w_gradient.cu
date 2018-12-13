@@ -73,7 +73,7 @@ __device__ Cell force(Cell Xi, Cell r, float dist, int i, int j)
 
 
 __global__ void proliferate(float mean_rate, float mean_distance, Cell* d_X,
-    int* d_n_cells, curandState* d_state)
+    float3* d_old_v, int* d_n_cells, curandState* d_state)
 {
     D_ASSERT(*d_n_cells * mean_rate <= n_max);
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -112,6 +112,7 @@ __global__ void proliferate(float mean_rate, float mean_distance, Cell* d_X,
     d_X[n].theta = d_X[i].theta;
     d_X[n].phi = d_X[i].phi;
     d_type[n] = d_type[i];
+    d_old_v[n] = d_old_v[i];
 }
 
 
@@ -236,7 +237,7 @@ int main(int argc, char const* argv[])
         cells.take_step<force>(dt, intercalation);
 
         proliferate<<<(cells.get_d_n() + 128 - 1) / 128, 128>>>(
-            mean_proliferation_rate, r_min, cells.d_X, cells.d_n,
+            mean_proliferation_rate, r_min, cells.d_X, cells.d_old_v, cells.d_n,
             protrusions.d_state);
 
         output.write_positions(cells);

@@ -52,13 +52,13 @@ __device__ Po_cell relu_w_epithelium(
 
     if (d_type[i] == mesenchyme or d_type[j] == mesenchyme) return dF;
 
-    dF += bending_force(Xi, r, dist) * 0.2;
+    dF += bending_force(Xi, r, dist) * 0.15;
     return dF;
 }
 
 
 __global__ void proliferate(
-    float rate, int n_cells, curandState* d_state, Po_cell* d_X, int* d_n_cells)
+    float rate, int n_cells, curandState* d_state, Po_cell* d_X, float3* d_old_v, int* d_n_cells)
 {
     D_ASSERT(n_cells * rate <= n_max);
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -87,6 +87,7 @@ __global__ void proliferate(
     d_type[n] = d_type[i];
     d_mes_nbs[n] = 0;
     d_epi_nbs[n] = 0;
+    d_old_v[n] = d_old_v[i];
 }
 
 
@@ -144,7 +145,7 @@ int main(int argc, const char* argv[])
         cells.take_step<relu_w_epithelium>(dt, reset_nbs);
         proliferate<<<(cells.get_d_n() + 128 - 1) / 128, 128>>>(
             prolif_rate * (time_step > 100), cells.get_d_n(), d_state,
-            cells.d_X, cells.d_n);
+            cells.d_X, cells.d_old_v, cells.d_n);
         output.write_positions(cells);
         output.write_property(type);
         output.write_polarity(cells);

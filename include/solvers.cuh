@@ -62,6 +62,7 @@ class Solution : public Solver<Pt> {
 public:
     Pt* h_X;                                     // Current variables on host
     Pt* const d_X = Solver<Pt>::d_X;             // Variables on device (GPU)
+    float3* const d_old_v = Solver<Pt>::d_old_v;
     int* const h_n = (int*)malloc(sizeof(int));  // Number of points
     int* const d_n = Solver<Pt>::d_n;
     const int n_max;
@@ -261,7 +262,7 @@ const auto TILE_SIZE = 32;
 template<typename Pt, Pairwise_interaction<Pt> pw_int,
     Pairwise_friction<Pt> pw_friction>
 __global__ void compute_tile(const int n, const Pt* __restrict__ d_X,
-    const float3* __restrict__ d_old_v, Pt* d_dX, float3* d_sum_v, 
+    const float3* __restrict__ d_old_v, Pt* d_dX, float3* d_sum_v,
     float* d_sum_friction)
 {
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -464,7 +465,7 @@ public:
 protected:
     Grid grid;
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
-    void pwints(int n, const Pt* __restrict__ d_X, const float3* __restrict__ d_old_v, 
+    void pwints(int n, const Pt* __restrict__ d_X, const float3* __restrict__ d_old_v,
         Pt* d_dX, float3* d_sum_v, float* d_sum_friction)
     {
         grid.build(n, d_X, cube_size);

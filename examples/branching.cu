@@ -98,7 +98,7 @@ __device__ Cell epi_turing_mes_noturing(
 
 
 __global__ void proliferate(
-    float mean_distance, Cell* d_X, int* d_n_cells, curandState* d_state)
+    float mean_distance, Cell* d_X, float3* d_old_v, int* d_n_cells, curandState* d_state)
 {
     D_ASSERT(*d_n_cells * epi_proliferation_rate <= n_max);
     auto i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -136,6 +136,7 @@ __global__ void proliferate(
     d_X[n].theta = d_X[i].theta;
     d_X[n].phi = d_X[i].phi;
     d_type[n] = d_type[i];
+    d_old_v[n] = d_old_v[i];
 }
 
 
@@ -196,7 +197,7 @@ int main(int argc, const char* argv[])
         std::thread calculation([&] {
             for (auto i = 0; i <= skip_steps; i++) {
                 proliferate<<<(cells.get_d_n() + 128 - 1) / 128, 128>>>(
-                    0.75, cells.d_X, cells.d_n, d_state);
+                    0.75, cells.d_X, cells.d_old_v, cells.d_n, d_state);
                 cells.take_step<epi_turing_mes_noturing>(dt, reset_nbs);
             }
         });
