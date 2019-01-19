@@ -92,8 +92,7 @@ void Vtk_output::write_positions(Solution<Pt, Solver>& points, bool* input_mask)
 
     if (mask != NULL) {
         n_to_write = 0;
-        for (auto i = 0; i < n_points; i++)
-            n_to_write += 1 * mask[i] ;
+        for (auto i = 0; i < n_points; i++) n_to_write += 1 * mask[i];
     } else {
         n_to_write = n_points;
     }
@@ -112,7 +111,8 @@ void Vtk_output::write_positions(Solution<Pt, Solver>& points, bool* input_mask)
     for (auto i = 0; i < n_points; i++) {
         if ((mask != NULL) and (mask[i] == 0)) continue;
 
-        file << points.h_X[i].x << " " << points.h_X[i].y << " " << points.h_X[i].z << "\n";
+        file << points.h_X[i].x << " " << points.h_X[i].y << " "
+             << points.h_X[i].z << "\n";
     }
 
     file << "\nVERTICES " << n_to_write << " " << 2 * n_to_write << "\n";
@@ -153,7 +153,7 @@ void Vtk_output::write_field(
     file << "SCALARS " << data_name << " float\n";
     file << "LOOKUP_TABLE default\n";
 
-    for (auto i = 0; i < n_points; i++){
+    for (auto i = 0; i < n_points; i++) {
         if ((mask != NULL) and (mask[i] == 0)) continue;
         file << points.h_X[i].*field << "\n";
     }
@@ -201,9 +201,9 @@ void Vtk_output::write_property(Property<Prop>& property)
     assert(n_points <= property.n_max);
     file << "SCALARS " << property.name << " " << ptype << "\n";
     file << "LOOKUP_TABLE default\n";
-    for (auto i = 0; i < n_points; i++){
+    for (auto i = 0; i < n_points; i++) {
         if ((mask != NULL) and (mask[i] == 0)) continue;
-            file << property.h_prop[i] << "\n";
+        file << property.h_prop[i] << "\n";
     }
 }
 

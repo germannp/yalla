@@ -97,8 +97,8 @@ __device__ Cell epi_turing_mes_noturing(
 }
 
 
-__global__ void proliferate(
-    float mean_distance, Cell* d_X, float3* d_old_v, int* d_n_cells, curandState* d_state)
+__global__ void proliferate(float mean_distance, Cell* d_X, float3* d_old_v,
+    int* d_n_cells, curandState* d_state)
 {
     D_ASSERT(*d_n_cells * epi_proliferation_rate <= n_max);
     auto i = blockIdx.x * blockDim.x + threadIdx.x;

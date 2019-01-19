@@ -57,8 +57,8 @@ __device__ Po_cell relu_w_epithelium(
 }
 
 
-__global__ void proliferate(
-    float rate, int n_cells, curandState* d_state, Po_cell* d_X, float3* d_old_v, int* d_n_cells)
+__global__ void proliferate(float rate, int n_cells, curandState* d_state,
+    Po_cell* d_X, float3* d_old_v, int* d_n_cells)
 {
     D_ASSERT(n_cells * rate <= n_max);
     auto i = blockIdx.x * blockDim.x + threadIdx.x;

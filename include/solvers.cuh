@@ -60,10 +60,10 @@ void no_gen_forces(const Pt* __restrict__ d_X, Pt* d_dX)
 template<typename Pt, template<typename> class Solver>
 class Solution : public Solver<Pt> {
 public:
-    Pt* h_X;                                     // Current variables on host
-    Pt* const d_X = Solver<Pt>::d_X;             // Variables on device (GPU)
-    float3* const d_old_v = Solver<Pt>::d_old_v;
-    int* const h_n = (int*)malloc(sizeof(int));  // Number of points
+    Pt* h_X;                                      // Current variables on host
+    Pt* const d_X = Solver<Pt>::d_X;              // Variables on device (GPU)
+    float3* const d_old_v = Solver<Pt>::d_old_v;  // Velocities from previous step
+    int* const h_n = (int*)malloc(sizeof(int));   // Number of points
     int* const d_n = Solver<Pt>::d_n;
     const int n_max;
     template<typename... Args>
@@ -465,8 +465,9 @@ public:
 protected:
     Grid grid;
     template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
-    void pwints(int n, const Pt* __restrict__ d_X, const float3* __restrict__ d_old_v,
-        Pt* d_dX, float3* d_sum_v, float* d_sum_friction)
+    void pwints(int n, const Pt* __restrict__ d_X,
+        const float3* __restrict__ d_old_v, Pt* d_dX, float3* d_sum_v,
+        float* d_sum_friction)
     {
         grid.build(n, d_X, cube_size);
         compute_cube<Pt, pw_int, pw_friction>
