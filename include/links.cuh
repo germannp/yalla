@@ -122,9 +122,17 @@ __global__ void link(const Pt* __restrict__ d_X, Pt* d_dX,
     force(d_X, a, b, strength, d_dX);
 }
 
-template<typename Pt = float3, Link_force<Pt> force = linear_force<Pt>>
+template<typename Pt>
+void link_forces(Links& links, const Pt* __restrict__ d_X, Pt* d_dX)
+{
+    link<Pt, linear_force<Pt>><<<(links.get_d_n() + 32 - 1) / 32, 32>>>(
+        d_X, d_dX, links.d_link, links.get_d_n(), links.strength);
+}
+
+template<typename Pt, Link_force<Pt> force>
 void link_forces(Links& links, const Pt* __restrict__ d_X, Pt* d_dX)
 {
     link<Pt, force><<<(links.get_d_n() + 32 - 1) / 32, 32>>>(
         d_X, d_dX, links.d_link, links.get_d_n(), links.strength);
 }
+
