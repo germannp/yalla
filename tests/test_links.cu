@@ -4,8 +4,8 @@
 #include "minunit.cuh"
 
 
-template<Pt>
-__device__ float3 no_pw_int(Pt Xi, Pt r, float dist, int i, int j)
+template<typename Pt>
+__device__ Pt no_pw_int(Pt Xi, Pt r, float dist, int i, int j)
 {
     Pt dF{0};
     return dF;
