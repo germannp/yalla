@@ -122,6 +122,7 @@ __global__ void link(const Pt* __restrict__ d_X, Pt* d_dX,
     force(d_X, a, b, strength, d_dX);
 }
 
+// First template is required to work around bug in CUDA 9.2 and 10.
 template<typename Pt>
 void link_forces(Links& links, const Pt* __restrict__ d_X, Pt* d_dX)
 {
