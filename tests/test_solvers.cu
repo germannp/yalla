@@ -1,5 +1,6 @@
 #include "../include/dtypes.cuh"
 #include "../include/inits.cuh"
+#include "../include/property.cuh"
 #include "../include/solvers.cuh"
 #include "minunit.cuh"
 
@@ -335,6 +336,50 @@ const char* test_cube_size()
 }
 
 
+__device__ int* d_n_nbs;
+
+__device__ float3 count_neighbours(
+    float3 Xi, float3 r, float dist, int i, int j)
+{
+    float3 dF{0};
+    if (i == j) return dF;
+
+    if (dist > 1.0f) return dF;
+
+    d_n_nbs[i] += 1;
+
+    return dF;
+}
+
+const char* test_gabriel_solver()
+{
+    Solution<float3, Gabriel_solver> points{19, 5, 1.0f, 0.8f};
+    *points.h_n = 19;
+    regular_hexagon(0.5f, points);
+    points.copy_to_device();
+
+    Property<int> n_nbs{19};
+    cudaMemcpyToSymbol(d_n_nbs, &n_nbs.d_prop, sizeof(d_n_nbs));
+    auto reset_nbs = [&](const float3* __restrict__ d_X, float3* d_dX) {
+        thrust::fill(thrust::device, n_nbs.d_prop,
+            n_nbs.d_prop + 19, 0);
+    };
+
+    points.take_step<count_neighbours>(0.1f, reset_nbs);
+    n_nbs.copy_to_host();
+
+    for(auto i = 0 ; i < 7 ; i++)
+        MU_ASSERT("Wrong number of neighbours", n_nbs.h_prop[i] == 6);
+    for(auto i = 7 ; i < 19 ; i++){
+        if(i%2 != 0)
+            MU_ASSERT("Wrong number of neighbours", n_nbs.h_prop[i] == 3);
+        else
+            MU_ASSERT("Wrong number of neighbours", n_nbs.h_prop[i] == 4);
+    }
+
+    return NULL;
+}
+
 const char* all_tests()
 {
     MU_RUN_TEST(test_oscillation);
@@ -346,6 +391,7 @@ const char* all_tests()
     MU_RUN_TEST(test_fix_point);
     MU_RUN_TEST(test_grid_spacing);
     MU_RUN_TEST(test_cube_size);
+    MU_RUN_TEST(test_gabriel_solver);
     return NULL;
 }
 

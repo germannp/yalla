@@ -478,3 +478,146 @@ protected:
 
 template<typename Pt>
 using Grid_solver = Heun_solver<Pt, Grid_computer>;
+
+// Compute pairwise interactions and frictions based on the grid solver,
+// plus further refinement of the cell neighbourhood using the Gabriel
+// method (Delile et al. 2017. Nature Communications,
+// Marin-Riera et al. 2016, Bioinformatics).
+template<typename Pt, Pairwise_interaction<Pt> pw_int,
+    Pairwise_friction<Pt> pw_friction>
+__global__ void compute_cube_gabriel(const int n, const Pt* __restrict__ d_X,
+    const float3* __restrict__ d_old_v, const Grid* __restrict__ d_grid,
+    const float cube_size, Pt* d_dX, float3* d_sum_v, float* d_sum_friction,
+    const float gabriel_coefficient)
+{
+    auto i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+
+    auto id_i = d_grid->d_point_id[i];
+    auto Xi = d_X[id_i];
+    Pt F{0};
+    float3 sum_v{0};
+    float sum_friction = 0;
+
+    int neighbour_id[100];
+    float neighbour_dist[100];
+    int n_neighs = 0;
+
+    // First loop. Register all possible pairwise interactions based on
+    // extensive sweep of the nearby cubes.
+    for (auto j = 0; j < 27; j++) {
+        auto cube = d_grid->d_cube_id[i] + d_nhood[j];
+        for (auto k = d_grid->d_cube_start[cube]; k <= d_grid->d_cube_end[cube];
+             k++) {
+            auto j = d_grid->d_point_id[k];
+            auto Xj = d_X[j];
+            auto r = Xi - Xj;
+            auto dist = norm3df(r.x, r.y, r.z);
+            if (dist >= cube_size) continue;
+
+            neighbour_id[n_neighs] = j;
+            neighbour_dist[n_neighs] = dist;
+            n_neighs++;
+        }
+    }
+
+    // For an efficient implementation of the Gabriel method we sort the list
+    // of possible interactions by distance
+    for (auto m = 0; m < n_neighs - 1; m++) {
+        auto min_val = neighbour_dist[m];
+        auto min_index = m;
+        for (auto n = m + 1; n < n_neighs; n++) {
+            auto compare_val = neighbour_dist[n];
+            if(compare_val < min_val){
+                min_index = n;
+                min_val = compare_val;
+            }
+        }
+        if(min_index != m){
+            auto id_temp = neighbour_id[min_index];
+            neighbour_id[min_index] = neighbour_id[m];
+            neighbour_id[m] = id_temp;
+            neighbour_dist[min_index] = neighbour_dist[m];
+            neighbour_dist[m] = min_val;
+        }
+    }
+
+    // Second loop. We apply the Gabriel method by checking, for each pairwise
+    // interaction if any other close cell falls inside the sphere
+    // circumscribed by cells i and j. If that is the case, then pairwise
+    // intereaction i-j is not considered for force calculations.
+    for (auto m = n_neighs -1 ; m >= 0; m--) {
+        auto gabriel_condition = true;
+        auto j = neighbour_id[m];
+        auto Xj = d_X[j];
+        auto dist = neighbour_dist[m];
+        if(j != id_i){
+            auto gabriel_radius = 0.5f * neighbour_dist[m] * gabriel_coefficient;
+            auto mid_point = 0.5f * (Xi + Xj);
+            for (auto n = m - 1 ; n >= 0; n--) {
+                auto k = neighbour_id[n];
+                auto r_mk = mid_point - d_X[k];
+                auto dist_mk = norm3df(r_mk.x, r_mk.y, r_mk.z);
+                if(dist_mk < gabriel_radius){
+                    gabriel_condition = false;
+                    break;
+                }
+            }
+        }
+        if(gabriel_condition){
+            auto r = Xi - Xj;
+            F += pw_int(
+                Xi, r, dist, id_i, j);
+            auto friction = pw_friction(
+                Xi, r, dist, id_i, j);
+            sum_friction += friction;
+            sum_v += friction * d_old_v[j];
+        }
+    }
+
+    d_dX[d_grid->d_point_id[i]] += F;
+    d_sum_v[d_grid->d_point_id[i]] = sum_v;
+    d_sum_friction[d_grid->d_point_id[i]] = sum_friction;
+}
+
+template<typename Pt>
+class Gabriel_computer {
+public:
+    float cube_size;
+    float gabriel_coefficient;
+    Gabriel_computer(int n_max, int grid_size = 50, float cube_size = 1,
+        float gabriel_coefficient = 0.8)
+        : grid{n_max, grid_size}, cube_size{cube_size},
+        gabriel_coefficient{gabriel_coefficient}
+    {
+        int h_nhood[27];
+        h_nhood[0] = -1;
+        h_nhood[1] = 0;
+        h_nhood[2] = 1;
+        for (auto i = 0; i < 3; i++) {
+            h_nhood[i + 3] = h_nhood[i % 3] - grid_size;
+            h_nhood[i + 6] = h_nhood[i % 3] + grid_size;
+        }
+        for (auto i = 0; i < 9; i++) {
+            h_nhood[i + 9] = h_nhood[i % 9] - grid_size * grid_size;
+            h_nhood[i + 18] = h_nhood[i % 9] + grid_size * grid_size;
+        }
+        cudaMemcpyToSymbol(d_nhood, &h_nhood, 27 * sizeof(int));
+    }
+
+protected:
+    Grid grid;
+    template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
+    void pwints(int n, const Pt* __restrict__ d_X,
+        const float3* __restrict__ d_old_v, Pt* d_dX, float3* d_sum_v,
+        float* d_sum_friction)
+    {
+        grid.build(n, d_X, cube_size);
+        compute_cube_gabriel<Pt, pw_int, pw_friction>
+            <<<(n + TILE_SIZE - 1) / TILE_SIZE, TILE_SIZE>>>(n, d_X, d_old_v,
+                grid.d_grid, cube_size, d_dX, d_sum_v, d_sum_friction, gabriel_coefficient);
+    }
+};
+
+template<typename Pt>
+using Gabriel_solver = Heun_solver<Pt, Gabriel_computer>;
