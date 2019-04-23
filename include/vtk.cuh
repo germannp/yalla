@@ -32,6 +32,7 @@ class Vtk_output {
     bool* mask = NULL;
     int time_step{0};
     std::string base_name;
+    std::string output_dir;
     std::string current_path;
     bool verbose;
     bool point_data_started;
@@ -39,7 +40,7 @@ class Vtk_output {
 
 public:
     // Files are stored as output/base_name_#.vtk
-    Vtk_output(std::string base_name, bool verbose = true);
+    Vtk_output(std::string base_name, std::string output_path = "output/", bool verbose = true);
     ~Vtk_output(void);
     // Write x, y, and z component of Pt; has to be written first
     template<typename Pt, template<typename> class Solver>
@@ -59,10 +60,14 @@ public:
     void write_property(Property<Prop>& property);
 };
 
-Vtk_output::Vtk_output(std::string base_name, bool verbose)
-    : base_name{base_name}, verbose{verbose}
+Vtk_output::Vtk_output(std::string base_name, std::string output_path, bool verbose)
+    : base_name{base_name}, output_dir{output_path}, verbose{verbose}
 {
-    mkdir("output", 755);
+    if(output_dir.back() != '/'){
+        output_dir.append("/");
+        std::cout<<output_dir<<std::endl;
+    }
+    mkdir(output_dir.c_str(), 755);
     time(&t_0);
 }
 
@@ -98,7 +103,7 @@ void Vtk_output::write_positions(Solution<Pt, Solver>& points, bool* input_mask)
     }
 
     current_path =
-        "output/" + base_name + "_" + std::to_string(time_step) + ".vtk";
+        output_dir + base_name + "_" + std::to_string(time_step) + ".vtk";
     std::ofstream file(current_path);
     assert(file.is_open());
 
