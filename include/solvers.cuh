@@ -194,12 +194,20 @@ public:
         fix_point = point_id;
     }
 
+    void set_fixed_xy(int point_id)
+    {
+        fix_com = false;
+        fix_com_z = true;
+        fix_point = point_id;
+    }
+
 protected:
     Pt *d_X, *d_dX, *d_X1, *d_dX1;
     float3 *d_old_v, *d_sum_v;
     float* d_sum_friction;
     int* d_n;
     bool fix_com = true;
+    bool fix_com_z = false;
     int fix_point;
     const int n_max;
     int get_d_n()
@@ -224,12 +232,20 @@ protected:
         add_rhs<<<(n + 32 - 1) / 32, 32>>>(
             n, d_sum_v, d_sum_friction, d_dX);  // ceil int div.
         Pt fix_dX;
-        if (fix_com) {
+        if (fix_com or fix_com_z) {
             fix_dX = thrust::reduce(thrust::device, d_dX, d_dX + n, Pt{0}) / n;
-        } else {
+            if(fix_com_z){
+                Pt temp;
+                cudaMemcpy(
+                    &temp, &d_dX[fix_point], sizeof(Pt), cudaMemcpyDeviceToHost);
+                fix_dX.x = temp.x;
+                fix_dX.y = temp.y;
+            }
+        } else {  // fix_com and fix_com_z are false
             cudaMemcpy(
                 &fix_dX, &d_dX[fix_point], sizeof(Pt), cudaMemcpyDeviceToHost);
         }
+
         euler_step<<<(n + 32 - 1) / 32, 32>>>(n, dt, d_X, fix_dX, d_dX, d_X1);
 
         // 2nd step
