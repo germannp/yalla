@@ -22,7 +22,7 @@ const char* test_io()
         points_to_write.h_X[i].theta = acos(2. * rand() / (RAND_MAX + 1.) - 1);
     }
 
-    Vtk_output output{"test_vtk", false};
+    Vtk_output output{"test_vtk", "output/", false};
     output.write_positions(points_to_write);
     output.write_polarity(points_to_write);
     output.write_field(points_to_write, "w", &Po_cell4::w);
