@@ -212,3 +212,36 @@ void regular_hexagon(
         i++;
     }
 }
+
+template<typename Pt, template<typename> class Solver>
+void regular_rectangle(
+    float dist_to_nb, int nx, Solution<Pt, Solver>& points, unsigned int n_0 = 0)
+{
+    assert(n_0 < *points.h_n);
+
+    auto cell_counter = n_0;
+    if (cell_counter == *points.h_n) {
+        points.copy_to_device();
+        return;
+    }
+    auto i = 0;
+    auto full = false;
+    while (!full) {
+        float py =  i * sqrt(pow(dist_to_nb, 2) - pow(dist_to_nb/2.f, 2));
+        float row_offset = 0.0;
+        if(i%2 != 0)
+            row_offset = dist_to_nb/2.f;
+        for (auto j = 0; j < nx; j++) {
+            points.h_X[cell_counter].x = row_offset + j * dist_to_nb;
+            points.h_X[cell_counter].y = py;
+            points.h_X[cell_counter].z = 0.0f;
+            cell_counter++;
+            if (cell_counter == *points.h_n) {
+                points.copy_to_device();
+                full = true;
+                return;
+            }
+        }
+        i++;
+    }
+}

@@ -94,6 +94,32 @@ __device__ __host__ Pt bending_force(Pt Xi, Pt r, float dist)
     return dF;
 }
 
+// Modified bending force so that the preferential angle beteen Pi and rij
+// is different from 90, thus mimicking the effect of having wedge-shaped
+// epithelial cells. Note that pref_angle = Pi/2 results in a flat epithelium.
+template<typename Pt>
+__device__ __host__ Pt apical_constriction_force(Pt Xi, Pt r, float dist,
+    float pref_angle)
+{
+    auto pi = pol_to_float3(Xi);
+    auto prodi = (pi.x * r.x + pi.y * r.y + pi.z * r.z) / dist + cosf(pref_angle);
+    auto r_hat = pt_to_pol(r, dist);
+    auto dF = -prodi * unidirectional_polarization_force(Xi, r_hat);
+
+    dF.x = -prodi / dist * pi.x + powf(prodi, 2) / powf(dist, 2) * r.x;
+    dF.y = -prodi / dist * pi.y + powf(prodi, 2) / powf(dist, 2) * r.y;
+    dF.z = -prodi / dist * pi.z + powf(prodi, 2) / powf(dist, 2) * r.z;
+
+    // Contribution from (p_j . r_ji/r)^2/2
+    Polarity Xj{Xi.theta - r.theta, Xi.phi - r.phi};
+    auto pj = pol_to_float3(Xj);
+    auto prodj = (pj.x * r.x + pj.y * r.y + pj.z * r.z) / dist - cosf(pref_angle);
+    dF.x += -prodj / dist * pj.x + powf(prodj, 2) / powf(dist, 2) * r.x;
+    dF.y += -prodj / dist * pj.y + powf(prodj, 2) / powf(dist, 2) * r.y;
+    dF.z += -prodj / dist * pj.z + powf(prodj, 2) / powf(dist, 2) * r.z;
+
+    return dF;
+}
 
 // Mono-polar migration force, after
 // https://doi.org/10.1016/B978-0-12-405926-9.00016-2
