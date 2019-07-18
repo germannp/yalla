@@ -501,6 +501,7 @@ protected:
 template<typename Pt>
 using Grid_solver = Heun_solver<Pt, Grid_computer>;
 
+
 // Compute pairwise interactions and frictions based on the grid solver,
 // plus further refinement of the cell neighbourhood using the Gabriel
 // method (Delile et al. 2017. Nature Communications,
@@ -550,12 +551,12 @@ __global__ void compute_cube_gabriel(const int n, const Pt* __restrict__ d_X,
         auto min_index = m;
         for (auto n = m + 1; n < n_neighs; n++) {
             auto compare_val = neighbour_dist[n];
-            if(compare_val < min_val){
+            if (compare_val < min_val) {
                 min_index = n;
                 min_val = compare_val;
             }
         }
-        if(min_index != m){
+        if (min_index != m) {
             auto id_temp = neighbour_id[min_index];
             neighbour_id[min_index] = neighbour_id[m];
             neighbour_id[m] = id_temp;
@@ -573,25 +574,23 @@ __global__ void compute_cube_gabriel(const int n, const Pt* __restrict__ d_X,
         auto j = neighbour_id[m];
         auto Xj = d_X[j];
         auto dist = neighbour_dist[m];
-        if(j != id_i){
+        if (j != id_i) {
             auto gabriel_radius = 0.5f * neighbour_dist[m] * gabriel_coefficient;
             auto mid_point = 0.5f * (Xi + Xj);
             for (auto n = m - 1 ; n >= 0; n--) {
                 auto k = neighbour_id[n];
                 auto r_mk = mid_point - d_X[k];
                 auto dist_mk = norm3df(r_mk.x, r_mk.y, r_mk.z);
-                if(dist_mk < gabriel_radius){
+                if (dist_mk < gabriel_radius) {
                     gabriel_condition = false;
                     break;
                 }
             }
         }
-        if(gabriel_condition){
+        if (gabriel_condition) {
             auto r = Xi - Xj;
-            F += pw_int(
-                Xi, r, dist, id_i, j);
-            auto friction = pw_friction(
-                Xi, r, dist, id_i, j);
+            F += pw_int(Xi, r, dist, id_i, j);
+            auto friction = pw_friction(Xi, r, dist, id_i, j);
             sum_friction += friction;
             sum_v += friction * d_old_v[j];
         }
