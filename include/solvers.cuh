@@ -90,8 +90,14 @@ public:
         assert(*h_n <= n_max);
     }
     int get_d_n() { return Solver<Pt>::get_d_n(); }
-    template<Pairwise_interaction<Pt> pw_int,
-        Pairwise_friction<Pt> pw_friction = friction_w_neighbour<Pt>>
+    // Default template parameter for Pairwise_friction won't compile in CUDA 10.1
+    template<Pairwise_interaction<Pt> pw_int>
+    void take_step(float dt, Generic_forces<Pt> gen_forces = no_gen_forces<Pt>)
+    {
+        return Solver<Pt>::template take_step<pw_int, friction_w_neighbour>(
+            dt, gen_forces);
+    }
+    template<Pairwise_interaction<Pt> pw_int, Pairwise_friction<Pt> pw_friction>
     void take_step(float dt, Generic_forces<Pt> gen_forces = no_gen_forces<Pt>)
     {
         return Solver<Pt>::template take_step<pw_int, pw_friction>(
