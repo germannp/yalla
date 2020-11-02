@@ -35,8 +35,13 @@ int main(int argc, const char* argv[])
     // Prepare initial state
     Solution<Po_cell, Tile_solver> cells{n_cells};
     relaxed_cuboid(0.75, float3{-1.5, -1.5, 0}, float3{1.5, 1.5, 10}, cells);
+    for (auto i = 0; i < n_cells; i++) {
+        cells.h_X[i].theta = 0.0;
+        cells.h_X[i].phi = 0.0;
+    }
     cells.h_X[*cells.h_n] = Po_cell{0};
     cells.h_X[*cells.h_n].phi = 0.01;
+    cells.h_X[*cells.h_n].theta = 0.0;
     *cells.h_n += 1;
     cells.copy_to_device();
 

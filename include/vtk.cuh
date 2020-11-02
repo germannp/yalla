@@ -51,10 +51,11 @@ public:
     template<typename Pt, template<typename> class Solver>
     void write_field(Solution<Pt, Solver>& points, const char* data_name = "w",
         float Pt::*field = &Pt::w);
-    // Write polarity from theta and phi of Pt, see polarity.cuh.
+    // Write a polarity vector of Pt (specify set of spherical coordinates
+    // otherwise is set to theta and phi by default), see polarity.cuh.
     // Writes {0, 0, 0} for the default theta = phi = 0.
-    template<typename Pt, template<typename> class Solver>
-    void write_polarity(Solution<Pt, Solver>& points);
+    template<typename Pt, float Pt::*theta = &Pt::theta, float Pt::*phi = &Pt::phi, template<typename> class Solver>
+    void write_polarity(Solution<Pt, Solver>& points, const char* data_name = "polarity");
     // Write not integrated property, see property.cuh
     template<typename Prop>
     void write_property(Property<Prop>& property);
@@ -164,8 +165,8 @@ void Vtk_output::write_field(
     }
 }
 
-template<typename Pt, template<typename> class Solver>
-void Vtk_output::write_polarity(Solution<Pt, Solver>& points)
+template<typename Pt, float Pt::*theta, float Pt::*phi, template<typename> class Solver>
+void Vtk_output::write_polarity(Solution<Pt, Solver>& points, const char* data_name)
 {
     std::ofstream file(current_path, std::ios_base::app);
     assert(file.is_open());
@@ -175,12 +176,12 @@ void Vtk_output::write_polarity(Solution<Pt, Solver>& points)
 
         point_data_started = true;
     }
-    file << "NORMALS polarity float\n";
+    file << "NORMALS " << data_name << " float\n";
     for (auto i = 0; i < n_points; i++) {
         if ((mask != NULL) and (mask[i] == 0)) continue;
 
-        auto n = pol_to_float3(points.h_X[i]);
-        if ((points.h_X[i].theta == 0) and (points.h_X[i].phi == 0)) n.z = 0;
+        auto n = pol_to_float3<Pt, theta, phi>(points.h_X[i]);
+        if ((points.h_X[i].*theta == 0) and (points.h_X[i].*phi == 0)) n.z = 0;
         file << n.x << " " << n.y << " " << n.z << "\n";
     }
 }

@@ -42,8 +42,9 @@ int main(int argc, const char* argv[])
         if (i == 11) {
             cells.h_X[i].w = 50;
         } else {
+            cells.h_X[i].w = 0.0f;
             auto r = cells.h_X[i] - cells.h_X[11];  // Tilt polarities towards
-            cells.h_X[i].theta = 0.01;              // source to end w/ all
+            cells.h_X[i].theta = 0.01;             // source to end w/ all
             cells.h_X[i].phi = atan2(-r.y, -r.x);   // pointing the same way.
         }
     }
