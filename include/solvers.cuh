@@ -43,10 +43,10 @@ __device__ float friction_on_background(Pt Xi, Pt r, float dist, int i, int j)
 // In addition a generic force can be passed optionally:
 template<typename Pt>
 using Generic_forces =
-    std::function<void(const Pt* __restrict__ d_X, Pt* d_dX)>;
+    std::function<void(const int n, const Pt* __restrict__ d_X, Pt* d_dX)>;
 
 template<typename Pt>
-void no_gen_forces(const Pt* __restrict__ d_X, Pt* d_dX)
+void no_gen_forces(const int n, const Pt* __restrict__ d_X, Pt* d_dX)
 {}
 
 // Generic forces are computed before the pairwise interactions, e.g. to reset
@@ -232,7 +232,7 @@ protected:
         thrust::fill(thrust::device, d_dX, d_dX + n, Pt{0});
         thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
         thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3{0});
-        gen_forces(d_X, d_dX);
+        gen_forces(n, d_X, d_dX);
         Computer<Pt>::template pwints<pw_int, pw_friction>(
             n, d_X, d_old_v, d_dX, d_sum_v, d_sum_friction);
         add_rhs<<<(n + 32 - 1) / 32, 32>>>(
@@ -258,7 +258,7 @@ protected:
         thrust::fill(thrust::device, d_dX1, d_dX1 + n, Pt{0});
         thrust::fill(thrust::device, d_sum_friction, d_sum_friction + n, 0);
         thrust::fill(thrust::device, d_sum_v, d_sum_v + n, float3{0});
-        gen_forces(d_X1, d_dX1);
+        gen_forces(n, d_X1, d_dX1);
         Computer<Pt>::template pwints<pw_int, pw_friction>(
             n, d_X1, d_old_v, d_dX1, d_sum_v, d_sum_friction);
         add_rhs<<<(n + 32 - 1) / 32, 32>>>(n, d_sum_v, d_sum_friction, d_dX1);

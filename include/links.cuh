@@ -5,6 +5,8 @@
 
 #include <assert.h>
 #include <curand_kernel.h>
+#include <thrust/execution_policy.h>
+#include <thrust/fill.h>
 #include <time.h>
 #include <functional>
 
@@ -137,3 +139,90 @@ void link_forces(Links& links, const Pt* __restrict__ d_X, Pt* d_dX)
         d_X, d_dX, links.d_link, links.get_d_n(), links.strength);
 }
 
+// Implementation of solid walls that restrict cell movement as
+// Walls are defined as planes normal to a certain direction (e.g. Z axis)
+// and their position along that direction is tracked with a "wall node"
+// Pairwise forces between cells and the wall node depends on the point to plane
+// distance, instead of point to point distance as in cell-cell interactions.
+// Other scenarios can be implemented with walls oriented in different directions,
+// or with multiple walls.
+
+// Pairwise forces between cells and the wall.
+template<typename Pt>
+using Wall_force = void(const Pt* __restrict__ d_X, const int i,
+    const int wall_idx, Pt* d_dX, int* d_nints);
+
+// Wall force implementation with one wall normal to Z axis
+template<typename Pt>
+__device__ void xy_wall_relu_force(const Pt* __restrict__ d_X, const int i,
+    const int wall_idx, Pt* d_dX, int* d_nints)
+{
+    auto Xwall = d_X[wall_idx].z;
+    auto dist_wall = fabs(d_X[i].z - Xwall);
+    if(dist_wall < 1.0f){
+        auto F = fmaxf(0.8 - dist_wall, 0) - fmaxf(dist_wall - 0.8, 0);
+        d_dX[i].z += F;
+
+        atomicAdd(&d_dX[wall_idx].z, -F);
+        atomicAdd(&d_nints[wall_idx], 1);
+    }
+}
+
+template<typename Pt, Wall_force<Pt> force>
+__global__ void wall(const Pt* __restrict__ d_X, Pt* d_dX,
+    int n_max, int wall_idx, int* d_nints)
+{
+    auto i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n_max) return;
+    if (i == wall_idx) return;
+
+    force(d_X, i, wall_idx, d_dX, d_nints);
+}
+
+template<typename Pt>
+__global__ void update_wall_node(Pt* d_dX,
+    int n_max, int wall_idx, int* d_nints)
+{
+    auto i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n_max) return;
+
+    if (d_nints[i] > 0){
+        d_dX[i].x *= 1/float(d_nints[i]);
+        d_dX[i].y *= 1/float(d_nints[i]);
+        d_dX[i].z *= 1/float(d_nints[i]);
+    }
+
+}
+
+// Use this when there is wall node, but no links
+template<typename Pt, Wall_force<Pt> force>
+void wall_forces(const int n, const Pt* __restrict__ d_X, Pt* d_dX, const int wall_idx)
+{
+    int* d_nints;
+    cudaMalloc(&d_nints, 2 * sizeof(int));
+    thrust::fill(thrust::device, d_nints, d_nints + 2, 0);
+
+    wall<Pt, force><<<(n + 32 - 1) / 32, 32>>>(
+        d_X, d_dX, n, wall_idx, d_nints);
+
+    update_wall_node<<<1, 1>>>(
+            d_dX, n, wall_idx, d_nints);
+}
+
+// Use this instead of "link_forces" when there is wall node and links
+template<typename Pt, Link_force<Pt> l_force, Wall_force<Pt> w_force>
+void link_wall_forces(Links& links, const int n, const Pt* __restrict__ d_X, Pt* d_dX, const int wall_idx)
+{
+    link<Pt, l_force><<<(links.get_d_n() + 32 - 1) / 32, 32>>>(
+        d_X, d_dX, links.d_link, links.get_d_n(), links.strength);
+
+    int* d_nints;
+    cudaMalloc(&d_nints, 1 * sizeof(int));
+    thrust::fill(thrust::device, d_nints, d_nints + 1, 0);
+
+    wall<Pt, w_force><<<(n + 32 - 1) / 32, 32>>>(
+            d_X, d_dX, n, wall_idx, d_nints);
+
+    update_wall_node<<<1, 1>>>(
+            d_dX, n, wall_idx, d_nints);
+}

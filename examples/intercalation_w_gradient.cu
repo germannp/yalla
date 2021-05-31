@@ -213,7 +213,7 @@ int main(int argc, char const* argv[])
 
     Links protrusions{n_max * prots_per_cell, protrusion_strength};
     protrusions.set_d_n(n_0 * prots_per_cell);
-    auto intercalation = [&](const Cell* __restrict__ d_X, Cell* d_dX) {
+    auto intercalation = [&](const int n, const Cell* __restrict__ d_X, Cell* d_dX) {
         thrust::fill(thrust::device, n_mes_nbs.d_prop,
             n_mes_nbs.d_prop + cells.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop,

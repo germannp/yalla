@@ -63,7 +63,7 @@ int main(int argc, const char* argv[])
     random_sphere(r_min, cells);
     Links protrusions{n_cells * prots_per_cell};
     auto intercalation = [&protrusions](
-                             const float3* __restrict__ d_X, float3* d_dX) {
+                             const int n, const float3* __restrict__ d_X, float3* d_dX) {
         return link_forces(protrusions, d_X, d_dX);
     };
 

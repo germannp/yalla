@@ -105,12 +105,13 @@ int main(int argc, const char* argv[])
     cudaMemcpyToSymbol(d_mes_nbs, &n_mes_nbs.d_prop, sizeof(d_mes_nbs));
     Property<int> n_epi_nbs{n_max};
     cudaMemcpyToSymbol(d_epi_nbs, &n_epi_nbs.d_prop, sizeof(d_epi_nbs));
-    auto reset_nbs = [&](const Po_cell* __restrict__ d_X, Po_cell* d_dX) {
+    auto reset_nbs = [&](int n, const Po_cell* __restrict__ d_X, Po_cell* d_dX) {
         thrust::fill(thrust::device, n_mes_nbs.d_prop,
             n_mes_nbs.d_prop + cells.get_d_n(), 0);
         thrust::fill(thrust::device, n_epi_nbs.d_prop,
             n_epi_nbs.d_prop + cells.get_d_n(), 0);
     };
+
     curandState* d_state;
     cudaMalloc(&d_state, n_max * sizeof(curandState));
     auto seed = time(NULL);
