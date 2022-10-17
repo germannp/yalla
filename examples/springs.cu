@@ -32,7 +32,7 @@ int main(int argc, const char* argv[])
     for (auto time_step = 0; time_step <= n_time_steps; time_step++) {
         bodies.copy_to_host();
         bodies.take_step<spring>(dt);    // Ordered to write during calculation,
-        output.write_positions(bodies);  // use thread for full concurency.
+        output.write_positions(bodies);  // use thread for full concurrency.
     }
 
     return 0;
