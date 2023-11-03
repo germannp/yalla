@@ -68,7 +68,7 @@ Vtk_output::Vtk_output(std::string base_name, std::string output_path, bool verb
         output_dir.append("/");
         std::cout<<output_dir<<std::endl;
     }
-    mkdir(output_dir.c_str(), 755);
+    mkdir(output_dir.c_str(), 0755);
     time(&t_0);
 }
 
